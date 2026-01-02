@@ -28,7 +28,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  User,
+  Home,
 } from 'lucide-react';
 import {
   Dialog,
@@ -41,6 +41,7 @@ import { ConductorForm } from '@/components/dashboard/conductores/conductores-fo
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { format, isBefore, addMonths } from 'date-fns';
 
 export type Conductor = {
