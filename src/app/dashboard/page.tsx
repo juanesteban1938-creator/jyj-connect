@@ -88,11 +88,11 @@ const ActionCard = ({
 export default function DashboardHomePage() {
   return (
     <div className="space-y-8">
-      <Card className="relative overflow-hidden bg-accent">
+      <Card className="relative overflow-hidden bg-primary/5 dark:bg-primary/10">
         <CardContent className="p-6">
-          <div className="flex items-center">
-            <div>
-              <h2 className="font-headline text-3xl font-bold">
+          <div className="flex items-center justify-between">
+            <div className="z-10">
+              <h2 className="font-headline text-3xl font-bold text-gray-800 dark:text-white">
                 Hola, Administrador
               </h2>
               <p className="mt-2 max-w-md text-muted-foreground">
@@ -112,10 +112,14 @@ export default function DashboardHomePage() {
                 <Button variant="outline">Ver Reportes</Button>
               </div>
             </div>
-            <div className="absolute -right-10 -top-10 opacity-20">
-              <svg width="200" height="200" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                <path d="M18 4H6C4.9 4 4 4.9 4 6V18H3C2.45 18 2 18.45 2 19C2 19.55 2.45 20 3 20H21C21.55 20 22 19.55 22 19C22 18.45 21.55 18 21 18H20V6C20 4.9 19.1 4 18 4ZM6 16V6H18V16H6ZM8.5 11C9.33 11 10 10.33 10 9.5C10 8.67 9.33 8 8.5 8C7.67 8 7 8.67 7 9.5C7 10.33 7.67 11 8.5 11ZM15.5 11C16.33 11 17 10.33 17 9.5C17 8.67 16.33 8 15.5 8C14.67 8 14 8.67 14 9.5C14 10.33 14.67 11 15.5 11Z"/>
-              </svg>
+            <div className="absolute -right-16 -top-10 z-0 opacity-10">
+               <Image
+                src="https://picsum.photos/seed/truck-icon/300/300"
+                alt="Truck icon"
+                width={300}
+                height={300}
+                data-ai-hint="truck icon"
+              />
             </div>
           </div>
         </CardContent>
