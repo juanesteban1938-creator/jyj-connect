@@ -54,7 +54,7 @@ export function MainNav() {
         <SidebarMenu>
           {menuItems.map((item) => (
             <SidebarMenuItem key={item.href}>
-              <Link href={item.href} passHref legacyBehavior>
+              <Link href={item.href}>
                 <SidebarMenuButton
                   isActive={pathname === item.href}
                   tooltip={item.label}
@@ -72,7 +72,7 @@ export function MainNav() {
             <SidebarMenu>
                  {finanzasItems.map((item) => (
                     <SidebarMenuItem key={item.href}>
-                    <Link href={item.href} passHref legacyBehavior>
+                    <Link href={item.href}>
                         <SidebarMenuButton
                         isActive={pathname === item.href}
                         tooltip={item.label}
