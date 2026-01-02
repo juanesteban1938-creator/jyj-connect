@@ -1,0 +1,14 @@
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+
+export default function FacturacionPage() {
+  return (
+    <div>
+      <h1 className="mb-4 font-headline text-3xl font-bold">Facturación y Cartera</h1>
+       <Card>
+        <CardHeader>
+          <CardTitle>Gestión de Facturación y Cartera</CardTitle>
+        </CardHeader>
+      </Card>
+    </div>
+  );
+}
