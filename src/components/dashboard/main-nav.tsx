@@ -20,6 +20,8 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/context/auth-context';
 
@@ -29,9 +31,12 @@ const menuItems = [
   { href: '/dashboard/vehiculos', label: 'Vehículos', icon: Truck },
   { href: '/dashboard/servicios', label: 'Servicios', icon: Briefcase },
   { href: '/dashboard/monitoreo', label: 'Monitoreo', icon: Monitor },
-  { href: '/dashboard/rentabilidad', label: 'Rentabilidad', icon: TrendingUp },
-  { href: '/dashboard/facturacion', label: 'Facturación', icon: BookText },
 ];
+
+const finanzasItems = [
+    { href: '/dashboard/rentabilidad', label: 'Rentabilidad', icon: TrendingUp },
+    { href: '/dashboard/facturacion', label: 'Facturación y Cartera', icon: BookText },
+]
 
 export function MainNav() {
   const pathname = usePathname();
@@ -39,10 +44,11 @@ export function MainNav() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="p-4">
-        <h2 className="font-headline text-xl font-semibold text-primary">
-          J&J Connect V2.0
+      <SidebarHeader className="p-4 text-center">
+        <h2 className="font-headline text-2xl font-semibold">
+          <span className="text-primary">J&J</span> Connect
         </h2>
+        <p className="text-xs text-muted-foreground">TRANSPORTES ESPECIALES</p>
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
@@ -52,6 +58,7 @@ export function MainNav() {
                 <SidebarMenuButton
                   isActive={pathname === item.href}
                   tooltip={item.label}
+                  className="justify-start"
                 >
                   <item.icon />
                   <span>{item.label}</span>
@@ -60,13 +67,32 @@ export function MainNav() {
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
+        <SidebarGroup>
+            <SidebarGroupLabel>FINANZAS</SidebarGroupLabel>
+            <SidebarMenu>
+                 {finanzasItems.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                    <Link href={item.href} passHref legacyBehavior>
+                        <SidebarMenuButton
+                        isActive={pathname === item.href}
+                        tooltip={item.label}
+                        className="justify-start"
+                        >
+                        <item.icon />
+                        <span>{item.label}</span>
+                        </SidebarMenuButton>
+                    </Link>
+                    </SidebarMenuItem>
+                ))}
+            </SidebarMenu>
+        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={logout} tooltip="Cerrar Sesión">
+            <SidebarMenuButton onClick={logout} tooltip="Cerrar Sesión" className="justify-start">
               <LogOut />
-              <span>Cerrar Sesión</span>
+              <span>Cerrar sesión</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
