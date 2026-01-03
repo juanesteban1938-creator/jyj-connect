@@ -32,7 +32,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from '@/components/jj-ui/calendar';
@@ -120,6 +120,9 @@ export default function ServiciosPage() {
   const [consecutiveId, setConsecutiveId] = useState(101);
   const { toast } = useToast();
   const ITEMS_PER_PAGE = 5;
+  const [isInicioOpen, setIsInicioOpen] = useState(false);
+  const [isFinOpen, setIsFinOpen] = useState(false);
+
 
   useEffect(() => {
     try {
@@ -254,14 +257,14 @@ export default function ServiciosPage() {
         return s.estado === estadoFiltro;
     })
      .filter(s => {
-        if (!s.fecha) return true; // Keep items with invalid date
+        if (!s.fecha) return true;
         try {
             const fechaServicio = parseISO(s.fecha);
             if (fechaInicio && fechaServicio < fechaInicio) return false;
-            if (fechaFin && fechaServicio > fechaFin) return false;
+            if (fechaFin && fechaServicio > endOfDay(fechaFin)) return false;
             return true;
         } catch (e) {
-            return true; // Keep items with invalid date format
+            return true;
         }
     });
 
@@ -356,23 +359,27 @@ export default function ServiciosPage() {
                     <Input placeholder="Buscar por cliente, conductor o ruta..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row">
-                    <Popover>
+                    <Popover open={isInicioOpen} onOpenChange={setIsInicioOpen}>
                         <PopoverTrigger asChild>
                             <Button variant="outline" className={cn("w-full justify-start text-left font-normal md:w-[150px]", !fechaInicio && "text-muted-foreground")}>
                                 <CalendarIcon className="mr-2 h-4 w-4" />
                                 {fechaInicio ? format(fechaInicio, 'dd MMM yyyy') : <span>Fecha Inicio</span>}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={fechaInicio} onSelect={setFechaInicio} initialFocus /></PopoverContent>
+                        <PopoverContent className="w-auto p-0" onInteractOutside={(e) => e.preventDefault()}>
+                          <Calendar mode="single" selected={fechaInicio} onSelect={(date) => { setFechaInicio(date); setIsInicioOpen(false); }} initialFocus />
+                        </PopoverContent>
                     </Popover>
-                    <Popover>
+                    <Popover open={isFinOpen} onOpenChange={setIsFinOpen}>
                         <PopoverTrigger asChild>
                             <Button variant="outline" className={cn("w-full justify-start text-left font-normal md:w-[150px]", !fechaFin && "text-muted-foreground")}>
                                 <CalendarIcon className="mr-2 h-4 w-4" />
                                 {fechaFin ? format(fechaFin, 'dd MMM yyyy') : <span>Fecha Fin</span>}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={fechaFin} onSelect={setFechaFin} initialFocus /></PopoverContent>
+                        <PopoverContent className="w-auto p-0" onInteractOutside={(e) => e.preventDefault()}>
+                          <Calendar mode="single" selected={fechaFin} onSelect={(date) => { setFechaFin(date); setIsFinOpen(false); }} initialFocus />
+                        </PopoverContent>
                     </Popover>
                      <Select value={estadoFiltro} onValueChange={setEstadoFiltro}>
                         <SelectTrigger className="w-full md:w-[180px]">
