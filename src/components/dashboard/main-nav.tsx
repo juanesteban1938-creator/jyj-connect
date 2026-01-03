@@ -11,6 +11,7 @@ import {
   TrendingUp,
   BookText,
   LogOut,
+  Users2,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -26,16 +27,16 @@ import {
 import { useAuth } from '@/context/auth-context';
 
 const menuItems = [
-  { href: '/dashboard', label: 'Home', icon: Home },
+  { href: '/dashboard', label: 'Tablero', icon: Home },
+  { href: '/dashboard/servicios', label: 'Servicios', icon: Briefcase },
   { href: '/dashboard/conductores', label: 'Conductores', icon: Users },
   { href: '/dashboard/vehiculos', label: 'Vehículos', icon: Truck },
-  { href: '/dashboard/servicios', label: 'Servicios', icon: Briefcase },
-  { href: '/dashboard/monitoreo', label: 'Monitoreo', icon: Monitor },
+  { href: '/dashboard/clientes', label: 'Clientes', icon: Users2 },
 ];
 
 const finanzasItems = [
     { href: '/dashboard/rentabilidad', label: 'Rentabilidad', icon: TrendingUp },
-    { href: '/dashboard/facturacion', label: 'Facturación y Cartera', icon: BookText },
+    { href: '/dashboard/facturacion', label: 'Facturación', icon: BookText },
 ]
 
 export function MainNav() {
@@ -46,9 +47,9 @@ export function MainNav() {
     <Sidebar>
       <SidebarHeader className="p-4 text-center">
         <h2 className="font-headline text-2xl font-semibold">
-          <span className="text-primary">J&J</span> Connect
+          <span className="text-primary">J&J</span> Admin
         </h2>
-        <p className="text-xs text-muted-foreground">TRANSPORTES ESPECIALES</p>
+        <p className="text-xs text-muted-foreground">Transportes Especiales</p>
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
