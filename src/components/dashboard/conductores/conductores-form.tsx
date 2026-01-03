@@ -255,6 +255,7 @@ export function ConductorForm({ conductor, onSave }: Props) {
                       <FormControl>
                         <Button
                           variant={'outline'}
+                          type="button"
                           className={cn(
                             'w-full pl-3 text-left font-normal',
                             !field.value && 'text-muted-foreground'
@@ -272,18 +273,17 @@ export function ConductorForm({ conductor, onSave }: Props) {
                     <PopoverContent
                       className="w-auto p-0"
                       align="start"
+                      onInteractOutside={(e) => e.preventDefault()}
                     >
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={(date) => {
-                          console.log("Fecha seleccionada:", date);
-                          field.onChange(date);
-                          setIsCalendarOpen(false);
-                        }}
-                        disabled={(date) => date < new Date('1900-01-01')}
-                        initialFocus
-                      />
+                       <input type="date" className="w-full p-2 border rounded" onChange={(e) => {
+                          const dateValue = e.target.valueAsDate;
+                          if (dateValue) {
+                            const timeZoneOffset = dateValue.getTimezoneOffset() * 60000;
+                            const adjustedDate = new Date(dateValue.getTime() + timeZoneOffset);
+                            field.onChange(adjustedDate);
+                            setIsCalendarOpen(false);
+                          }
+                       }} />
                     </PopoverContent>
                   </Popover>
                   <FormMessage />
