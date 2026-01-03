@@ -26,10 +26,12 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import type { Conductor } from '@/app/dashboard/conductores/page';
+import { useState } from 'react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const formSchema = z.object({
   nombres: z.string().min(1, 'El nombre es requerido'),
@@ -42,16 +44,20 @@ const formSchema = z.object({
   vencimientoLicencia: z.date({
     required_error: 'La fecha de vencimiento es requerida.',
   }),
+  avatarUrl: z.string().optional(),
 });
 
 type ConductorFormValues = z.infer<typeof formSchema>;
 
 type Props = {
   conductor: Conductor | null;
-  onSave: (conductor: Conductor) => void;
+  onSave: (conductor: Conductor, newAvatarFile?: File) => void;
 };
 
 export function ConductorForm({ conductor, onSave }: Props) {
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(conductor?.avatarUrl || null);
+  const [newAvatarFile, setNewAvatarFile] = useState<File | undefined>(undefined);
+
   const defaultValues = conductor
     ? {
         ...conductor,
@@ -64,8 +70,7 @@ export function ConductorForm({ conductor, onSave }: Props) {
         direccion: '',
         barrio: '',
         telefono: '',
-        categoriaLicencia: 'B1',
-        vencimientoLicencia: new Date(),
+        categoriaLicencia: 'B1' as 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | 'C3',
       };
 
   const form = useForm<ConductorFormValues>({
@@ -78,12 +83,52 @@ export function ConductorForm({ conductor, onSave }: Props) {
       id: conductor?.id || '',
       ...data,
       vencimientoLicencia: data.vencimientoLicencia.toISOString(),
-    });
+      avatarUrl: avatarPreview || `https://i.pravatar.cc/150?u=${data.cedula}`,
+    }, newAvatarFile);
+  };
+  
+  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setNewAvatarFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+       <FormField
+          control={form.control}
+          name="avatarUrl"
+          render={({ field }) => (
+            <FormItem className="flex flex-col items-center">
+              <Avatar className="h-24 w-24">
+                <AvatarImage src={avatarPreview || ''} alt="Avatar de conductor" />
+                <AvatarFallback>
+                  {form.getValues('nombres')?.[0]}
+                  {form.getValues('apellidos')?.[0]}
+                </AvatarFallback>
+              </Avatar>
+              <FormControl>
+                <div className="relative mt-2">
+                  <Button asChild variant="outline">
+                    <label htmlFor="avatar-upload" className="cursor-pointer">
+                      <Upload className="mr-2 h-4 w-4" />
+                      Subir Foto
+                    </label>
+                  </Button>
+                  <input id="avatar-upload" type="file" className="sr-only" accept="image/*" onChange={handleAvatarChange} />
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -215,7 +260,7 @@ export function ConductorForm({ conductor, onSave }: Props) {
                             )}
                             >
                             {field.value ? (
-                                format(field.value, 'PPP')
+                                format(field.value, 'dd/MM/yyyy')
                             ) : (
                                 <span>Seleccione una fecha</span>
                             )}

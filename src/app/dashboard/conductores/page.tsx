@@ -41,7 +41,7 @@ import { ConductorForm } from '@/components/dashboard/conductores/conductores-fo
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { format, isBefore, addMonths } from 'date-fns';
 
 export type Conductor = {
@@ -117,21 +117,40 @@ export default function ConductoresPage() {
     }
   }, []);
 
-  const handleSave = (conductor: Conductor) => {
-    let updatedConductores;
-    if (conductor.id) {
-      updatedConductores = conductores.map((c) =>
-        c.id === conductor.id ? conductor : c
-      );
+  const handleSave = (conductorData: Conductor, newAvatarFile?: File) => {
+    let conductor = {...conductorData};
+    if (newAvatarFile) {
+        // In a real app, you would upload the file to a storage service
+        // and get a URL. For now, we'll use a data URL for local preview.
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            conductor.avatarUrl = reader.result as string;
+            saveConductor(conductor);
+        };
+        reader.readAsDataURL(newAvatarFile);
     } else {
-      const newConductor = { ...conductor, id: new Date().toISOString(), avatarUrl: `https://i.pravatar.cc/150?u=${conductor.cedula}` };
-      updatedConductores = [...conductores, newConductor];
+        saveConductor(conductor);
     }
-    localStorage.setItem('conductores', JSON.stringify(updatedConductores));
-    setConductores(updatedConductores);
-    setIsFormOpen(false);
-    setSelectedConductor(null);
-  };
+};
+
+  const saveConductor = (conductor: Conductor) => {
+      let updatedConductores;
+      if (conductor.id && conductores.some(c => c.id === conductor.id)) {
+        updatedConductores = conductores.map((c) =>
+          c.id === conductor.id ? conductor : c
+        );
+      } else {
+        const newConductor = { ...conductor, id: new Date().toISOString() };
+        if(!newConductor.avatarUrl) {
+            newConductor.avatarUrl = `https://i.pravatar.cc/150?u=${conductor.cedula}`;
+        }
+        updatedConductores = [...conductores, newConductor];
+      }
+      localStorage.setItem('conductores', JSON.stringify(updatedConductores));
+      setConductores(updatedConductores);
+      setIsFormOpen(false);
+      setSelectedConductor(null);
+  }
 
   const handleDelete = (id: string) => {
     const updatedConductores = conductores.filter((c) => c.id !== id);
@@ -153,10 +172,11 @@ export default function ConductoresPage() {
   };
 
   const handleSelectAll = (checked: boolean | string) => {
+    const currentIds = paginatedConductores.map(c => c.id);
     if (checked) {
-      setSelectedRows(filteredConductores.map((c) => c.id));
+      setSelectedRows(prev => [...new Set([...prev, ...currentIds])]);
     } else {
-      setSelectedRows([]);
+      setSelectedRows(prev => prev.filter(id => !currentIds.includes(id)));
     }
   };
   
@@ -177,6 +197,9 @@ export default function ConductoresPage() {
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
+  
+  const isAllOnPageSelected = paginatedConductores.length > 0 && paginatedConductores.every(c => selectedRows.includes(c.id));
+
 
   const getVencimientoStatus = (dateStr: string) => {
     const vencimiento = new Date(dateStr);
@@ -204,6 +227,7 @@ export default function ConductoresPage() {
   };
 
   const downloadExcel = () => {
+    if (conductores.length === 0) return;
     const dataToExport = conductores.map(({ id, avatarUrl, ...rest }) => ({
         ...rest,
         vencimientoLicencia: format(new Date(rest.vencimientoLicencia), 'dd/MM/yyyy'),
@@ -304,9 +328,8 @@ export default function ConductoresPage() {
               <TableHead className="w-[50px]">
                 <Checkbox
                   onCheckedChange={handleSelectAll}
-                  checked={
-                    filteredConductores.length > 0 && selectedRows.length === filteredConductores.length
-                  }
+                  checked={isAllOnPageSelected}
+                  aria-label="Seleccionar todas las filas de la página actual"
                 />
               </TableHead>
               <TableHead>Conductor</TableHead>
@@ -318,17 +341,18 @@ export default function ConductoresPage() {
           </TableHeader>
           <TableBody>
             {paginatedConductores.map((conductor) => (
-              <TableRow key={conductor.id}>
+              <TableRow key={conductor.id} data-state={selectedRows.includes(conductor.id) ? 'selected' : ''}>
                 <TableCell>
                   <Checkbox
                     checked={selectedRows.includes(conductor.id)}
                     onCheckedChange={() => handleSelectRow(conductor.id)}
+                    aria-label={`Seleccionar fila para ${conductor.nombres}`}
                   />
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <Avatar>
-                      <AvatarImage src={conductor.avatarUrl} />
+                      <AvatarImage src={conductor.avatarUrl} alt={`Avatar de ${conductor.nombres}`} />
                       <AvatarFallback>
                         {conductor.nombres[0]}
                         {conductor.apellidos[0]}
@@ -387,7 +411,7 @@ export default function ConductoresPage() {
         </Table>
          <div className="flex items-center justify-between p-4 border-t">
           <div className="text-sm text-muted-foreground">
-            Mostrando {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filteredConductores.length)} a {Math.min(currentPage * ITEMS_PER_PAGE, filteredConductores.length)} de {filteredConductores.length} resultados
+            {selectedRows.length} de {filteredConductores.length} fila(s) seleccionadas.
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -396,18 +420,11 @@ export default function ConductoresPage() {
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
             >
-              <ChevronLeft className="h-4 w-4" />
+              Anterior
             </Button>
-            {Array.from({ length: totalPages }, (_, i) => (
-              <Button
-                key={i}
-                variant={currentPage === i + 1 ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setCurrentPage(i + 1)}
-              >
-                {i + 1}
-              </Button>
-            ))}
+             <span className="text-sm">
+              Página {currentPage} de {totalPages}
+            </span>
             <Button
               variant="outline"
               size="sm"
@@ -416,7 +433,7 @@ export default function ConductoresPage() {
               }
               disabled={currentPage === totalPages}
             >
-              <ChevronRight className="h-4 w-4" />
+              Siguiente
             </Button>
           </div>
         </div>
