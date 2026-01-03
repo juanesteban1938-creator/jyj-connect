@@ -313,8 +313,8 @@ export default function ServiciosPage() {
      .filter(s => {
         if (!s.fecha) return true;
         try {
-            const fechaServicio = parseISO(s.fecha);
-            if (fechaInicio && startOfDay(fechaServicio) < startOfDay(fechaInicio)) return false;
+            const fechaServicio = startOfDay(parseISO(s.fecha));
+            if (fechaInicio && fechaServicio < startOfDay(fechaInicio)) return false;
             if (fechaFin && fechaServicio > endOfDay(fechaFin)) return false;
             return true;
         } catch (e) {
