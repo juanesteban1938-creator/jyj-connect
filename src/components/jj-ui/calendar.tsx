@@ -25,7 +25,6 @@ export function Calendar({ className, classNames, showOutsideDays = true, ...pro
         day_selected: "bg-[#F97316] text-white hover:bg-[#F97316] focus:bg-[#F97316] font-bold shadow-md",
         day_today: "bg-slate-100 text-[#F97316] font-bold",
         day_outside: "text-slate-400 opacity-50",
-        day_disabled: "text-slate-500 opacity-50",
         day_hidden: "invisible",
         ...classNames,
       }}
