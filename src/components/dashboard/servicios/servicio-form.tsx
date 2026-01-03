@@ -12,6 +12,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import {
   Popover,
@@ -19,19 +26,24 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/jj-ui/calendar';
-import { Calendar as CalendarIcon, User, Briefcase, MapPin, DollarSign, GripVertical, MinusCircle, Search, Truck, Wallet } from 'lucide-react';
+import { Calendar as CalendarIcon, User, Briefcase, MapPin, DollarSign, GripVertical, MinusCircle, Truck, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import type { Conductor } from '@/app/dashboard/conductores/page';
+import type { Vehiculo } from '@/app/dashboard/vehiculos/page';
+
 
 const formSchema = z.object({
     nombreCliente: z.string().min(1, 'El nombre es requerido'),
     nitCliente: z.string().min(1, 'El NIT es requerido'),
     telefonoCliente: z.string().min(1, 'El teléfono es requerido'),
-    conductor: z.string().optional(),
-    vehiculo: z.string().optional(),
+    conductorId: z.string().optional(),
+    conductorOtro: z.string().optional(),
+    vehiculoId: z.string().optional(),
+    vehiculoOtro: z.string().optional(),
     fechaRecogida: z.date({ required_error: 'La fecha es requerida' }),
     horaRecogida: z.string({ required_error: 'La hora es requerida' }),
     direccionRecogida: z.string().min(1, 'La dirección es requerida'),
@@ -46,9 +58,11 @@ export type ServicioFormValues = z.infer<typeof formSchema>;
 type Props = {
   onSave: (data: ServicioFormValues) => void;
   onCancel: () => void;
+  conductores: Conductor[];
+  vehiculos: Vehiculo[];
 };
 
-export function ServicioForm({ onSave, onCancel }: Props) {
+export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   
   const form = useForm<ServicioFormValues>({
@@ -57,8 +71,10 @@ export function ServicioForm({ onSave, onCancel }: Props) {
       nombreCliente: '',
       nitCliente: '',
       telefonoCliente: '',
-      conductor: '',
-      vehiculo: '',
+      conductorId: '',
+      conductorOtro: '',
+      vehiculoId: '',
+      vehiculoOtro: '',
       horaRecogida: '',
       direccionRecogida: '',
       paradaAdicional: '',
@@ -71,6 +87,8 @@ export function ServicioForm({ onSave, onCancel }: Props) {
   const valorServicio = form.watch('valorServicio') || 0;
   const anticipo = form.watch('anticipo') || 0;
   const saldo = valorServicio - anticipo;
+  const selectedConductorId = form.watch('conductorId');
+  const selectedVehiculoId = form.watch('vehiculoId');
   
   const onSubmit = (data: ServicioFormValues) => {
     onSave(data);
@@ -117,29 +135,74 @@ export function ServicioForm({ onSave, onCancel }: Props) {
                     <h3 className="text-lg font-semibold">Recursos Asignados</h3>
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <FormField name="conductor" control={form.control} render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Conductor</FormLabel>
-                            <FormControl>
-                                <div className="relative">
-                                    <Input className="pr-10" placeholder="Buscar o escribir nombre..." {...field} value={field.value ?? ''} />
-                                </div>
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
-                     <FormField name="vehiculo" control={form.control} render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Vehículo</FormLabel>
-                            <FormControl>
-                                <div className="relative">
-                                    <Input className="pr-10" placeholder="Placa o tipo..." {...field} value={field.value ?? ''} />
-                                    <Truck className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                </div>
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
+                    <FormField
+                        control={form.control}
+                        name="conductorId"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Conductor</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Seleccione un conductor" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {conductores.map(c => <SelectItem key={c.id} value={c.id}>{c.nombres} {c.apellidos}</SelectItem>)}
+                                        <SelectItem value="otro">No registrado / Otro</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    {selectedConductorId === 'otro' && (
+                        <FormField
+                            control={form.control}
+                            name="conductorOtro"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Nombre del Conductor no Registrado</FormLabel>
+                                    <FormControl><Input placeholder="Escribir nombre..." {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    )}
+                    <FormField
+                        control={form.control}
+                        name="vehiculoId"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Vehículo</FormLabel>
+                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Seleccione un vehículo" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {vehiculos.map(v => <SelectItem key={v.id} value={v.id}>{v.marca} {v.linea} ({v.placa})</SelectItem>)}
+                                        <SelectItem value="otro">No registrado / Otro</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    {selectedVehiculoId === 'otro' && (
+                        <FormField
+                            control={form.control}
+                            name="vehiculoOtro"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Placa del Vehículo no Registrado</FormLabel>
+                                    <FormControl><Input placeholder="Escribir placa..." {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    )}
                 </div>
             </div>
 

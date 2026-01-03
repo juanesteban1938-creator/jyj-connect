@@ -47,6 +47,8 @@ import {
 } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ServicioForm, type ServicioFormValues } from '@/components/dashboard/servicios/servicio-form';
+import type { Conductor } from '@/app/dashboard/conductores/page';
+import type { Vehiculo } from '@/app/dashboard/vehiculos/page';
 
 type ServicioEstado = 'Programado' | 'En Servicio' | 'Finalizado' | 'Cancelado';
 
@@ -97,6 +99,8 @@ const DestinoIcon = () => (
 
 export default function ServiciosPage() {
   const [servicios, setServicios] = useState<Servicio[]>([]);
+  const [conductores, setConductores] = useState<Conductor[]>([]);
+  const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
   const [activeTab, setActiveTab] = useState('activos');
   const [searchTerm, setSearchTerm] = useState('');
   const [fechaInicio, setFechaInicio] = useState<Date | undefined>();
@@ -177,10 +181,28 @@ export default function ServiciosPage() {
       setConsecutiveId(parseInt(storedConsecutive, 10));
     }
 
+    const storedConductores = localStorage.getItem('conductores');
+    if (storedConductores) {
+      setConductores(JSON.parse(storedConductores));
+    }
+
+    const storedVehiculos = localStorage.getItem('vehiculos');
+    if (storedVehiculos) {
+      setVehiculos(JSON.parse(storedVehiculos));
+    }
+
   }, []);
 
   const handleSaveServicio = (data: ServicioFormValues) => {
     try {
+        const conductorName = data.conductorId === 'otro'
+          ? data.conductorOtro
+          : conductores.find(c => c.id === data.conductorId)?.nombres;
+        
+        const vehiculoPlaca = data.vehiculoId === 'otro'
+          ? data.vehiculoOtro
+          : vehiculos.find(v => v.id === data.vehiculoId)?.placa;
+
         const nuevoServicio: Servicio = {
             id: new Date().toISOString(),
             consecutivo: `GA-CCT-${consecutiveId}`,
@@ -190,8 +212,8 @@ export default function ServiciosPage() {
             clienteIniciales: data.nombreCliente.substring(0,2).toUpperCase(),
             origen: data.direccionRecogida,
             destino: data.direccionDestino,
-            conductor: data.conductor || 'No asignado',
-            vehiculo: data.vehiculo || 'No asignado',
+            conductor: conductorName || 'No asignado',
+            vehiculo: vehiculoPlaca || 'No asignado',
             estado: 'Programado',
             valorServicio: data.valorServicio,
             anticipo: data.anticipo,
@@ -322,7 +344,7 @@ export default function ServiciosPage() {
                     <DialogTitle>Programar Nuevo Servicio <Badge variant="outline" className="ml-2">{`GA-CCT-${consecutiveId}`}</Badge></DialogTitle>
                     <CardDescription>Diligencie la información para crear una orden de servicio.</CardDescription>
                 </DialogHeader>
-                <ServicioForm onSave={handleSaveServicio} onCancel={() => setIsFormOpen(false)} />
+                <ServicioForm onSave={handleSaveServicio} onCancel={() => setIsFormOpen(false)} conductores={conductores} vehiculos={vehiculos} />
             </DialogContent>
         </Dialog>
       </div>
