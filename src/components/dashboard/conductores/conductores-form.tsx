@@ -281,7 +281,6 @@ export function ConductorForm({ conductor, onSave }: Props) {
                         mode="single"
                         selected={field.value}
                         onSelect={(date) => {
-                          console.log('Fecha detectada:', date);
                           if (date) {
                             field.onChange(date);
                             setIsCalendarOpen(false);
