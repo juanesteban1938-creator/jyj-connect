@@ -29,7 +29,7 @@ import { Calendar } from '@/components/jj-ui/calendar';
 import { Calendar as CalendarIcon, User, Briefcase, MapPin, DollarSign, GripVertical, MinusCircle, Truck, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Conductor } from '@/app/dashboard/conductores/page';
@@ -75,7 +75,7 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
       conductorOtro: '',
       vehiculoId: '',
       vehiculoOtro: '',
-      horaRecogida: '',
+      horaRecogida: '00:00',
       direccionRecogida: '',
       paradaAdicional: '',
       direccionDestino: '',
@@ -83,6 +83,14 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
       anticipo: 0
     },
   });
+  
+  const [hora, setHora] = useState('00');
+  const [minutos, setMinutos] = useState('00');
+
+  useEffect(() => {
+    form.setValue('horaRecogida', `${hora}:${minutos}`);
+  }, [hora, minutos, form]);
+
 
   const valorServicio = form.watch('valorServicio') || 0;
   const anticipo = form.watch('anticipo') || 0;
@@ -100,6 +108,9 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
         <circle cx="8" cy="8" r="4" fill="#22C55E"/>
     </svg>
   );
+  
+  const horasOptions = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+  const minutosOptions = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
 
   return (
     <Form {...form}>
@@ -141,7 +152,7 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Conductor</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                                     <FormControl>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Seleccione un conductor" />
@@ -175,7 +186,7 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Vehículo</FormLabel>
-                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                 <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                                     <FormControl>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Seleccione un vehículo" />
@@ -261,19 +272,25 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
                             </FormItem>
                         )}
                     />
-                    <FormField
-                        control={form.control}
-                        name="horaRecogida"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                            <FormLabel>Hora de Recogida</FormLabel>
-                            <FormControl>
-                                <Input type="time" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                    <div className="flex flex-col">
+                        <FormLabel>Hora de Recogida</FormLabel>
+                        <div className="flex items-center gap-2">
+                            <Select value={hora} onValueChange={setHora}>
+                                <SelectTrigger><SelectValue/></SelectTrigger>
+                                <SelectContent>
+                                    {horasOptions.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <span>:</span>
+                            <Select value={minutos} onValueChange={setMinutos}>
+                                <SelectTrigger><SelectValue/></SelectTrigger>
+                                <SelectContent>
+                                    {minutosOptions.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                         <FormField name="horaRecogida" control={form.control} render={() => (<FormItem><FormMessage className="mt-2" /></FormItem>)} />
+                    </div>
                  </div>
                  <div className="space-y-2">
                     <FormLabel>Dirección de Recogida</FormLabel>
