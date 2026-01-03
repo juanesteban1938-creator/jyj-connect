@@ -114,66 +114,31 @@ export default function ServiciosPage() {
   const ITEMS_PER_PAGE = 5;
 
   useEffect(() => {
-    const storedServicios = localStorage.getItem('servicios');
-    if (storedServicios) {
-      setServicios(JSON.parse(storedServicios));
-    } else {
-      const initialServicios: Servicio[] = [
-        {
-          id: '1',
-          consecutivo: 'GA-CCT-100',
-          hora: '14:30',
-          fecha: '2024-10-12',
-          origen: 'Aeropuerto AGP (T3)',
-          destino: 'Hotel Miramar Palace',
-          cliente: 'TechConf 2023',
-          clienteIniciales: 'TC',
-          conductor: 'Carlos M.',
-          vehiculo: 'Mercedes V-Class • 2390 KLP',
-          estado: 'En Servicio',
-        },
-        {
-          id: '2',
-          consecutivo: 'GA-CCT-101',
-          hora: '16:45',
-          fecha: '2024-10-12',
-          origen: 'Centro de Convenciones',
-          destino: 'Restaurante El Lago',
-          cliente: 'Grupo Planeta',
-          clienteIniciales: 'GP',
-          conductor: 'Juan P.',
-          vehiculo: 'Sprinter 19 • 8821 JJT',
-          estado: 'Programado',
-        },
-        {
-          id: '3',
-          consecutivo: 'GA-CCT-102',
-          hora: '09:00',
-          fecha: '2024-10-13',
-          origen: 'Hotel Miramar Palace',
-          destino: 'Aeropuerto AGP (Salidas)',
-          cliente: 'TechConf 2023',
-          clienteIniciales: 'TC',
-          conductor: 'Luisa F.',
-          vehiculo: 'Sedan Lux • 1102 BBC',
-          estado: 'Programado',
-        },
-        {
-          id: '4',
-          consecutivo: 'GA-CCT-103',
-          hora: '11:00',
-          fecha: '2024-10-11',
-          origen: 'Oficinas Centrales',
-          destino: 'Feria de Muestras',
-          cliente: 'Innovate Corp',
-          clienteIniciales: 'IC',
-          conductor: 'Ana G.',
-          vehiculo: 'Bus 40 • 4567 LMN',
-          estado: 'Finalizado',
-        },
-      ];
-      localStorage.setItem('servicios', JSON.stringify(initialServicios));
-      setServicios(initialServicios);
+    try {
+        const storedServicios = localStorage.getItem('servicios');
+        if (storedServicios) {
+          setServicios(JSON.parse(storedServicios));
+        } else {
+          const initialServicios: Servicio[] = [
+            {
+              id: '1',
+              consecutivo: 'GA-CCT-100',
+              hora: '14:30',
+              fecha: '2024-10-12',
+              origen: 'Aeropuerto AGP (T3)',
+              destino: 'Hotel Miramar Palace',
+              cliente: 'TechConf 2023',
+              clienteIniciales: 'TC',
+              conductor: 'Carlos M.',
+              vehiculo: 'Mercedes V-Class • 2390 KLP',
+              estado: 'En Servicio',
+            },
+          ];
+          localStorage.setItem('servicios', JSON.stringify(initialServicios));
+          setServicios(initialServicios);
+        }
+    } catch(e) {
+        console.error(e);
     }
     
     const storedConsecutive = localStorage.getItem('servicioConsecutivo');
@@ -181,32 +146,40 @@ export default function ServiciosPage() {
       setConsecutiveId(parseInt(storedConsecutive, 10));
     }
 
-    const storedConductores = localStorage.getItem('conductores');
-    if (storedConductores) {
-      setConductores(JSON.parse(storedConductores));
+    try {
+        const storedConductores = localStorage.getItem('conductores');
+        if (storedConductores) {
+          setConductores(JSON.parse(storedConductores));
+        }
+    } catch (e) {
+        console.error(e);
     }
 
-    const storedVehiculos = localStorage.getItem('vehiculos');
-    if (storedVehiculos) {
-      setVehiculos(JSON.parse(storedVehiculos));
+    try {
+        const storedVehiculos = localStorage.getItem('vehiculos');
+        if (storedVehiculos) {
+          setVehiculos(JSON.parse(storedVehiculos));
+        }
+    } catch (e) {
+        console.error(e)
     }
 
   }, []);
 
   const handleSaveServicio = (data: ServicioFormValues) => {
     try {
-        const conductorName = data.conductorId === 'otro'
+        const conductorName = data.esConductorNoRegistrado
           ? data.conductorOtro
           : conductores.find(c => c.id === data.conductorId)?.nombres;
         
-        const vehiculoPlaca = data.vehiculoId === 'otro'
+        const vehiculoPlaca = data.esVehiculoNoRegistrado
           ? data.vehiculoOtro
           : vehiculos.find(v => v.id === data.vehiculoId)?.placa;
 
         const nuevoServicio: Servicio = {
             id: new Date().toISOString(),
             consecutivo: `GA-CCT-${consecutiveId}`,
-            fecha: format(data.fechaRecogida!, 'yyyy-MM-dd'),
+            fecha: format(data.fechaRecogida, 'yyyy-MM-dd'),
             hora: data.horaRecogida || "00:00",
             cliente: data.nombreCliente,
             clienteIniciales: data.nombreCliente.substring(0,2).toUpperCase(),
@@ -460,3 +433,6 @@ export default function ServiciosPage() {
     </div>
   );
 }
+
+
+    

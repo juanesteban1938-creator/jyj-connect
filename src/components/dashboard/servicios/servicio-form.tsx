@@ -25,6 +25,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/jj-ui/calendar';
 import { Calendar as CalendarIcon, User, Briefcase, MapPin, DollarSign, GripVertical, MinusCircle, Truck, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -40,8 +41,10 @@ const formSchema = z.object({
     nombreCliente: z.string().min(1, 'El nombre es requerido'),
     nitCliente: z.string().min(1, 'El NIT es requerido'),
     telefonoCliente: z.string().min(1, 'El teléfono es requerido'),
+    esConductorNoRegistrado: z.boolean().default(false),
     conductorId: z.string().optional(),
     conductorOtro: z.string().optional(),
+    esVehiculoNoRegistrado: z.boolean().default(false),
     vehiculoId: z.string().optional(),
     vehiculoOtro: z.string().optional(),
     fechaRecogida: z.date({ required_error: 'La fecha es requerida' }),
@@ -51,6 +54,12 @@ const formSchema = z.object({
     direccionDestino: z.string().min(1, 'El destino es requerido'),
     valorServicio: z.coerce.number().optional(),
     anticipo: z.coerce.number().optional(),
+}).refine(data => data.esConductorNoRegistrado ? !!data.conductorOtro : !!data.conductorId, {
+    message: 'Debe especificar un conductor',
+    path: ['conductorId'],
+}).refine(data => data.esVehiculoNoRegistrado ? !!data.vehiculoOtro : !!data.vehiculoId, {
+    message: 'Debe especificar un vehículo',
+    path: ['vehiculoId'],
 });
 
 export type ServicioFormValues = z.infer<typeof formSchema>;
@@ -71,8 +80,10 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
       nombreCliente: '',
       nitCliente: '',
       telefonoCliente: '',
+      esConductorNoRegistrado: false,
       conductorId: '',
       conductorOtro: '',
+      esVehiculoNoRegistrado: false,
       vehiculoId: '',
       vehiculoOtro: '',
       horaRecogida: '00:00',
@@ -95,11 +106,18 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
   const valorServicio = form.watch('valorServicio') || 0;
   const anticipo = form.watch('anticipo') || 0;
   const saldo = valorServicio - anticipo;
-  const selectedConductorId = form.watch('conductorId');
-  const selectedVehiculoId = form.watch('vehiculoId');
+  const esConductorNoRegistrado = form.watch('esConductorNoRegistrado');
+  const esVehiculoNoRegistrado = form.watch('esVehiculoNoRegistrado');
   
   const onSubmit = (data: ServicioFormValues) => {
-    onSave(data);
+    const finalData = {
+        ...data,
+        conductorId: data.esConductorNoRegistrado ? undefined : data.conductorId,
+        conductorOtro: data.esConductorNoRegistrado ? data.conductorOtro : undefined,
+        vehiculoId: data.esVehiculoNoRegistrado ? undefined : data.vehiculoId,
+        vehiculoOtro: data.esVehiculoNoRegistrado ? data.vehiculoOtro : undefined,
+    }
+    onSave(finalData);
   };
 
   const OrigenIcon = () => (
@@ -145,75 +163,118 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
                     <Briefcase className="h-5 w-5 text-primary"/>
                     <h3 className="text-lg font-semibold">Recursos Asignados</h3>
                 </div>
+
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <FormField
-                        control={form.control}
-                        name="conductorId"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Conductor</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Seleccione un conductor" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {conductores.map(c => <SelectItem key={c.id} value={c.id}>{c.nombres} {c.apellidos}</SelectItem>)}
-                                        <SelectItem value="otro">No registrado / Otro</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    {selectedConductorId === 'otro' && (
-                        <FormField
+                    <div className="space-y-2">
+                         <FormField
                             control={form.control}
-                            name="conductorOtro"
+                            name="esConductorNoRegistrado"
                             render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Nombre del Conductor no Registrado</FormLabel>
-                                    <FormControl><Input placeholder="Escribir nombre..." {...field} /></FormControl>
-                                    <FormMessage />
+                                <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                <FormControl>
+                                    <Checkbox
+                                        checked={field.value}
+                                        onCheckedChange={(checked) => {
+                                            field.onChange(checked);
+                                            form.setValue('conductorId', '');
+                                            form.setValue('conductorOtro', '');
+                                        }}
+                                    />
+                                </FormControl>
+                                <FormLabel className="font-normal">Conductor no registrado</FormLabel>
                                 </FormItem>
                             )}
                         />
-                    )}
-                    <FormField
-                        control={form.control}
-                        name="vehiculoId"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Vehículo</FormLabel>
-                                 <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Seleccione un vehículo" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {vehiculos.map(v => <SelectItem key={v.id} value={v.id}>{v.marca} {v.linea} ({v.placa})</SelectItem>)}
-                                        <SelectItem value="otro">No registrado / Otro</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
+                        {esConductorNoRegistrado ? (
+                            <FormField
+                                control={form.control}
+                                name="conductorOtro"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Nombre del Conductor</FormLabel>
+                                        <FormControl><Input placeholder="Escribir nombre..." {...field} value={field.value ?? ''} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        ) : (
+                             <FormField
+                                control={form.control}
+                                name="conductorId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Conductor</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Seleccione un conductor" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {conductores.map(c => <SelectItem key={c.id} value={c.id}>{c.nombres} {c.apellidos}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                         )}
-                    />
-                    {selectedVehiculoId === 'otro' && (
+                    </div>
+                     <div className="space-y-2">
                         <FormField
                             control={form.control}
-                            name="vehiculoOtro"
+                            name="esVehiculoNoRegistrado"
                             render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Placa del Vehículo no Registrado</FormLabel>
-                                    <FormControl><Input placeholder="Escribir placa..." {...field} /></FormControl>
-                                    <FormMessage />
+                                <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                <FormControl>
+                                    <Checkbox
+                                        checked={field.value}
+                                        onCheckedChange={(checked) => {
+                                            field.onChange(checked);
+                                            form.setValue('vehiculoId', '');
+                                            form.setValue('vehiculoOtro', '');
+                                        }}
+                                    />
+                                </FormControl>
+                                <FormLabel className="font-normal">Vehículo no registrado</FormLabel>
                                 </FormItem>
                             )}
                         />
-                    )}
+                        {esVehiculoNoRegistrado ? (
+                            <FormField
+                                control={form.control}
+                                name="vehiculoOtro"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Placa del Vehículo</FormLabel>
+                                        <FormControl><Input placeholder="Escribir placa..." {...field} value={field.value ?? ''}/></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        ) : (
+                           <FormField
+                                control={form.control}
+                                name="vehiculoId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Vehículo</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Seleccione un vehículo" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {vehiculos.map(v => <SelectItem key={v.id} value={v.id}>{v.marca} {v.linea} ({v.placa})</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -346,5 +407,7 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
     </Form>
   );
 }
+
+    
 
     
