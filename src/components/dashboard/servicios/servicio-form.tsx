@@ -118,10 +118,27 @@ export function ServicioForm({ onSave, onCancel }: Props) {
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <FormField name="conductor" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Conductor</FormLabel><FormControl><div className="relative"><Input className="pr-10" placeholder="Buscar o escribir nombre..." {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        <FormItem>
+                            <FormLabel>Conductor</FormLabel>
+                            <FormControl>
+                                <div className="relative">
+                                    <Input className="pr-10" placeholder="Buscar o escribir nombre..." {...field} value={field.value ?? ''} />
+                                </div>
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
                     )} />
                      <FormField name="vehiculo" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Vehículo</FormLabel><FormControl><div className="relative"><Input className="pr-10" placeholder="Placa o tipo..." {...field} value={field.value ?? ''} /><Truck className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /></div></FormControl><FormMessage /></FormItem>
+                        <FormItem>
+                            <FormLabel>Vehículo</FormLabel>
+                            <FormControl>
+                                <div className="relative">
+                                    <Input className="pr-10" placeholder="Placa o tipo..." {...field} value={field.value ?? ''} />
+                                    <Truck className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                </div>
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
                     )} />
                 </div>
             </div>
