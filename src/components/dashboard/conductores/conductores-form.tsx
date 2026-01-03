@@ -111,7 +111,7 @@ export function ConductorForm({ conductor, onSave }: Props) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
           <FormField
             control={form.control}
             name="nombres"
@@ -138,160 +138,158 @@ export function ConductorForm({ conductor, onSave }: Props) {
               </FormItem>
             )}
           />
-        </div>
 
-        <FormField
-          control={form.control}
-          name="cedula"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Número de Cédula</FormLabel>
-              <FormControl>
-                <Input placeholder="123456789" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="direccion"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Dirección de Residencia</FormLabel>
-              <FormControl>
-                <Input placeholder="Calle 123 #45-67" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField
-            control={form.control}
-            name="barrio"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Barrio</FormLabel>
-                <FormControl>
-                    <Input placeholder="El Poblado" {...field} />
-                </FormControl>
-                <FormMessage />
-                </FormItem>
-            )}
-            />
-            
-            <FormField
-            control={form.control}
-            name="telefono"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Número de Teléfono</FormLabel>
-                <FormControl>
-                    <Input placeholder="3001234567" {...field} />
-                </FormControl>
-                <FormMessage />
-                </FormItem>
-            )}
-            />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField
-            control={form.control}
-            name="categoriaLicencia"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Categoría de Licencia</FormLabel>
-                <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                    value={field.value}
-                >
-                    <FormControl>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Seleccione una categoría" />
-                    </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                    {['A2', 'B1', 'B2', 'C1', 'C2', 'C3'].map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                        {cat}
-                        </SelectItem>
-                    ))}
-                    </SelectContent>
-                </Select>
-                <FormMessage />
-                </FormItem>
-            )}
-            />
-
+          <div className="col-span-2">
             <FormField
               control={form.control}
-              name="vencimientoLicencia"
+              name="cedula"
               render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel className="mb-1.5">Vencimiento Licencia</FormLabel>
-                  <Popover modal={true} open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={'outline'}
-                          type="button"
-                          className={cn(
-                            'w-full pl-3 text-left font-normal',
-                            !field.value && 'text-muted-foreground'
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, 'dd/MM/yyyy')
-                          ) : (
-                            <span>Seleccione una fecha</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="w-auto p-0"
-                      align="start"
-                      onInteractOutside={(e) => {
-                        e.preventDefault();
-                      }}
-                      onPointerDownOutside={(e) => {
-                        e.preventDefault();
-                      }}
-                    >
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={(date) => {
-                          field.onChange(date);
-                          setIsCalendarOpen(false);
-                        }}
-                        disabled={(date) =>
-                          date < new Date('1900-01-01')
-                        }
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                <FormItem>
+                  <FormLabel>Número de Cédula</FormLabel>
+                  <FormControl>
+                    <Input placeholder="123456789" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+          </div>
+
+          <div className="col-span-2">
+            <FormField
+              control={form.control}
+              name="direccion"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Dirección de Residencia</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Calle 123 #45-67" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+            control={form.control}
+            name="barrio"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Barrio</FormLabel>
+                <FormControl>
+                  <Input placeholder="El Poblado" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="telefono"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Número de Teléfono</FormLabel>
+                <FormControl>
+                  <Input placeholder="3001234567" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="categoriaLicencia"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Categoría de Licencia</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                  value={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccione una categoría" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {['A2', 'B1', 'B2', 'C1', 'C2', 'C3'].map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="vencimientoLicencia"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel className="mb-1.5">Vencimiento Licencia</FormLabel>
+                <Popover modal={true} open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant={'outline'}
+                        type="button"
+                        className={cn(
+                          'w-full pl-3 text-left font-normal',
+                          !field.value && 'text-muted-foreground'
+                        )}
+                      >
+                        {field.value ? (
+                          format(field.value, 'dd/MM/yyyy')
+                        ) : (
+                          <span>Seleccione una fecha</span>
+                        )}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-auto p-0"
+                    align="start"
+                    onInteractOutside={(e) => {
+                      e.preventDefault();
+                    }}
+                    onPointerDownOutside={(e) => {
+                      e.preventDefault();
+                    }}
+                  >
+                    <Calendar
+                      mode="single"
+                      selected={field.value}
+                      onSelect={(date) => {
+                        field.onChange(date);
+                        setIsCalendarOpen(false);
+                      }}
+                      disabled={(date) => date < new Date('1900-01-01')}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
         
-        <Separator className="my-6" />
+        <Separator className="my-4" />
 
         <FormField
           control={form.control}
           name="avatarUrl"
           render={({ field }) => (
-            <FormItem className="flex flex-col items-center gap-4">
-                <FormLabel className="text-center font-semibold">Foto del Conductor</FormLabel>
+            <FormItem className="flex flex-col items-center gap-2">
+              <FormLabel className="text-center font-semibold">Foto del Conductor</FormLabel>
               <Avatar className="h-24 w-24">
                 <AvatarImage src={avatarPreview || ''} alt="Avatar de conductor" />
                 <AvatarFallback>
