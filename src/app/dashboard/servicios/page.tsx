@@ -32,7 +32,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { format, parseISO, endOfDay } from 'date-fns';
+import { format, parseISO, endOfDay, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from '@/components/jj-ui/calendar';
@@ -127,31 +127,85 @@ export default function ServiciosPage() {
   useEffect(() => {
     try {
         const storedServicios = localStorage.getItem('servicios');
-        if (storedServicios) {
-          setServicios(JSON.parse(storedServicios));
-        } else {
-          const initialServicios: Servicio[] = [
-            {
-              id: '1',
-              consecutivo: 'GA-CCT-100',
-              hora: '14:30',
-              fecha: '2024-10-12',
-              origen: 'Aeropuerto AGP (T3)',
-              destino: 'Hotel Miramar Palace',
-              cliente: 'TechConf 2023',
-              clienteIniciales: 'TC',
-              conductor: 'Carlos M.',
-              vehiculo: 'Mercedes V-Class • 2390 KLP',
-              estado: 'En Servicio',
-              metodoPago: 'Facturacion',
-              costoOperacion: 50000,
-              estadoPago: 'Pendiente',
-              paradasAdicionales: [],
-            },
-          ];
+        const initialServicios: Servicio[] = storedServicios ? JSON.parse(storedServicios) : [
+          {
+            id: '1',
+            consecutivo: 'GA-CCT-100',
+            hora: '14:30',
+            fecha: '2024-10-12',
+            origen: 'Aeropuerto AGP (T3)',
+            destino: 'Hotel Miramar Palace',
+            cliente: 'TechConf 2023',
+            clienteIniciales: 'TC',
+            emailCliente: 'test@test.com',
+            conductor: 'Carlos M.',
+            vehiculo: 'Mercedes V-Class • 2390 KLP',
+            estado: 'En Servicio',
+            metodoPago: 'Facturacion',
+            costoOperacion: 50000,
+            estadoPago: 'Pendiente',
+            paradasAdicionales: [],
+          },
+          {
+            id: '2',
+            consecutivo: 'GA-CCT-101',
+            hora: '10:00',
+            fecha: format(new Date(), 'yyyy-MM-dd'),
+            origen: 'Oficina Central',
+            destino: 'Centro de Convenciones',
+            cliente: 'Global Corp',
+            clienteIniciales: 'GC',
+            emailCliente: 'test2@test.com',
+            conductor: 'Luisa P.',
+            vehiculo: 'Sprinter • ABC-456',
+            estado: 'Programado',
+            metodoPago: 'Facturacion',
+            costoOperacion: 45000,
+            estadoPago: 'Pendiente',
+            paradasAdicionales: [],
+          },
+           {
+            id: '3',
+            consecutivo: 'GA-CCT-102',
+            hora: '09:00',
+            fecha: '2024-07-28',
+            origen: 'Punto A',
+            destino: 'Punto B',
+            cliente: 'Cliente de Prueba 1',
+            clienteIniciales: 'CP',
+            emailCliente: 'test3@test.com',
+            conductor: 'Conductor de Prueba',
+            vehiculo: 'XYZ-789',
+            estado: 'Finalizado',
+            metodoPago: 'Efectivo',
+            costoOperacion: 30000,
+            estadoPago: 'Pagado',
+            paradasAdicionales: [],
+          },
+          {
+            id: '4',
+            consecutivo: 'GA-CCT-103',
+            hora: '15:00',
+            fecha: '2024-07-29',
+            origen: 'Punto C',
+            destino: 'Punto D',
+            cliente: 'Cliente de Prueba 2',
+            clienteIniciales: 'C2',
+            emailCliente: 'test4@test.com',
+            conductor: 'Otro Conductor',
+            vehiculo: 'DEF-456',
+            estado: 'Finalizado',
+            metodoPago: 'Transferencia',
+            costoOperacion: 60000,
+            estadoPago: 'Pagado',
+            paradasAdicionales: [],
+          },
+        ];
+
+        if (!storedServicios) {
           localStorage.setItem('servicios', JSON.stringify(initialServicios));
-          setServicios(initialServicios);
         }
+        setServicios(initialServicios);
     } catch(e) {
         console.error(e);
     }
@@ -260,7 +314,7 @@ export default function ServiciosPage() {
         if (!s.fecha) return true;
         try {
             const fechaServicio = parseISO(s.fecha);
-            if (fechaInicio && fechaServicio < fechaInicio) return false;
+            if (fechaInicio && startOfDay(fechaServicio) < startOfDay(fechaInicio)) return false;
             if (fechaFin && fechaServicio > endOfDay(fechaFin)) return false;
             return true;
         } catch (e) {
@@ -292,15 +346,14 @@ export default function ServiciosPage() {
   const formatDateHeader = (dateString: string) => {
     try {
         const date = parseISO(dateString);
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        const tomorrow = new Date(today);
+        const today = startOfDay(new Date());
+        const tomorrow = startOfDay(new Date());
         tomorrow.setDate(tomorrow.getDate() + 1);
         
         let relativeDay;
-        if (date.getTime() === today.getTime()) {
+        if (startOfDay(date).getTime() === today.getTime()) {
         relativeDay = 'Hoy';
-        } else if (date.getTime() === tomorrow.getTime()) {
+        } else if (startOfDay(date).getTime() === tomorrow.getTime()) {
         relativeDay = 'Mañana';
         } else {
         relativeDay = format(date, 'E', { locale: es });
