@@ -82,3 +82,7 @@
     @apply bg-background text-foreground;
   }
 }
+
+.rdp-months { display: flex !important; flex-direction: column !important; }
+.rdp-head_row, .rdp-row { display: grid !important; grid-template-columns: repeat(7, 1fr) !important; }
+.rdp-cell { width: 40px !important; height: 40px !important; text-align: center !important; }
