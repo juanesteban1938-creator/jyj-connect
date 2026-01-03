@@ -277,12 +277,15 @@ export function ConductorForm({ conductor, onSave }: Props) {
                         e.preventDefault();
                       }}
                     >
-                       <Calendar
+                      <Calendar
                         mode="single"
                         selected={field.value}
                         onSelect={(date) => {
-                          field.onChange(date);
-                          setIsCalendarOpen(false);
+                          console.log('Fecha detectada:', date);
+                          if (date) {
+                            field.onChange(date);
+                            setIsCalendarOpen(false);
+                          }
                         }}
                         disabled={(date) =>
                           date < new Date("1900-01-01")
