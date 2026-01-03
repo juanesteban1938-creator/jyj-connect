@@ -57,6 +57,7 @@ type Props = {
 export function ConductorForm({ conductor, onSave }: Props) {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(conductor?.avatarUrl || null);
   const [newAvatarFile, setNewAvatarFile] = useState<File | undefined>(undefined);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   const defaultValues = conductor
     ? {
@@ -244,45 +245,50 @@ export function ConductorForm({ conductor, onSave }: Props) {
             />
 
             <FormField
-            control={form.control}
-            name="vencimientoLicencia"
-            render={({ field }) => (
+              control={form.control}
+              name="vencimientoLicencia"
+              render={({ field }) => (
                 <FormItem className="flex flex-col">
-                    <FormLabel className='mb-1.5'>Vencimiento Licencia</FormLabel>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                        <FormControl>
-                            <Button
-                            variant={'outline'}
-                            className={cn(
-                                'w-full pl-3 text-left font-normal',
-                                !field.value && 'text-muted-foreground'
-                            )}
-                            >
-                            {field.value ? (
-                                format(field.value, 'dd/MM/yyyy')
-                            ) : (
-                                <span>Seleccione una fecha</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                        </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            disabled={(date) =>
-                            date < new Date('1900-01-01')
-                            }
-                            initialFocus
-                        />
-                        </PopoverContent>
-                    </Popover>
-                    <FormMessage />
+                  <FormLabel className="mb-1.5">Vencimiento Licencia</FormLabel>
+                  <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={'outline'}
+                          className={cn(
+                            'w-full pl-3 text-left font-normal',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          {field.value ? (
+                            format(field.value, 'dd/MM/yyyy')
+                          ) : (
+                            <span>Seleccione una fecha</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-auto p-0"
+                      align="start"
+                      onInteractOutside={(e) => e.preventDefault()}
+                    >
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={(date) => {
+                          field.onChange(date);
+                          setTimeout(() => setIsCalendarOpen(false), 100);
+                        }}
+                        disabled={(date) => date < new Date('1900-01-01')}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
                 </FormItem>
-            )}
+              )}
             />
         </div>
 
