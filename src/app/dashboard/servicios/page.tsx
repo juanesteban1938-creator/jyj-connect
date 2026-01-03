@@ -45,6 +45,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 
 type ServicioEstado = 'Programado' | 'En Servicio' | 'Finalizado' | 'Cancelado';
 
@@ -97,6 +99,9 @@ export default function ServiciosPage() {
   const [fechaFin, setFechaFin] = useState<Date | undefined>();
   const [estadoFiltro, setEstadoFiltro] = useState<string>('todos');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedServicio, setSelectedServicio] = useState<Servicio | null>(null);
+  const { toast } = useToast();
   const ITEMS_PER_PAGE = 5;
 
   useEffect(() => {
@@ -158,6 +163,16 @@ export default function ServiciosPage() {
       setServicios(initialServicios);
     }
   }, []);
+
+  const handleSaveServicio = (servicioData: any) => {
+    // This is a placeholder for saving logic.
+    // In a real app, you would handle creating/updating the service here.
+    toast({
+      title: '¡Éxito!',
+      description: `El servicio para ${servicioData.nombreCliente} ha sido programado.`,
+    });
+    setIsFormOpen(false);
+  };
 
   const filteredServicios = servicios
     .filter(s => {
@@ -239,10 +254,21 @@ export default function ServiciosPage() {
             <StatCard title="Programados Hoy" value={servicios.filter(s => s.estado === 'Programado' && s.fecha === format(new Date(), 'yyyy-MM-dd')).length.toString()} icon={<CalendarIcon className="h-5 w-5"/>} iconBgColor="bg-blue-100" />
             <StatCard title="Finalizados" value={servicios.filter(s => s.estado === 'Finalizado').length.toString()} icon={<CheckCircle className="h-5 w-5"/>} iconBgColor="bg-green-100" />
         </div>
-        <Button size="lg" className="w-full sm:w-auto">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Nuevo Servicio
-        </Button>
+        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+            <DialogTrigger asChild>
+                <Button size="lg" className="w-full sm:w-auto">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Nuevo Servicio
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-3xl">
+                <DialogHeader>
+                    <DialogTitle>Programar Nuevo Servicio <Badge variant="outline" className="ml-2">GA-CCT-124</Badge></DialogTitle>
+                    <CardDescription>Diligencie la información para crear una orden de servicio.</CardDescription>
+                </DialogHeader>
+                <ServicioForm onSave={handleSaveServicio} onCancel={() => setIsFormOpen(false)} />
+            </DialogContent>
+        </Dialog>
       </div>
 
       <Card>
