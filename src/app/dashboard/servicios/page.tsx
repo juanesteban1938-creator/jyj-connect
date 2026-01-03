@@ -308,6 +308,10 @@ export default function ServiciosPage() {
         return "Fecha inválida"
     }
   }
+  
+  const serviciosEnServicio = servicios.filter(s => s.estado === 'En Servicio').length;
+  const serviciosProgramadosHoy = servicios.filter(s => s.estado === 'Programado' && s.fecha === format(new Date(), 'yyyy-MM-dd')).length;
+  const serviciosFinalizados = servicios.filter(s => s.estado === 'Finalizado').length;
 
   return (
     <div className="space-y-6">
@@ -318,9 +322,9 @@ export default function ServiciosPage() {
 
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
          <div className="grid gap-4 sm:grid-cols-3 flex-1">
-            <StatCard title="En Servicio" value={servicios.filter(s => s.estado === 'En Servicio').length.toString()} icon={<Bus className="h-5 w-5"/>} iconBgColor="bg-yellow-100" />
-            <StatCard title="Programados Hoy" value={servicios.filter(s => s.estado === 'Programado' && s.fecha === format(new Date(), 'yyyy-MM-dd')).length.toString()} icon={<CalendarIcon className="h-5 w-5"/>} iconBgColor="bg-blue-100" />
-            <StatCard title="Finalizados" value={servicios.filter(s => s.estado === 'Finalizado').length.toString()} icon={<CheckCircle className="h-5 w-5"/>} iconBgColor="bg-green-100" />
+            <StatCard title="En Servicio" value={serviciosEnServicio.toString()} icon={<Bus className="h-5 w-5"/>} iconBgColor="bg-yellow-100" />
+            <StatCard title="Programados Hoy" value={serviciosProgramadosHoy.toString()} icon={<CalendarIcon className="h-5 w-5"/>} iconBgColor="bg-blue-100" />
+            <StatCard title="Finalizados" value={serviciosFinalizados.toString()} icon={<CheckCircle className="h-5 w-5"/>} iconBgColor="bg-green-100" />
         </div>
         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
             <DialogTrigger asChild>
