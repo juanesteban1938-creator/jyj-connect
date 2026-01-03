@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/jj-ui/calendar';
-import { Calendar as CalendarIcon, User, Briefcase, MapPin, DollarSign, GripVertical, MinusCircle, Truck, Wallet } from 'lucide-react';
+import { Calendar as CalendarIcon, User, Briefcase, MapPin, DollarSign, GripVertical, MinusCircle, PlusCircle, CreditCard, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useState, useEffect } from 'react';
@@ -41,26 +41,38 @@ const formSchema = z.object({
     nombreCliente: z.string().min(1, 'El nombre es requerido'),
     nitCliente: z.string().min(1, 'El NIT es requerido'),
     telefonoCliente: z.string().min(1, 'El teléfono es requerido'),
+    
     esConductorNoRegistrado: z.boolean().default(false),
     conductorId: z.string().optional(),
     conductorOtro: z.string().optional(),
+
     esVehiculoNoRegistrado: z.boolean().default(false),
     vehiculoId: z.string().optional(),
     vehiculoOtro: z.string().optional(),
+
     fechaRecogida: z.date({ required_error: 'La fecha es requerida' }),
     horaRecogida: z.string({ required_error: 'La hora es requerida' }),
     direccionRecogida: z.string().min(1, 'La dirección es requerida'),
-    paradaAdicional: z.string().optional(),
+    paradasAdicionales: z.array(z.object({ direccion: z.string() })).max(3),
     direccionDestino: z.string().min(1, 'El destino es requerido'),
+
+    metodoPago: z.enum(['Efectivo', 'Transferencia', 'Facturacion']),
     valorServicio: z.coerce.number().optional(),
+    costoOperacion: z.coerce.number().optional(),
+    estadoPago: z.enum(['Pendiente', 'Anticipo', 'Pagado', 'Anulado']),
     anticipo: z.coerce.number().optional(),
+
 }).refine(data => data.esConductorNoRegistrado ? !!data.conductorOtro : !!data.conductorId, {
     message: 'Debe especificar un conductor',
     path: ['conductorId'],
 }).refine(data => data.esVehiculoNoRegistrado ? !!data.vehiculoOtro : !!data.vehiculoId, {
     message: 'Debe especificar un vehículo',
     path: ['vehiculoId'],
+}).refine(data => data.estadoPago !== 'Anticipo' || (data.estadoPago === 'Anticipo' && data.anticipo !== undefined && data.anticipo > 0), {
+    message: 'Debe especificar un valor de anticipo',
+    path: ['anticipo']
 });
+
 
 export type ServicioFormValues = z.infer<typeof formSchema>;
 
@@ -88,11 +100,19 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
       vehiculoOtro: '',
       horaRecogida: '00:00',
       direccionRecogida: '',
-      paradaAdicional: '',
+      paradasAdicionales: [],
       direccionDestino: '',
+      metodoPago: 'Facturacion',
       valorServicio: 0,
+      costoOperacion: 0,
+      estadoPago: 'Pendiente',
       anticipo: 0
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "paradasAdicionales"
   });
   
   const [hora, setHora] = useState('00');
@@ -104,8 +124,10 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
 
 
   const valorServicio = form.watch('valorServicio') || 0;
-  const anticipo = form.watch('anticipo') || 0;
+  const estadoPago = form.watch('estadoPago');
+  const anticipo = estadoPago === 'Anticipo' ? (form.watch('anticipo') || 0) : 0;
   const saldo = valorServicio - anticipo;
+  
   const esConductorNoRegistrado = form.watch('esConductorNoRegistrado');
   const esVehiculoNoRegistrado = form.watch('esVehiculoNoRegistrado');
   
@@ -136,7 +158,6 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
         <ScrollArea className="h-[70vh] w-full">
          <div className="space-y-6 p-1">
             
-            {/* Información del Cliente */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <User className="h-5 w-5 text-primary"/>
@@ -157,7 +178,6 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
             
             <Separator />
             
-            {/* Recursos Asignados */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <Briefcase className="h-5 w-5 text-primary"/>
@@ -280,7 +300,6 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
 
             <Separator />
 
-            {/* Detalles de Ruta */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <MapPin className="h-5 w-5 text-primary"/>
@@ -354,13 +373,36 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
                     </div>
                  </div>
                  <div className="space-y-2">
-                    <FormLabel>Dirección de Recogida</FormLabel>
                     <FormField name="direccionRecogida" control={form.control} render={({ field }) => (
-                        <FormItem><FormControl><div className="relative"><Input className="pl-9" placeholder="Dirección principal..." {...field} /><div className="absolute left-3 top-1/2 -translate-y-1/2"><OrigenIcon /></div></div></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Dirección de Recogida</FormLabel><FormControl><div className="relative"><Input className="pl-9" placeholder="Dirección principal..." {...field} /><div className="absolute left-3 top-1/2 -translate-y-1/2"><OrigenIcon /></div></div></FormControl><FormMessage /></FormItem>
                     )} />
-                    <FormField name="paradaAdicional" control={form.control} render={({ field }) => (
-                        <FormItem><FormControl><div className="relative"><Input className="pl-9" placeholder="Segunda parada (opcional)..." {...field} value={field.value ?? ''} /><GripVertical className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><MinusCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500 cursor-pointer" /></div></FormControl><FormMessage /></FormItem>
-                    )} />
+                    {fields.map((field, index) => (
+                        <FormField
+                            key={field.id}
+                            control={form.control}
+                            name={`paradasAdicionales.${index}.direccion`}
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormControl>
+                                        <div className="relative">
+                                            <Input className="pl-9" placeholder={`Parada adicional ${index + 1}...`} {...field} />
+                                            <GripVertical className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                            <Button type="button" size="icon" variant="ghost" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-red-500" onClick={() => remove(index)}>
+                                                <MinusCircle className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    ))}
+                    {fields.length < 3 && (
+                        <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => append({ direccion: "" })}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Añadir Parada
+                        </Button>
+                    )}
                 </div>
                  <FormField name="direccionDestino" control={form.control} render={({ field }) => (
                     <FormItem><FormLabel>Dirección de Destino</FormLabel><FormControl><div className="relative"><Input className="pl-9" placeholder="Destino final..." {...field} /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" /></div></FormControl><FormMessage /></FormItem>
@@ -369,24 +411,59 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
 
             <Separator />
 
-             {/* Datos Financieros */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <Wallet className="h-5 w-5 text-primary"/>
                     <h3 className="text-lg font-semibold">Datos Financieros</h3>
                 </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                     <FormField name="metodoPago" control={form.control} render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Método de Pago</FormLabel>
+                             <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    <SelectItem value="Efectivo">Pago en Efectivo</SelectItem>
+                                    <SelectItem value="Transferencia">Transferencia</SelectItem>
+                                    <SelectItem value="Facturacion">A Facturación</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                     <FormField name="estadoPago" control={form.control} render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Estado del Pago</FormLabel>
+                             <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    <SelectItem value="Pendiente">Pendiente</SelectItem>
+                                    <SelectItem value="Anticipo">Anticipo</SelectItem>
+                                    <SelectItem value="Pagado">Pagado</SelectItem>
+                                    <SelectItem value="Anulado">Anulado</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <FormField name="valorServicio" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Valor Servicio</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0.00" {...field} value={field.value ?? ''} /></div></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Venta Servicio</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0.00" {...field} value={field.value ?? ''} /></div></FormControl><FormMessage /></FormItem>
                     )} />
-                     <FormField name="anticipo" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Anticipo</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0.00" {...field} value={field.value ?? ''}/></div></FormControl><FormMessage /></FormItem>
+                     <FormField name="costoOperacion" control={form.control} render={({ field }) => (
+                        <FormItem><FormLabel>Costo Operación</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0.00" {...field} value={field.value ?? ''} /></div></FormControl><FormMessage /></FormItem>
                     )} />
+                    {estadoPago === 'Anticipo' && (
+                        <FormField name="anticipo" control={form.control} render={({ field }) => (
+                            <FormItem><FormLabel>Valor Anticipo</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0.00" {...field} value={field.value ?? ''}/></div></FormControl><FormMessage /></FormItem>
+                        )} />
+                    )}
                      <FormItem>
                         <FormLabel>Saldo Pendiente</FormLabel>
                         <div className="relative">
                             <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input type="text" readOnly disabled className="pl-9 font-semibold" value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(saldo)} />
+                            <Input type="text" readOnly disabled className="pl-9 font-semibold" value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(saldo)} />
                         </div>
                      </FormItem>
                 </div>
@@ -407,7 +484,3 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
     </Form>
   );
 }
-
-    
-
-    

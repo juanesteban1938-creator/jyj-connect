@@ -51,6 +51,9 @@ import type { Conductor } from '@/app/dashboard/conductores/page';
 import type { Vehiculo } from '@/app/dashboard/vehiculos/page';
 
 type ServicioEstado = 'Programado' | 'En Servicio' | 'Finalizado' | 'Cancelado';
+type MetodoPago = 'Efectivo' | 'Transferencia' | 'Facturacion';
+type EstadoPago = 'Pendiente' | 'Anticipo' | 'Pagado' | 'Anulado';
+
 
 export type Servicio = {
   id: string;
@@ -67,6 +70,10 @@ export type Servicio = {
   valorServicio?: number;
   anticipo?: number;
   saldo?: number;
+  metodoPago: MetodoPago;
+  costoOperacion?: number;
+  estadoPago: EstadoPago;
+  paradasAdicionales: string[];
 };
 
 const StatCard = ({ title, value, icon, iconBgColor }: { title: string; value: string; icon: React.ReactNode; iconBgColor: string; }) => (
@@ -132,6 +139,10 @@ export default function ServiciosPage() {
               conductor: 'Carlos M.',
               vehiculo: 'Mercedes V-Class • 2390 KLP',
               estado: 'En Servicio',
+              metodoPago: 'Facturacion',
+              costoOperacion: 50000,
+              estadoPago: 'Pendiente',
+              paradasAdicionales: [],
             },
           ];
           localStorage.setItem('servicios', JSON.stringify(initialServicios));
@@ -189,8 +200,12 @@ export default function ServiciosPage() {
             vehiculo: vehiculoPlaca || 'No asignado',
             estado: 'Programado',
             valorServicio: data.valorServicio,
-            anticipo: data.anticipo,
-            saldo: (data.valorServicio || 0) - (data.anticipo || 0),
+            anticipo: data.estadoPago === 'Anticipo' ? data.anticipo : 0,
+            saldo: (data.valorServicio || 0) - (data.estadoPago === 'Anticipo' ? (data.anticipo || 0) : 0),
+            metodoPago: data.metodoPago,
+            costoOperacion: data.costoOperacion,
+            estadoPago: data.estadoPago,
+            paradasAdicionales: data.paradasAdicionales.map(p => p.direccion).filter(Boolean),
         };
 
         const updatedServicios = [...servicios, nuevoServicio];
@@ -433,6 +448,3 @@ export default function ServiciosPage() {
     </div>
   );
 }
-
-
-    
