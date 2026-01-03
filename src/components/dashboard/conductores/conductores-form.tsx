@@ -279,9 +279,9 @@ export function ConductorForm({ conductor, onSave }: Props) {
                         selected={field.value}
                         onSelect={(date) => {
                           field.onChange(date);
-                          setTimeout(() => setIsCalendarOpen(false), 100);
+                          setIsCalendarOpen(false);
                         }}
-                        disabled={(date) => date < new Date('1900-01-01')}
+                        disabled={(date) => date &lt; new Date('1900-01-01')}
                         initialFocus
                       />
                     </PopoverContent>
