@@ -272,12 +272,12 @@ export function ConductorForm({ conductor, onSave }: Props) {
                     <PopoverContent
                       className="w-auto p-0"
                       align="start"
-                      onInteractOutside={(e) => e.preventDefault()}
                     >
                       <Calendar
                         mode="single"
                         selected={field.value}
                         onSelect={(date) => {
+                          console.log("Fecha seleccionada:", date);
                           field.onChange(date);
                           setIsCalendarOpen(false);
                         }}
