@@ -250,7 +250,7 @@ export function ConductorForm({ conductor, onSave }: Props) {
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel className="mb-1.5">Vencimiento Licencia</FormLabel>
-                  <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                  <Popover modal={true} open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button
@@ -276,18 +276,21 @@ export function ConductorForm({ conductor, onSave }: Props) {
                       onInteractOutside={(e) => {
                         e.preventDefault();
                       }}
+                      onPointerDownOutside={(e) => {
+                        e.preventDefault();
+                      }}
                     >
                       <Calendar
                         mode="single"
                         selected={field.value}
                         onSelect={(date) => {
-                          if (date) {
+                          if(date) {
                             field.onChange(date);
                             setIsCalendarOpen(false);
                           }
                         }}
                         disabled={(date) =>
-                          date < new Date("1900-01-01")
+                          date < new Date('1900-01-01')
                         }
                         initialFocus
                       />
