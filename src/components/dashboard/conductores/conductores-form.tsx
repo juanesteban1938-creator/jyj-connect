@@ -71,7 +71,7 @@ export function ConductorForm({ conductor, onSave }: Props) {
         direccion: '',
         barrio: '',
         telefono: '',
-        categoriaLicencia: 'B1' as 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | 'C3',
+        categoriaLicencia: 'B1' as 'A2' | 'B1' | 'B2' | 'C1',
       };
 
   const form = useForm<ConductorFormValues>({
@@ -273,17 +273,22 @@ export function ConductorForm({ conductor, onSave }: Props) {
                     <PopoverContent
                       className="w-auto p-0"
                       align="start"
-                      onInteractOutside={(e) => e.preventDefault()}
+                      onInteractOutside={(e) => {
+                        e.preventDefault();
+                      }}
                     >
-                       <input type="date" className="w-full p-2 border rounded" onChange={(e) => {
-                          const dateValue = e.target.valueAsDate;
-                          if (dateValue) {
-                            const timeZoneOffset = dateValue.getTimezoneOffset() * 60000;
-                            const adjustedDate = new Date(dateValue.getTime() + timeZoneOffset);
-                            field.onChange(adjustedDate);
-                            setIsCalendarOpen(false);
-                          }
-                       }} />
+                       <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={(date) => {
+                          field.onChange(date);
+                          setIsCalendarOpen(false);
+                        }}
+                        disabled={(date) =>
+                          date < new Date("1900-01-01")
+                        }
+                        initialFocus
+                      />
                     </PopoverContent>
                   </Popover>
                   <FormMessage />
