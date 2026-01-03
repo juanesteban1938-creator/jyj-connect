@@ -22,7 +22,7 @@ import { Calendar } from '@/components/jj-ui/calendar';
 import { Calendar as CalendarIcon, User, Briefcase, MapPin, DollarSign, GripVertical, MinusCircle, Search, Truck, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -32,13 +32,16 @@ const formSchema = z.object({
     telefonoCliente: z.string().min(1, 'El teléfono es requerido'),
     conductor: z.string().optional(),
     vehiculo: z.string().optional(),
-    fechaHoraRecogida: z.date().optional(),
+    fechaRecogida: z.date({ required_error: 'La fecha es requerida' }),
+    horaRecogida: z.string({ required_error: 'La hora es requerida' }),
     direccionRecogida: z.string().min(1, 'La dirección es requerida'),
     paradaAdicional: z.string().optional(),
     direccionDestino: z.string().min(1, 'El destino es requerido'),
+    valorServicio: z.coerce.number().optional(),
+    anticipo: z.coerce.number().optional(),
 });
 
-type ServicioFormValues = z.infer<typeof formSchema>;
+export type ServicioFormValues = z.infer<typeof formSchema>;
 
 type Props = {
   onSave: (data: ServicioFormValues) => void;
@@ -56,11 +59,18 @@ export function ServicioForm({ onSave, onCancel }: Props) {
       telefonoCliente: '',
       conductor: '',
       vehiculo: '',
+      horaRecogida: '',
       direccionRecogida: '',
       paradaAdicional: '',
       direccionDestino: '',
+      valorServicio: 0,
+      anticipo: 0
     },
   });
+
+  const valorServicio = form.watch('valorServicio') || 0;
+  const anticipo = form.watch('anticipo') || 0;
+  const saldo = valorServicio - anticipo;
   
   const onSubmit = (data: ServicioFormValues) => {
     onSave(data);
@@ -108,10 +118,10 @@ export function ServicioForm({ onSave, onCancel }: Props) {
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <FormField name="conductor" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Conductor</FormLabel><FormControl><div className="relative"><Input className="pr-10" placeholder="Buscar o escribir nombre..." {...field} /><Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /></div></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Conductor</FormLabel><FormControl><div className="relative"><Input className="pr-10" placeholder="Buscar o escribir nombre..." {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
                      <FormField name="vehiculo" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Vehículo</FormLabel><FormControl><div className="relative"><Input className="pr-10" placeholder="Placa o tipo..." {...field} /><Truck className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /></div></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Vehículo</FormLabel><FormControl><div className="relative"><Input className="pr-10" placeholder="Placa o tipo..." {...field} value={field.value ?? ''} /><Truck className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /></div></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
             </div>
@@ -124,61 +134,74 @@ export function ServicioForm({ onSave, onCancel }: Props) {
                     <MapPin className="h-5 w-5 text-primary"/>
                     <h3 className="text-lg font-semibold">Detalles de Ruta</h3>
                 </div>
-                 <FormField
-                    control={form.control}
-                    name="fechaHoraRecogida"
-                    render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                        <FormLabel>Fecha y Hora de Recogida</FormLabel>
-                        <Popover modal={true} open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                            <PopoverTrigger asChild>
-                            <FormControl>
-                                <Button
-                                variant={'outline'}
-                                type="button"
-                                className={cn(
-                                    'w-full pl-3 text-left font-normal',
-                                    !field.value && 'text-muted-foreground'
-                                )}
+                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <FormField
+                        control={form.control}
+                        name="fechaRecogida"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                            <FormLabel>Fecha de Recogida</FormLabel>
+                            <Popover modal={true} open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                                <PopoverTrigger asChild>
+                                <FormControl>
+                                    <Button
+                                    variant={'outline'}
+                                    type="button"
+                                    className={cn(
+                                        'w-full pl-3 text-left font-normal',
+                                        !field.value && 'text-muted-foreground'
+                                    )}
+                                    >
+                                    {field.value ? (
+                                        format(field.value, 'dd/MM/yyyy')
+                                    ) : (
+                                        <span>Seleccione una fecha</span>
+                                    )}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent 
+                                    className="w-auto p-0" 
+                                    align="start"
+                                    onPointerDownOutside={(e) => e.preventDefault()}
                                 >
-                                {field.value ? (
-                                    format(field.value, 'dd/MM/yyyy') + ", --:--"
-                                ) : (
-                                    <span>mm/dd/yyyy, --:--</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                </Button>
-                            </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent 
-                                className="w-auto p-0" 
-                                align="start"
-                                onPointerDownOutside={(e) => e.preventDefault()}
-                            >
-                                <Calendar
-                                    mode="single"
-                                    selected={field.value}
-                                    onSelect={(date) => {
-                                        if (date) {
+                                    <Calendar
+                                        mode="single"
+                                        selected={field.value}
+                                        onSelect={(date) => {
                                             field.onChange(date);
                                             setIsCalendarOpen(false);
-                                        }
-                                    }}
-                                    initialFocus
-                                />
-                            </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
+                                        }}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="horaRecogida"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                            <FormLabel>Hora de Recogida</FormLabel>
+                            <FormControl>
+                                <Input type="time" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                 </div>
                  <div className="space-y-2">
                     <FormLabel>Dirección de Recogida</FormLabel>
                     <FormField name="direccionRecogida" control={form.control} render={({ field }) => (
                         <FormItem><FormControl><div className="relative"><Input className="pl-9" placeholder="Dirección principal..." {...field} /><div className="absolute left-3 top-1/2 -translate-y-1/2"><OrigenIcon /></div></div></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField name="paradaAdicional" control={form.control} render={({ field }) => (
-                        <FormItem><FormControl><div className="relative"><Input className="pl-9" placeholder="Segunda parada (opcional)..." {...field} /><GripVertical className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><MinusCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500 cursor-pointer" /></div></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormControl><div className="relative"><Input className="pl-9" placeholder="Segunda parada (opcional)..." {...field} value={field.value ?? ''} /><GripVertical className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><MinusCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500 cursor-pointer" /></div></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
                  <FormField name="direccionDestino" control={form.control} render={({ field }) => (
@@ -194,9 +217,20 @@ export function ServicioForm({ onSave, onCancel }: Props) {
                     <Wallet className="h-5 w-5 text-primary"/>
                     <h3 className="text-lg font-semibold">Datos Financieros</h3>
                 </div>
-                {/* Placeholder for financial fields */}
-                <div className="text-sm text-center text-muted-foreground py-4 border rounded-lg">
-                    Campos financieros se añadirán aquí.
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <FormField name="valorServicio" control={form.control} render={({ field }) => (
+                        <FormItem><FormLabel>Valor Servicio</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0.00" {...field} value={field.value ?? ''} /></div></FormControl><FormMessage /></FormItem>
+                    )} />
+                     <FormField name="anticipo" control={form.control} render={({ field }) => (
+                        <FormItem><FormLabel>Anticipo</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0.00" {...field} value={field.value ?? ''}/></div></FormControl><FormMessage /></FormItem>
+                    )} />
+                     <FormItem>
+                        <FormLabel>Saldo Pendiente</FormLabel>
+                        <div className="relative">
+                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input type="text" readOnly disabled className="pl-9 font-semibold" value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(saldo)} />
+                        </div>
+                     </FormItem>
                 </div>
             </div>
 

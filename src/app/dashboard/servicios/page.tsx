@@ -46,12 +46,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
+import { ServicioForm, type ServicioFormValues } from '@/components/dashboard/servicios/servicio-form';
 
 type ServicioEstado = 'Programado' | 'En Servicio' | 'Finalizado' | 'Cancelado';
 
-type Servicio = {
+export type Servicio = {
   id: string;
+  consecutivo: string;
   hora: string;
   fecha: string;
   origen: string;
@@ -61,6 +62,9 @@ type Servicio = {
   conductor: string;
   vehiculo: string;
   estado: ServicioEstado;
+  valorServicio?: number;
+  anticipo?: number;
+  saldo?: number;
 };
 
 const StatCard = ({ title, value, icon, iconBgColor }: { title: string; value: string; icon: React.ReactNode; iconBgColor: string; }) => (
@@ -101,6 +105,7 @@ export default function ServiciosPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedServicio, setSelectedServicio] = useState<Servicio | null>(null);
+  const [consecutiveId, setConsecutiveId] = useState(101);
   const { toast } = useToast();
   const ITEMS_PER_PAGE = 5;
 
@@ -112,6 +117,7 @@ export default function ServiciosPage() {
       const initialServicios: Servicio[] = [
         {
           id: '1',
+          consecutivo: 'GA-CCT-100',
           hora: '14:30',
           fecha: '2024-10-12',
           origen: 'Aeropuerto AGP (T3)',
@@ -124,6 +130,7 @@ export default function ServiciosPage() {
         },
         {
           id: '2',
+          consecutivo: 'GA-CCT-101',
           hora: '16:45',
           fecha: '2024-10-12',
           origen: 'Centro de Convenciones',
@@ -136,6 +143,7 @@ export default function ServiciosPage() {
         },
         {
           id: '3',
+          consecutivo: 'GA-CCT-102',
           hora: '09:00',
           fecha: '2024-10-13',
           origen: 'Hotel Miramar Palace',
@@ -148,6 +156,7 @@ export default function ServiciosPage() {
         },
         {
           id: '4',
+          consecutivo: 'GA-CCT-103',
           hora: '11:00',
           fecha: '2024-10-11',
           origen: 'Oficinas Centrales',
@@ -162,16 +171,54 @@ export default function ServiciosPage() {
       localStorage.setItem('servicios', JSON.stringify(initialServicios));
       setServicios(initialServicios);
     }
+    
+    const storedConsecutive = localStorage.getItem('servicioConsecutivo');
+    if(storedConsecutive) {
+      setConsecutiveId(parseInt(storedConsecutive, 10));
+    }
+
   }, []);
 
-  const handleSaveServicio = (servicioData: any) => {
-    // This is a placeholder for saving logic.
-    // In a real app, you would handle creating/updating the service here.
-    toast({
-      title: '¡Éxito!',
-      description: `El servicio para ${servicioData.nombreCliente} ha sido programado.`,
-    });
-    setIsFormOpen(false);
+  const handleSaveServicio = (data: ServicioFormValues) => {
+    try {
+        const nuevoServicio: Servicio = {
+            id: new Date().toISOString(),
+            consecutivo: `GA-CCT-${consecutiveId}`,
+            fecha: format(data.fechaRecogida!, 'yyyy-MM-dd'),
+            hora: data.horaRecogida || "00:00",
+            cliente: data.nombreCliente,
+            clienteIniciales: data.nombreCliente.substring(0,2).toUpperCase(),
+            origen: data.direccionRecogida,
+            destino: data.direccionDestino,
+            conductor: data.conductor || 'No asignado',
+            vehiculo: data.vehiculo || 'No asignado',
+            estado: 'Programado',
+            valorServicio: data.valorServicio,
+            anticipo: data.anticipo,
+            saldo: (data.valorServicio || 0) - (data.anticipo || 0),
+        };
+
+        const updatedServicios = [...servicios, nuevoServicio];
+        localStorage.setItem('servicios', JSON.stringify(updatedServicios));
+        setServicios(updatedServicios);
+
+        const nextId = consecutiveId + 1;
+        setConsecutiveId(nextId);
+        localStorage.setItem('servicioConsecutivo', nextId.toString());
+
+        toast({
+            title: '¡Servicio Creado!',
+            description: `El servicio ${nuevoServicio.consecutivo} para ${nuevoServicio.cliente} ha sido programado.`,
+        });
+        setIsFormOpen(false);
+    } catch (error) {
+        console.error("Error saving service:", error);
+        toast({
+            variant: "destructive",
+            title: "Error al Guardar",
+            description: "Ocurrió un problema al intentar guardar el servicio.",
+        });
+    }
   };
 
   const filteredServicios = servicios
@@ -195,10 +242,15 @@ export default function ServiciosPage() {
         return s.estado === estadoFiltro;
     })
      .filter(s => {
-        const fechaServicio = parseISO(s.fecha);
-        if (fechaInicio && fechaServicio < fechaInicio) return false;
-        if (fechaFin && fechaServicio > fechaFin) return false;
-        return true;
+        if (!s.fecha) return true; // Keep items with invalid date
+        try {
+            const fechaServicio = parseISO(s.fecha);
+            if (fechaInicio && fechaServicio < fechaInicio) return false;
+            if (fechaFin && fechaServicio > fechaFin) return false;
+            return true;
+        } catch (e) {
+            return true; // Keep items with invalid date format
+        }
     });
 
   const totalPages = Math.ceil(filteredServicios.length / ITEMS_PER_PAGE);
@@ -223,22 +275,26 @@ export default function ServiciosPage() {
   };
   
   const formatDateHeader = (dateString: string) => {
-    const date = parseISO(dateString);
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    let relativeDay;
-    if (date.getTime() === today.getTime()) {
-      relativeDay = 'Hoy';
-    } else if (date.getTime() === tomorrow.getTime()) {
-      relativeDay = 'Mañana';
-    } else {
-      relativeDay = format(date, 'E', { locale: es });
-    }
+    try {
+        const date = parseISO(dateString);
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        let relativeDay;
+        if (date.getTime() === today.getTime()) {
+        relativeDay = 'Hoy';
+        } else if (date.getTime() === tomorrow.getTime()) {
+        relativeDay = 'Mañana';
+        } else {
+        relativeDay = format(date, 'E', { locale: es });
+        }
 
-    return `${relativeDay}, ${format(date, 'dd MMM', {locale: es})}`;
+        return `${relativeDay}, ${format(date, 'dd MMM', {locale: es})}`;
+    } catch (error) {
+        return "Fecha inválida"
+    }
   }
 
   return (
@@ -263,7 +319,7 @@ export default function ServiciosPage() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-3xl">
                 <DialogHeader>
-                    <DialogTitle>Programar Nuevo Servicio <Badge variant="outline" className="ml-2">GA-CCT-124</Badge></DialogTitle>
+                    <DialogTitle>Programar Nuevo Servicio <Badge variant="outline" className="ml-2">{`GA-CCT-${consecutiveId}`}</Badge></DialogTitle>
                     <CardDescription>Diligencie la información para crear una orden de servicio.</CardDescription>
                 </DialogHeader>
                 <ServicioForm onSave={handleSaveServicio} onCancel={() => setIsFormOpen(false)} />
