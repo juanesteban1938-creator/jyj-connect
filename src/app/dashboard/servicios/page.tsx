@@ -32,7 +32,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { format, parseISO, endOfDay, startOfDay } from 'date-fns';
+import { format, parseISO, endOfDay, startOfDay, isBefore, isAfter } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from '@/components/jj-ui/calendar';
@@ -313,11 +313,12 @@ export default function ServiciosPage() {
      .filter(s => {
         if (!s.fecha) return true;
         try {
-            const fechaServicio = startOfDay(parseISO(s.fecha));
-            if (fechaInicio && fechaServicio < startOfDay(fechaInicio)) return false;
-            if (fechaFin && fechaServicio > endOfDay(fechaFin)) return false;
+            const fechaServicio = parseISO(s.fecha);
+            if (fechaInicio && isBefore(fechaServicio, startOfDay(fechaInicio))) return false;
+            if (fechaFin && isAfter(fechaServicio, endOfDay(fechaFin))) return false;
             return true;
         } catch (e) {
+            console.error("Error parsing service date:", e);
             return true;
         }
     });
