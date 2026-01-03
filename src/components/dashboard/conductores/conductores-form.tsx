@@ -62,6 +62,17 @@ export function ConductorForm({ conductor, onSave }: Props) {
 
   const form = useForm<ConductorFormValues>({
     resolver: zodResolver(formSchema),
+    defaultValues: {
+        nombres: '',
+        apellidos: '',
+        cedula: '',
+        direccion: '',
+        barrio: '',
+        telefono: '',
+        categoriaLicencia: 'B1',
+        vencimientoLicencia: undefined,
+        avatarUrl: '',
+    }
   });
 
   useEffect(() => {
@@ -257,12 +268,7 @@ export function ConductorForm({ conductor, onSave }: Props) {
                   <PopoverContent
                     className="w-auto p-0"
                     align="start"
-                    onInteractOutside={(e) => {
-                      e.preventDefault();
-                    }}
-                    onPointerDownOutside={(e) => {
-                      e.preventDefault();
-                    }}
+                    onPointerDownOutside={(e) => e.preventDefault()}
                   >
                     <Calendar
                       mode="single"
