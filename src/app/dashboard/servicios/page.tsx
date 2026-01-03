@@ -64,6 +64,7 @@ export type Servicio = {
   destino: string;
   cliente: string;
   clienteIniciales: string;
+  emailCliente?: string;
   conductor: string;
   vehiculo: string;
   estado: ServicioEstado;
@@ -194,6 +195,7 @@ export default function ServiciosPage() {
             hora: data.horaRecogida || "00:00",
             cliente: data.nombreCliente,
             clienteIniciales: data.nombreCliente.substring(0,2).toUpperCase(),
+            emailCliente: data.emailCliente,
             origen: data.direccionRecogida,
             destino: data.direccionDestino,
             conductor: conductorName || 'No asignado',
