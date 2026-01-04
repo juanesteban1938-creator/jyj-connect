@@ -313,12 +313,12 @@ export default function ServiciosPage() {
      .filter(s => {
         if (!s.fecha) return true;
         try {
-            const fechaServicio = parseISO(s.fecha);
+            const fechaServicio = new Date(s.fecha);
             if (fechaInicio && isBefore(fechaServicio, startOfDay(fechaInicio))) return false;
             if (fechaFin && isAfter(fechaServicio, endOfDay(fechaFin))) return false;
             return true;
         } catch (e) {
-            console.error("Error parsing service date:", e);
+            console.error("Error parsing service date:", s.fecha, e);
             return true;
         }
     });
