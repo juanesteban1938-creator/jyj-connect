@@ -63,6 +63,8 @@ export type Servicio = {
   origen: string;
   destino: string;
   cliente: string;
+  nitCliente: string;
+  telefonoCliente: string;
   clienteIniciales: string;
   emailCliente?: string;
   conductor: string;
@@ -136,6 +138,8 @@ export default function ServiciosPage() {
             origen: 'Aeropuerto AGP (T3)',
             destino: 'Hotel Miramar Palace',
             cliente: 'TechConf 2023',
+            nitCliente: "900.111.222-3",
+            telefonoCliente: "3112223344",
             clienteIniciales: 'TC',
             emailCliente: 'test@test.com',
             conductor: 'Carlos M.',
@@ -154,6 +158,8 @@ export default function ServiciosPage() {
             origen: 'Oficina Central',
             destino: 'Centro de Convenciones',
             cliente: 'Global Corp',
+            nitCliente: "800.444.555-6",
+            telefonoCliente: "3209998877",
             clienteIniciales: 'GC',
             emailCliente: 'test2@test.com',
             conductor: 'Luisa P.',
@@ -172,6 +178,8 @@ export default function ServiciosPage() {
             origen: 'Punto A',
             destino: 'Punto B',
             cliente: 'Cliente de Prueba 1',
+            nitCliente: "123.456.789-0",
+            telefonoCliente: "3001234567",
             clienteIniciales: 'CP',
             emailCliente: 'test3@test.com',
             conductor: 'Conductor de Prueba',
@@ -190,6 +198,8 @@ export default function ServiciosPage() {
             origen: 'Punto C',
             destino: 'Punto D',
             cliente: 'Cliente de Prueba 2',
+            nitCliente: "987.654.321-0",
+            telefonoCliente: "3154443322",
             clienteIniciales: 'C2',
             emailCliente: 'test4@test.com',
             conductor: 'Otro Conductor',
@@ -251,6 +261,8 @@ export default function ServiciosPage() {
             fecha: format(data.fechaRecogida, 'yyyy-MM-dd'),
             hora: data.horaRecogida || "00:00",
             cliente: data.nombreCliente,
+            nitCliente: data.nitCliente,
+            telefonoCliente: data.telefonoCliente,
             clienteIniciales: data.nombreCliente.substring(0,2).toUpperCase(),
             emailCliente: data.emailCliente,
             origen: data.direccionRecogida,
@@ -346,7 +358,7 @@ export default function ServiciosPage() {
   
   const formatDateHeader = (dateString: string) => {
     try {
-        const date = parseISO(dateString);
+        const date = new Date(dateString);
         const today = startOfDay(new Date());
         const tomorrow = startOfDay(new Date());
         tomorrow.setDate(tomorrow.getDate() + 1);
