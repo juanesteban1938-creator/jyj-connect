@@ -197,7 +197,7 @@ export default function ClientesPage() {
           />
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-           <Button variant="outline" className="bg-primary/10 border-primary/20 text-primary hover:bg-primary/20" onClick={downloadExcel}>
+           <Button variant="default" onClick={downloadExcel}>
             <FileDown className="mr-2 h-4 w-4" />
             Exportar
           </Button>
@@ -230,11 +230,11 @@ export default function ClientesPage() {
                     aria-label="Seleccionar todas las filas de la página actual"
                     />
                 </TableHead>
-                <TableHead>CLIENTE / RAZÓN SOCIAL</TableHead>
-                <TableHead>NIT / DOCUMENTO</TableHead>
-                <TableHead>TELÉFONO</TableHead>
-                <TableHead>CORREO ELECTRÓNICO</TableHead>
-                <TableHead className="w-[100px] text-center">ACCIONES</TableHead>
+                <TableHead className="text-foreground">CLIENTE / RAZÓN SOCIAL</TableHead>
+                <TableHead className="text-foreground">NIT / DOCUMENTO</TableHead>
+                <TableHead className="text-foreground">TELÉFONO</TableHead>
+                <TableHead className="text-foreground">CORREO ELECTRÓNICO</TableHead>
+                <TableHead className="w-[100px] text-center text-foreground">ACCIONES</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
