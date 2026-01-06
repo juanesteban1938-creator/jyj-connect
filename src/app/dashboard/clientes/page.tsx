@@ -35,6 +35,7 @@ import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Servicio } from '@/app/dashboard/servicios/page';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 
 
 export type Cliente = {
@@ -58,9 +59,10 @@ export default function ClientesPage() {
   useEffect(() => {
     try {
       const storedServicios = localStorage.getItem('servicios');
+      const clientesMap = new Map<string, Cliente>();
+
       if (storedServicios) {
         const servicios: Servicio[] = JSON.parse(storedServicios);
-        const clientesMap = new Map<string, Cliente>();
 
         const tipoClienteMap = new Map<string, Cliente['tipo']>([
             ['Colegio San Pedro', 'Institucional'],
@@ -84,10 +86,11 @@ export default function ClientesPage() {
             });
           }
         });
-
-        // Add dummy data if no clients are derived from services
-        if (clientesMap.size === 0) {
-           const dummyClientes: Cliente[] = [
+      }
+      
+      // Add dummy data if no clients are derived from services
+      if (clientesMap.size === 0) {
+          const dummyClientes: Cliente[] = [
                 { id: '890.987.654-2', razonSocial: 'Colegio San Pedro', nit: '890.987.654-2', telefono: '+57 601 234 5678', email: 'admin@sanpedro.edu.co', tipo: 'Institucional' },
                 { id: '900.123.456-1', razonSocial: 'Tecnologías del Sur S.A.S', nit: '900.123.456-1', telefono: '+57 300 555 1234', email: 'contacto@tecsur.com', tipo: 'Corporativo' },
                 { id: '860.002.331-5', razonSocial: 'Fundación Esperanza', nit: '860.002.331-5', telefono: '+57 601 555 9876', email: 'info@esperanza.org', tipo: 'ONG' },
@@ -95,10 +98,10 @@ export default function ClientesPage() {
                 { id: '52.345.678', razonSocial: 'Marta Lucía Gómez', nit: '52.345.678', telefono: '+57 310 999 8877', email: 'marta.gomez@gmail.com', tipo: 'Particular' },
             ];
             dummyClientes.forEach(c => clientesMap.set(c.id, c));
-        }
-
-        setClientes(Array.from(clientesMap.values()));
       }
+
+      setClientes(Array.from(clientesMap.values()));
+
     } catch (error) {
       console.error("Failed to process clients from localStorage", error);
       toast({
