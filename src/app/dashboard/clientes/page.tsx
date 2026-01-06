@@ -216,7 +216,7 @@ export default function ClientesPage() {
                 <Edit className="mr-2 h-4 w-4"/>
                 Editar
             </Button>
-             <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600">
+             <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600" disabled>
                 <Trash2 className="mr-2 h-4 w-4"/>
                 Eliminar
             </Button>
