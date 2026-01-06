@@ -1,13 +1,387 @@
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+'use client';
+
+import { useState, useEffect, useMemo } from 'react';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Search,
+  Calendar as CalendarIcon,
+  FileText,
+  DollarSign,
+  TrendingUp,
+  AlertTriangle,
+  Edit,
+} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import {
+  Bar,
+  BarChart,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from 'recharts';
+import {
+  ChartContainer,
+  ChartTooltipContent,
+} from '@/components/ui/chart';
+import type { Servicio } from '@/app/dashboard/servicios/page';
+import { format, parseISO } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Calendar } from '@/components/jj-ui/calendar';
+import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+
+const StatCard = ({ title, value, change, changeType, icon: Icon, iconBgColor }: { title: string; value: string; change?: string; changeType?: 'positive' | 'negative'; icon: React.ElementType, iconBgColor: string }) => (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <div className={`flex h-10 w-10 items-center justify-center rounded-full text-primary ${iconBgColor}`}>
+            <Icon className="h-5 w-5" />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">{value}</div>
+        {change && (
+          <p className="text-xs text-muted-foreground">
+            <span className={cn(
+                changeType === 'positive' && 'text-green-600',
+                changeType === 'negative' && 'text-red-600'
+            )}>
+              {change}
+            </span>
+          </p>
+        )}
+      </CardContent>
+    </Card>
+);
+
+const currencyFormatter = new Intl.NumberFormat('es-CO', {
+  style: 'currency',
+  currency: 'COP',
+  minimumFractionDigits: 0,
+});
 
 export default function FacturacionPage() {
+  const [servicios, setServicios] = useState<Servicio[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [fechaInicio, setFechaInicio] = useState<Date | undefined>();
+  const [fechaFin, setFechaFin] = useState<Date | undefined>();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isInicioOpen, setIsInicioOpen] = useState(false);
+  const [isFinOpen, setIsFinOpen] = useState(false);
+  const { toast } = useToast();
+  const ITEMS_PER_PAGE = 5;
+
+  useEffect(() => {
+    try {
+      const storedServicios = localStorage.getItem('servicios');
+      if (storedServicios) {
+        setServicios(JSON.parse(storedServicios));
+      }
+    } catch (error) {
+      console.error("Failed to load services from localStorage", error);
+      toast({
+          variant: "destructive",
+          title: "Error al cargar datos",
+          description: "No se pudieron cargar los datos de los servicios.",
+      });
+    }
+  }, [toast]);
+  
+  const filteredServicios = useMemo(() => {
+    return servicios
+      .filter(s => {
+        const searchLower = searchTerm.toLowerCase();
+        return (
+          s.cliente.toLowerCase().includes(searchLower) ||
+          s.consecutivo.toLowerCase().includes(searchLower) ||
+          s.origen.toLowerCase().includes(searchLower) ||
+          s.destino.toLowerCase().includes(searchLower)
+        );
+      })
+      .filter(s => {
+        if (!s.fecha) return true;
+        try {
+            const fechaServicio = new Date(s.fecha);
+            if (fechaInicio && fechaServicio < fechaInicio) return false;
+            if (fechaFin && fechaServicio > fechaFin) return false;
+            return true;
+        } catch {
+            return true;
+        }
+      });
+  }, [servicios, searchTerm, fechaInicio, fechaFin]);
+  
+  const paginatedServicios = filteredServicios.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const totalPages = Math.ceil(filteredServicios.length / ITEMS_PER_PAGE);
+  
+  const { facturacionTotal, gananciaNeta, carteraPendiente, facturasPendientes } = useMemo(() => {
+    return servicios.reduce((acc, s) => {
+        const venta = s.valorServicio || 0;
+        const costo = s.costoOperacion || 0;
+        
+        acc.facturacionTotal += venta;
+        
+        if(s.estadoPago === 'Pagado') {
+            acc.gananciaNeta += (venta - costo);
+        }
+
+        if(s.estadoPago === 'Pendiente' || s.estadoPago === 'Anticipo') {
+            const saldo = s.saldo ?? (venta - (s.anticipo ?? 0));
+            acc.carteraPendiente += saldo;
+            if(s.estadoPago === 'Pendiente') acc.facturasPendientes += 1;
+        }
+        
+        return acc;
+    }, { facturacionTotal: 0, gananciaNeta: 0, carteraPendiente: 0, facturasPendientes: 0});
+  }, [servicios]);
+
+  const getEstadoBadge = (estado: Servicio['estadoPago']) => {
+    switch (estado) {
+      case 'Pagado':
+        return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Pagado</Badge>;
+      case 'Pendiente':
+        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Pendiente</Badge>;
+      case 'Anticipo':
+          return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">Anticipo</Badge>;
+      case 'Anulado':
+        return <Badge variant="destructive">Anulado</Badge>;
+      default:
+        return <Badge variant="secondary">{estado}</Badge>;
+    }
+  };
+  
+    const monthlyRecordData = [
+        { name: 'Sem 1', total: Math.floor(Math.random() * 5000000) + 1000000 },
+        { name: 'Sem 2', total: Math.floor(Math.random() * 5000000) + 1000000 },
+        { name: 'Sem 3', total: Math.floor(Math.random() * 5000000) + 1000000 },
+        { name: 'Sem 4', total: Math.floor(Math.random() * 5000000) + 1000000 },
+    ];
+    
+    const annualRecordData = [
+      { month: 'Ene', ventas: 4000, costos: 2400 },
+      { month: 'Feb', ventas: 3000, costos: 1398 },
+      { month: 'Mar', ventas: 2000, costos: 9800 },
+      { month: 'Abr', ventas: 2780, costos: 3908 },
+      { month: 'May', ventas: 1890, costos: 4800 },
+      { month: 'Jun', ventas: 2390, costos: 3800 },
+      { month: 'Jul', ventas: 3490, costos: 4300 },
+      { month: 'Ago', ventas: 3650, costos: 4100 },
+      { month: 'Sep', ventas: 3800, costos: 4200 },
+      { month: 'Oct', ventas: 4200, costos: 4500 },
+      { month: 'Nov', ventas: 4500, costos: 4800 },
+      { month: 'Dic', ventas: 4800, costos: 5000 },
+    ];
+
   return (
-    <div>
-      <h1 className="mb-4 font-headline text-3xl font-bold">Facturación y Cartera</h1>
-       <Card>
+    <div className="space-y-6">
+      <header>
+        <p className="text-sm text-muted-foreground">Inicio / Facturación</p>
+        <h1 className="font-headline text-3xl font-bold">Facturación y Cartera</h1>
+        <p className="text-muted-foreground">
+          Gestión financiera, control de pagos y estado de cuenta.
+        </p>
+      </header>
+      
+       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+         <StatCard 
+            title="FACTURACIÓN TOTAL" 
+            value={currencyFormatter.format(facturacionTotal)}
+            change="+12% vs mes anterior"
+            changeType="positive"
+            icon={DollarSign}
+            iconBgColor="bg-blue-100"
+         />
+          <StatCard 
+            title="GANANCIA NETA" 
+            value={currencyFormatter.format(gananciaNeta)}
+            change="+5% vs mes anterior"
+            changeType="positive"
+            icon={TrendingUp}
+            iconBgColor="bg-green-100"
+         />
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">CARTERA PENDIENTE</CardTitle>
+                <div className="flex h-10 w-10 items-center justify-center rounded-full text-primary bg-red-100">
+                    <AlertTriangle className="h-5 w-5 text-red-500" />
+                </div>
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold">{currencyFormatter.format(carteraPendiente)}</div>
+                <p className="text-xs text-muted-foreground">
+                    <span className="font-semibold text-red-600">{facturasPendientes} Facturas pendientes</span>
+                </p>
+            </CardContent>
+          </Card>
+      </div>
+
+       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Récord Mensual (Octubre)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={{}} className="h-[200px] w-full">
+              <BarChart data={monthlyRecordData} margin={{ top: 20, right: 20, bottom: 20, left: -20 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="name" tickLine={false} axisLine={false} />
+                <YAxis hide={true}/>
+                <Tooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="total" fill="hsl(var(--primary))" radius={4} />
+              </BarChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle>Récord Anual (2023)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={{}} className="h-[200px] w-full">
+              <LineChart data={annualRecordData} margin={{ top: 20, right: 40, bottom: 20, left: 0 }}>
+                 <CartesianGrid vertical={false} />
+                <XAxis dataKey="month" tickLine={false} axisLine={false} />
+                <YAxis tickFormatter={(val) => currencyFormatter.format(val).slice(0,-4) + 'M'} />
+                <Tooltip content={<ChartTooltipContent />} />
+                <Line type="monotone" dataKey="ventas" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4, fill: "hsl(var(--primary))" }}/>
+                <Line type="monotone" dataKey="costos" stroke="hsl(var(--muted-foreground))" strokeWidth={2} strokeDasharray="3 3"/>
+              </LineChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
         <CardHeader>
-          <CardTitle>Gestión de Facturación y Cartera</CardTitle>
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 flex-1">
+                    <Popover open={isInicioOpen} onOpenChange={setIsInicioOpen}>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal md:w-[180px]", !fechaInicio && "text-muted-foreground")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {fechaInicio ? format(fechaInicio, 'dd MMM yyyy') : <span>Fecha Inicio</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" onPointerDownOutside={(e) => e.preventDefault()}>
+                            <Calendar mode="single" selected={fechaInicio} onSelect={(date) => { setFechaInicio(date); setIsInicioOpen(false); }} initialFocus />
+                        </PopoverContent>
+                    </Popover>
+                    <Popover open={isFinOpen} onOpenChange={setIsFinOpen}>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal md:w-[180px]", !fechaFin && "text-muted-foreground")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {fechaFin ? format(fechaFin, 'dd MMM yyyy') : <span>Fecha Fin</span>}
+                            </Button>
+                        </PopoverTrigger>
+                         <PopoverContent className="w-auto p-0" onPointerDownOutside={(e) => e.preventDefault()}>
+                            <Calendar mode="single" selected={fechaFin} onSelect={(date) => { setFechaFin(date); setIsFinOpen(false); }} initialFocus />
+                        </PopoverContent>
+                    </Popover>
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input placeholder="Buscar por cliente, ruta o ID..." className="pl-9" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                    </div>
+                </div>
+                 <Button className="w-full sm:w-auto">
+                    <FileText className="mr-2 h-4 w-4" />
+                    Ver Facturación por Mes
+                </Button>
+            </div>
         </CardHeader>
+        <CardContent>
+            <Table>
+            <TableHeader>
+                <TableRow>
+                <TableHead>ID Servicio</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Ruta / Descripción</TableHead>
+                <TableHead className="text-right">Venta</TableHead>
+                <TableHead className="text-right">Costo</TableHead>
+                <TableHead className="text-right">Ganancia</TableHead>
+                <TableHead className="text-center">Estado</TableHead>
+                <TableHead className="text-center">Acciones</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {paginatedServicios.map((servicio) => (
+                <TableRow key={servicio.id}>
+                    <TableCell className="font-medium">{servicio.consecutivo}</TableCell>
+                    <TableCell>{format(parseISO(servicio.fecha), "dd MMM yyyy", { locale: es })}</TableCell>
+                    <TableCell>{servicio.cliente}</TableCell>
+                    <TableCell>{servicio.origen} - {servicio.destino}</TableCell>
+                    <TableCell className="text-right">{currencyFormatter.format(servicio.valorServicio || 0)}</TableCell>
+                    <TableCell className="text-right">{currencyFormatter.format(servicio.costoOperacion || 0)}</TableCell>
+                    <TableCell className="text-right font-semibold text-green-600">
+                        {currencyFormatter.format((servicio.valorServicio || 0) - (servicio.costoOperacion || 0))}
+                    </TableCell>
+                    <TableCell className="text-center">{getEstadoBadge(servicio.estadoPago)}</TableCell>
+                     <TableCell className="text-center">
+                        <Button variant="ghost" size="icon" disabled>
+                            <Edit className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                    </TableCell>
+                </TableRow>
+                ))}
+                 {paginatedServicios.length === 0 && (
+                    <TableRow>
+                        <TableCell colSpan={9} className="h-24 text-center">
+                            No se encontraron servicios para el rango seleccionado.
+                        </TableCell>
+                    </TableRow>
+                )}
+            </TableBody>
+            </Table>
+        </CardContent>
+         <div className="flex flex-col items-center justify-between gap-4 p-4 border-t md:flex-row">
+          <div className="text-sm text-muted-foreground">
+            Mostrando <strong>{Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filteredServicios.length)}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredServicios.length)}</strong> de <strong>{filteredServicios.length}</strong> servicios
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+              }
+              disabled={currentPage === totalPages || totalPages === 0}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
       </Card>
     </div>
   );
