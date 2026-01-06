@@ -12,14 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   Search,
-  MoreHorizontal,
   FileDown,
   PlusCircle,
   Edit,
@@ -27,16 +20,14 @@ import {
   Home,
   Mail,
   Phone,
-  Filter,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Servicio } from '@/app/dashboard/servicios/page';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-
+import { format } from 'date-fns';
 
 export type Cliente = {
   id: string; // nitCliente can serve as a unique ID
@@ -73,9 +64,7 @@ export default function ClientesPage() {
 
         servicios.forEach(servicio => {
           if (servicio.nitCliente && !clientesMap.has(servicio.nitCliente)) {
-
             const tipo = tipoClienteMap.get(servicio.cliente) || 'Particular';
-
             clientesMap.set(servicio.nitCliente, {
               id: servicio.nitCliente,
               razonSocial: servicio.cliente,
@@ -88,7 +77,6 @@ export default function ClientesPage() {
         });
       }
       
-      // Add dummy data if no clients are derived from services
       if (clientesMap.size === 0) {
           const dummyClientes: Cliente[] = [
                 { id: '890.987.654-2', razonSocial: 'Colegio San Pedro', nit: '890.987.654-2', telefono: '+57 601 234 5678', email: 'admin@sanpedro.edu.co', tipo: 'Institucional' },
@@ -130,8 +118,8 @@ export default function ClientesPage() {
   const filteredClientes = clientes.filter(
     (c) =>
       c.razonSocial.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.nit.includes(searchTerm) ||
-      c.telefono.includes(searchTerm)
+      c.nit.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.telefono.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalPages = Math.ceil(filteredClientes.length / ITEMS_PER_PAGE);
@@ -153,6 +141,34 @@ export default function ClientesPage() {
     }
   };
 
+  const downloadExcel = () => {
+    if (filteredClientes.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No hay datos para exportar",
+        description: "Filtre los clientes que desea descargar.",
+      });
+      return;
+    }
+    try {
+        const dataToExport = filteredClientes.map(({ id, ...rest }) => rest);
+        const csvContent = "data:text/csv;charset=utf-8," 
+          + [Object.keys(dataToExport[0]), ...dataToExport.map(item => Object.values(item))].map(e => e.join(",")).join("\n");
+        
+        const link = document.createElement("a");
+        link.setAttribute("href", encodeURI(csvContent));
+        link.setAttribute("download", `clientes_${format(new Date(), 'yyyyMMdd')}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    } catch(error) {
+        toast({
+            variant: "destructive",
+            title: "Error al descargar",
+            description: "No se pudo generar el archivo Excel.",
+        });
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -182,15 +198,11 @@ export default function ClientesPage() {
           />
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <Button variant="outline">
-                <Filter className="mr-2 h-4 w-4" />
-                Filtros
-            </Button>
-           <Button variant="outline" className="bg-primary/10 border-primary/20 text-primary hover:bg-primary/20">
+           <Button variant="outline" className="bg-primary/10 border-primary/20 text-primary hover:bg-primary/20" onClick={downloadExcel}>
             <FileDown className="mr-2 h-4 w-4" />
             Exportar
           </Button>
-          <Button className="w-full sm:w-auto">
+          <Button className="w-full sm:w-auto" disabled>
             <PlusCircle className="mr-2 h-4 w-4" />
             Añadir Cliente
           </Button>
@@ -252,27 +264,38 @@ export default function ClientesPage() {
                         </div>
                     </TableCell>
                     <TableCell>
+                        {cliente.email ? (
                         <div className="flex items-center gap-2 text-muted-foreground">
                             <Mail className="h-4 w-4" />
                             <a href={`mailto:${cliente.email}`} className="hover:underline">{cliente.email}</a>
                         </div>
+                        ) : (
+                            <span className="text-muted-foreground/50">No disponible</span>
+                        )}
                     </TableCell>
                     <TableCell className="text-center">
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" disabled>
                             <Edit className="h-4 w-4 text-muted-foreground" />
                         </Button>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" disabled>
                             <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
                     </TableCell>
                 </TableRow>
                 ))}
+                 {paginatedClientes.length === 0 && (
+                    <TableRow>
+                        <TableCell colSpan={6} className="h-24 text-center">
+                            No se encontraron clientes.
+                        </TableCell>
+                    </TableRow>
+                )}
             </TableBody>
             </Table>
         </div>
          <div className="flex flex-col items-center justify-between gap-4 p-4 border-t md:flex-row">
           <div className="text-sm text-muted-foreground">
-            Mostrando <strong>{Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filteredClientes.length)}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredClientes.length)}</strong> de <strong>{filteredClientes.length}</strong> clientes
+            Mostrando <strong>{filteredClientes.length > 0 ? Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filteredClientes.length) : 0}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredClientes.length)}</strong> de <strong>{filteredClientes.length}</strong> clientes
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -305,7 +328,7 @@ export default function ClientesPage() {
               onClick={() =>
                 setCurrentPage((prev) => Math.min(prev + 1, totalPages))
               }
-              disabled={currentPage === totalPages}
+              disabled={currentPage === totalPages || totalPages === 0}
             >
               Siguiente
             </Button>
