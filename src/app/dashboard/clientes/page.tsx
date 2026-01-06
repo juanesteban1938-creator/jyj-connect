@@ -14,7 +14,6 @@ import { Input } from '@/components/ui/input';
 import {
   Search,
   FileDown,
-  PlusCircle,
   Edit,
   Trash2,
   Home,
@@ -202,17 +201,13 @@ export default function ClientesPage() {
             <FileDown className="mr-2 h-4 w-4" />
             Exportar
           </Button>
-          <Button className="w-full sm:w-auto" disabled>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Añadir Cliente
-          </Button>
         </div>
       </div>
       
        {selectedRows.length > 0 && (
          <div className="flex items-center justify-start gap-2 rounded-md bg-muted p-2">
             <Badge variant="secondary" className="px-2 py-1">{selectedRows.length} Seleccionado(s)</Badge>
-             <Button variant="ghost" size="sm" disabled={selectedRows.length !== 1}>
+             <Button variant="ghost" size="sm" disabled>
                 <Edit className="mr-2 h-4 w-4"/>
                 Editar
             </Button>
