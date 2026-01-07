@@ -77,6 +77,8 @@ export type Servicio = {
   costoOperacion?: number;
   estadoPago: EstadoPago;
   paradasAdicionales: string[];
+  numeroComprobante?: string;
+  banco?: string;
 };
 
 const StatCard = ({ title, value, icon, iconBgColor }: { title: string; value: string; icon: React.ReactNode; iconBgColor: string; }) => (
@@ -218,6 +220,8 @@ export default function ServiciosPage() {
             metodoPago: 'Transferencia',
             estadoPago: 'Anticipo',
             paradasAdicionales: [],
+            numeroComprobante: 'TR-12345',
+            banco: 'Bancolombia',
           },
         ];
 
@@ -286,6 +290,8 @@ export default function ServiciosPage() {
             costoOperacion: data.costoOperacion,
             estadoPago: data.estadoPago,
             paradasAdicionales: data.paradasAdicionales.map(p => p.direccion).filter(Boolean),
+            numeroComprobante: data.numeroComprobante,
+            banco: data.banco,
         };
 
         const updatedServicios = [...servicios, nuevoServicio];
@@ -537,4 +543,5 @@ export default function ServiciosPage() {
   );
 }
 
+    
     

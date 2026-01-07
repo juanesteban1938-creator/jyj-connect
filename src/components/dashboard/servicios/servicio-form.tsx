@@ -62,6 +62,8 @@ const formSchema = z.object({
     costoOperacion: z.coerce.number().optional(),
     estadoPago: z.enum(['Pendiente', 'Anticipo', 'Pagado', 'Anulado']),
     anticipo: z.coerce.number().optional(),
+    numeroComprobante: z.string().optional(),
+    banco: z.string().optional(),
 
 }).refine(data => data.esConductorNoRegistrado ? !!data.conductorOtro : !!data.conductorId, {
     message: 'Debe especificar un conductor',
@@ -72,6 +74,9 @@ const formSchema = z.object({
 }).refine(data => data.estadoPago !== 'Anticipo' || (data.estadoPago === 'Anticipo' && data.anticipo !== undefined && data.anticipo > 0), {
     message: 'Debe especificar un valor de anticipo',
     path: ['anticipo']
+}).refine(data => data.metodoPago !== 'Transferencia' || (data.metodoPago === 'Transferencia' && data.numeroComprobante && data.banco), {
+    message: 'Comprobante y banco son requeridos para transferencia',
+    path: ['numeroComprobante']
 });
 
 
@@ -83,6 +88,31 @@ type Props = {
   conductores: Conductor[];
   vehiculos: Vehiculo[];
 };
+
+const bancosColombia = [
+  "Bancolombia",
+  "Banco de Bogotá",
+  "Davivienda",
+  "BBVA Colombia",
+  "Banco de Occidente",
+  "Banco Popular",
+  "Banco AV Villas",
+  "Itaú Corpbanca Colombia",
+  "Scotiabank Colpatria",
+  "GNB Sudameris",
+  "Banco Caja Social",
+  "Citibank Colombia",
+  "Banco Agrario de Colombia",
+  "Bancamía",
+  "Banco W",
+  "Bancoomeva",
+  "Banco Falabella",
+  "Banco Pichincha",
+  "Banco Serfinanza",
+  "RappiPay",
+  "Lulo Bank",
+  "Nequi",
+];
 
 export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -108,7 +138,9 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
       valorServicio: 0,
       costoOperacion: 0,
       estadoPago: 'Pendiente',
-      anticipo: 0
+      anticipo: 0,
+      numeroComprobante: '',
+      banco: '',
     },
   });
 
@@ -127,6 +159,7 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
 
   const valorServicio = form.watch('valorServicio') || 0;
   const estadoPago = form.watch('estadoPago');
+  const metodoPago = form.watch('metodoPago');
   const anticipo = estadoPago === 'Anticipo' ? (form.watch('anticipo') || 0) : 0;
   const saldo = valorServicio - anticipo;
   
@@ -422,20 +455,6 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
                     <h3 className="text-lg font-semibold">Datos Financieros</h3>
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                     <FormField name="metodoPago" control={form.control} render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Método de Pago</FormLabel>
-                             <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                    <SelectItem value="Efectivo">Pago en Efectivo</SelectItem>
-                                    <SelectItem value="Transferencia">Transferencia</SelectItem>
-                                    <SelectItem value="Facturacion">A Facturación</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
                      <FormField name="estadoPago" control={form.control} render={({ field }) => (
                         <FormItem>
                             <FormLabel>Estado del Pago</FormLabel>
@@ -451,7 +470,48 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
                             <FormMessage />
                         </FormItem>
                     )} />
+                     <FormField name="metodoPago" control={form.control} render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Método de Pago</FormLabel>
+                             <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    <SelectItem value="Efectivo">Pago en Efectivo</SelectItem>
+                                    <SelectItem value="Transferencia">Transferencia</SelectItem>
+                                    <SelectItem value="Facturacion">A Facturación</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
                 </div>
+                
+                {metodoPago === 'Transferencia' && (
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <FormField name="numeroComprobante" control={form.control} render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Número de Comprobante</FormLabel>
+                                <FormControl><Input placeholder="Ej. 12345678" {...field} value={field.value ?? ''} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <FormField name="banco" control={form.control} render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Banco</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un banco..." /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        {bancosColombia.map(banco => (
+                                            <SelectItem key={banco} value={banco}>{banco}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                    </div>
+                )}
+                
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <FormField name="valorServicio" control={form.control} render={({ field }) => (
                         <FormItem><FormLabel>Venta Servicio</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0.00" {...field} value={field.value ?? ''} /></div></FormControl><FormMessage /></FormItem>
@@ -489,3 +549,5 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
     </Form>
   );
 }
+
+    

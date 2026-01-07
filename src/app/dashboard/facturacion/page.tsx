@@ -122,11 +122,19 @@ export default function FacturacionPage() {
       if (s.id === selectedServicio.id) {
         const valorServicio = data.valorServicio || 0;
         const anticipo = data.estadoPago === 'Anticipo' ? (data.anticipo || 0) : 0;
-        return {
+        
+        let updatedService: Servicio = {
           ...s,
           ...data,
           saldo: valorServicio - anticipo,
         };
+
+        if (data.metodoPago !== 'Transferencia') {
+            delete updatedService.numeroComprobante;
+            delete updatedService.banco;
+        }
+
+        return updatedService;
       }
       return s;
     });
@@ -455,3 +463,5 @@ export default function FacturacionPage() {
     </div>
   );
 }
+
+    
