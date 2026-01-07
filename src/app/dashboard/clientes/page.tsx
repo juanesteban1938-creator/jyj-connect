@@ -19,7 +19,23 @@ import {
   Home,
   Mail,
   Phone,
+  PlusCircle,
+  MoreHorizontal,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { ClienteForm } from '@/components/dashboard/clientes/cliente-form';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -44,13 +60,23 @@ export default function ClientesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     try {
+      const storedClientes = localStorage.getItem('clientes');
       const storedServicios = localStorage.getItem('servicios');
       const clientesMap = new Map<string, Cliente>();
 
+      // Load from clientes storage first
+      if (storedClientes) {
+        const parsedClientes: Cliente[] = JSON.parse(storedClientes);
+        parsedClientes.forEach(c => clientesMap.set(c.id, c));
+      }
+
+      // Then, augment with data from servicios if not present
       if (storedServicios) {
         const servicios: Servicio[] = JSON.parse(storedServicios);
 
@@ -87,7 +113,10 @@ export default function ClientesPage() {
             dummyClientes.forEach(c => clientesMap.set(c.id, c));
       }
 
-      setClientes(Array.from(clientesMap.values()));
+      const allClientes = Array.from(clientesMap.values());
+      setClientes(allClientes);
+      localStorage.setItem('clientes', JSON.stringify(allClientes));
+
 
     } catch (error) {
       console.error("Failed to process clients from localStorage", error);
@@ -98,6 +127,69 @@ export default function ClientesPage() {
       });
     }
   }, [toast]);
+  
+  const handleSave = (clienteData: Omit<Cliente, 'id'>) => {
+    try {
+        let updatedClientes;
+        const isEditing = selectedCliente && clientes.some(c => c.id === selectedCliente.id);
+  
+        if (isEditing && selectedCliente) {
+          updatedClientes = clientes.map((c) =>
+            c.id === selectedCliente.id ? { ...selectedCliente, ...clienteData } : c
+          );
+        } else {
+          const newCliente = { ...clienteData, id: clienteData.nit }; // Use NIT as ID for new clients
+          updatedClientes = [...clientes, newCliente];
+        }
+        localStorage.setItem('clientes', JSON.stringify(updatedClientes));
+        setClientes(updatedClientes);
+        
+        toast({
+          title: "¡Éxito!",
+          description: `El cliente ${clienteData.razonSocial} ha sido ${isEditing ? 'actualizado' : 'creado'} correctamente.`,
+        });
+  
+        setIsFormOpen(false);
+        setSelectedCliente(null);
+    } catch (error) {
+         console.error("Error saving cliente:", error);
+          toast({
+              variant: "destructive",
+              title: "Error al guardar",
+              description: "Ocurrió un problema al intentar guardar el cliente.",
+          });
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    const clienteToDelete = clientes.find((c) => c.id === id);
+    if (!clienteToDelete) return;
+
+    const updatedClientes = clientes.filter((c) => c.id !== id);
+    localStorage.setItem('clientes', JSON.stringify(updatedClientes));
+    setClientes(updatedClientes);
+
+    toast({
+      title: "Cliente Eliminado",
+      description: `El cliente ${clienteToDelete.razonSocial} ha sido eliminado.`,
+      variant: "destructive",
+    });
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedRows.length === 0) return;
+    const updatedClientes = clientes.filter((v) => !selectedRows.includes(v.id));
+    localStorage.setItem('clientes', JSON.stringify(updatedClientes));
+    setClientes(updatedClientes);
+    
+    toast({
+      title: `${selectedRows.length} Cliente(s) Eliminado(s)`,
+      description: "Los clientes seleccionados han sido eliminados.",
+      variant: "destructive",
+    });
+
+    setSelectedRows([]);
+  };
   
   const handleSelectRow = (id: string) => {
     setSelectedRows((prev) =>
@@ -112,6 +204,11 @@ export default function ClientesPage() {
     } else {
       setSelectedRows(prev => prev.filter(id => !currentIds.includes(id)));
     }
+  };
+  
+  const openEditForm = (cliente: Cliente) => {
+    setSelectedCliente(cliente);
+    setIsFormOpen(true);
   };
 
   const filteredClientes = clientes.filter(
@@ -179,7 +276,7 @@ export default function ClientesPage() {
       <div>
         <h1 className="text-3xl font-bold">Cartera de Clientes</h1>
         <p className="text-muted-foreground">
-          Gestione de forma centralizada la información de sus clientes. Visualice, edite y mantenga actualizada la base de datos de contactos para una operación eficiente.
+          Gestione de forma centralizada la información de sus clientes.
         </p>
       </div>
 
@@ -197,21 +294,52 @@ export default function ClientesPage() {
           />
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-           <Button variant="default" onClick={downloadExcel}>
+           <Button variant="outline" onClick={downloadExcel}>
             <FileDown className="mr-2 h-4 w-4" />
             Exportar
           </Button>
+           <Dialog
+            open={isFormOpen}
+            onOpenChange={(isOpen) => {
+              setIsFormOpen(isOpen);
+              if (!isOpen) setSelectedCliente(null);
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button className="w-full sm:w-auto">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Añadir Cliente
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-xl">
+              <DialogHeader>
+                <DialogTitle>
+                  {selectedCliente ? 'Editar Cliente' : 'Nuevo Cliente'}
+                </DialogTitle>
+              </DialogHeader>
+              <ClienteForm
+                cliente={selectedCliente}
+                onSave={handleSave}
+                onCancel={() => setIsFormOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
       
        {selectedRows.length > 0 && (
          <div className="flex items-center justify-start gap-2 rounded-md bg-muted p-2">
             <Badge variant="secondary" className="px-2 py-1">{selectedRows.length} Seleccionado(s)</Badge>
-             <Button variant="ghost" size="sm" disabled>
+             <Button variant="ghost" size="sm" onClick={() => {
+                 const clienteToEdit = clientes.find(c => c.id === selectedRows[0]);
+                 if(clienteToEdit && selectedRows.length === 1) {
+                     openEditForm(clienteToEdit);
+                 }
+             }} disabled={selectedRows.length !== 1}>
                 <Edit className="mr-2 h-4 w-4"/>
                 Editar
             </Button>
-             <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600" disabled>
+             <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600" onClick={handleDeleteSelected}>
                 <Trash2 className="mr-2 h-4 w-4"/>
                 Eliminar
             </Button>
@@ -232,8 +360,7 @@ export default function ClientesPage() {
                 </TableHead>
                 <TableHead className="text-foreground">CLIENTE / RAZÓN SOCIAL</TableHead>
                 <TableHead className="text-foreground">NIT / DOCUMENTO</TableHead>
-                <TableHead className="text-foreground">TELÉFONO</TableHead>
-                <TableHead className="text-foreground">CORREO ELECTRÓNICO</TableHead>
+                <TableHead className="text-foreground">CONTACTO</TableHead>
                 <TableHead className="w-[100px] text-center text-foreground">ACCIONES</TableHead>
                 </TableRow>
             </TableHeader>
@@ -257,30 +384,40 @@ export default function ClientesPage() {
                             <Phone className="h-4 w-4" />
                             <span>{cliente.telefono}</span>
                         </div>
-                    </TableCell>
-                    <TableCell>
-                        {cliente.email ? (
+                        {cliente.email && (
                         <div className="flex items-center gap-2 text-muted-foreground">
                             <Mail className="h-4 w-4" />
                             <a href={`mailto:${cliente.email}`} className="hover:underline">{cliente.email}</a>
                         </div>
-                        ) : (
-                            <span className="text-muted-foreground/50">No disponible</span>
                         )}
                     </TableCell>
                     <TableCell className="text-center">
-                        <Button variant="ghost" size="icon" disabled>
-                            <Edit className="h-4 w-4 text-muted-foreground" />
+                       <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" disabled>
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEditForm(cliente)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            className="text-red-500"
+                            onClick={() => handleDelete(cliente.id)}
+                        >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Eliminar
+                        </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                     </TableCell>
                 </TableRow>
                 ))}
                  {paginatedClientes.length === 0 && (
                     <TableRow>
-                        <TableCell colSpan={6} className="h-24 text-center">
+                        <TableCell colSpan={5} className="h-24 text-center">
                             No se encontraron clientes.
                         </TableCell>
                     </TableRow>
