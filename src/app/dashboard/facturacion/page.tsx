@@ -26,6 +26,7 @@ import {
   AlertTriangle,
   Edit,
   Eye,
+  MoreHorizontal,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -53,7 +54,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { FacturacionForm, type FacturacionFormValues } from '@/components/dashboard/facturacion/facturacion-form';
 import { CuentaCobro } from '@/components/dashboard/facturacion/cuenta-cobro';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 
 const StatCard = ({ title, value, change, changeType, icon: Icon, iconBgColor }: { title: string; value: string; change?: string; changeType?: 'positive' | 'negative'; icon: React.ElementType, iconBgColor: string }) => (
     <Card>
@@ -95,6 +97,7 @@ export default function FacturacionPage() {
   const [isFinOpen, setIsFinOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isFacturaOpen, setIsFacturaOpen] = useState(false);
+  const [isResumenOpen, setIsResumenOpen] = useState(false);
   const [selectedServicio, setSelectedServicio] = useState<Servicio | null>(null);
   const { toast } = useToast();
   const ITEMS_PER_PAGE = 5;
@@ -361,6 +364,20 @@ export default function FacturacionPage() {
             )}
         </DialogContent>
       </Dialog>
+      
+      <Dialog open={isResumenOpen} onOpenChange={(isOpen) => { setIsResumenOpen(isOpen); if (!isOpen) setSelectedServicio(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Resumen del Servicio</DialogTitle>
+            <DialogDescription>
+              Resumen financiero detallado para el servicio {selectedServicio?.consecutivo}.
+            </DialogDescription>
+          </DialogHeader>
+            {selectedServicio && (
+              <ResumenServicio servicio={selectedServicio} />
+            )}
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>
@@ -428,12 +445,28 @@ export default function FacturacionPage() {
                     </TableCell>
                     <TableCell className="text-center">{getEstadoBadge(servicio.estadoPago)}</TableCell>
                      <TableCell className="text-center">
-                        <Button variant="ghost" size="icon" onClick={() => { setSelectedServicio(servicio); setIsFacturaOpen(true); }}>
-                            <Eye className="h-4 w-4 text-muted-foreground" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => { setSelectedServicio(servicio); setIsFormOpen(true); }}>
-                            <Edit className="h-4 w-4 text-muted-foreground" />
-                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                    <span className="sr-only">Abrir menú</span>
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => { setSelectedServicio(servicio); setIsResumenOpen(true); }}>
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    Ver resumen
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => { setSelectedServicio(servicio); setIsFormOpen(true); }}>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Editar información
+                                </DropdownMenuItem>
+                                 <DropdownMenuItem onClick={() => { setSelectedServicio(servicio); setIsFacturaOpen(true); }}>
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Ver cuenta de cobro
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </TableCell>
                 </TableRow>
                 ))}
