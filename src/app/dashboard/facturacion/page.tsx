@@ -342,7 +342,7 @@ export default function FacturacionPage() {
                     </TableCell>
                     <TableCell className="text-center">{getEstadoBadge(servicio.estadoPago)}</TableCell>
                      <TableCell className="text-center">
-                        <Button variant="ghost" size="icon" disabled>
+                        <Button variant="ghost" size="icon">
                             <Edit className="h-4 w-4 text-muted-foreground" />
                         </Button>
                     </TableCell>
