@@ -69,8 +69,24 @@ export function CuentaCobro({ servicio }: Props) {
             <ScrollArea className="h-[70vh] w-full">
             <div id="printable-area" className="p-8 bg-white text-black text-xs font-sans">
                 <header className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="border-2 border-black">
-                        <div className="border-b-2 border-black text-center font-bold p-1">FECHA DE EXPEDICION</div>
+                    <div>
+                         <p className="font-bold">Transportes Especiales J&J S.A.S</p>
+                        <p>NIT. 901.123.456-7</p>
+                        <p>Carrera 100 # 25 - 30, Bogotá D.C.</p>
+                        <p>Tel. 3101234567</p>
+                    </div>
+                     <div className="flex items-start justify-end">
+                        <div className="text-center">
+                            <p className="font-bold">CUENTA DE COBRO No</p>
+                            <div className="border-2 border-black p-2 mt-1">
+                                <span className="font-bold">{servicio.consecutivo}</span>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+                
+                 <div className="border-2 border-black">
+                     <div className="border-b-2 border-black text-center font-bold p-1">FECHA DE EXPEDICION</div>
                         <div className="grid grid-cols-3 text-center">
                             <div className="border-r-2 border-black">
                                 <div className="border-b-2 border-black font-bold">AÑO</div>
@@ -85,22 +101,11 @@ export function CuentaCobro({ servicio }: Props) {
                                 <div>{format(fecha, 'dd')}</div>
                             </div>
                         </div>
-                    </div>
-                     <div className="flex items-start justify-end">
-                        <div className="text-center">
-                            <p className="font-bold">CUENTA DE COBRO No</p>
-                            <div className="border-2 border-black p-2 mt-1">
-                                <span className="font-bold">{servicio.consecutivo}</span>
-                            </div>
-                        </div>
-                    </div>
-                </header>
+                 </div>
                 
-                <div className="my-6 space-y-1 text-center">
-                    <p className="font-bold">NOMBRE DEL CLIENTE:</p>
-                    <p>{servicio.cliente}</p>
-                    <p className="font-bold mt-2">NIT DEL CLIENTE:</p>
-                    <p>{servicio.nitCliente}</p>
+                <div className="my-6 space-y-1">
+                    <p className="font-bold">NOMBRE DEL CLIENTE: {servicio.cliente}</p>
+                    <p className="font-bold">NIT DEL CLIENTE: {servicio.nitCliente}</p>
                 </div>
 
 
@@ -158,19 +163,16 @@ export function CuentaCobro({ servicio }: Props) {
                 
                 <div className="mt-8 flex justify-between items-end">
                     <div className="w-64">
-                        <Image src="https://i.ibb.co/qFPM4pf4/firma.png" alt="Firma Juan Esteban Ovalle" width={180} height={50} objectFit="contain" />
-                        <div className="border-t-2 border-black pt-1">
+                         <div className="w-full">
+                            <Image src="https://i.ibb.co/qFPM4pf4/firma.png" alt="Firma Juan Esteban Ovalle" width={180} height={50} objectFit="contain" />
+                        </div>
+                        <div className="border-t-2 border-black pt-1 mt-1">
                              <p className="font-bold">JUAN ESTEBAN OVALLE PINEDA</p>
                             <p className="font-bold">C.C. Ó NIT: 1023940641</p>
                         </div>
                     </div>
                     <div className="text-right">
-                        <p>
-                            Transportes Especiales J&J S.A.S <br/>
-                            NIT. 901.123.456-7 <br/>
-                            Carrera 100 # 25 - 30, Bogotá D.C. <br/>
-                            Tel. 3101234567
-                        </p>
+                       <p className="text-[8px] mt-1">Verifica autenticidad</p>
                     </div>
                 </div>
             </div>
