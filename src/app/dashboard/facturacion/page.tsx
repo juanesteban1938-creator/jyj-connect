@@ -335,11 +335,9 @@ export default function FacturacionPage() {
               Visualización de la cuenta de cobro para el servicio {selectedServicio?.consecutivo}.
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="h-[70vh] w-full">
             {selectedServicio && (
               <CuentaCobro servicio={selectedServicio} />
             )}
-          </ScrollArea>
         </DialogContent>
       </Dialog>
 

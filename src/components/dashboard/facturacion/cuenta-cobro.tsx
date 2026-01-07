@@ -18,12 +18,8 @@ const currencyFormatter = new Intl.NumberFormat('es-CO', {
 });
 
 const Signature = () => (
-    <div className="w-48 h-20 -mb-4">
-        <svg viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
-             <path d="M10 50 C 15 20, 40 15, 40 25 C 40 35, 20 45, 20 55" stroke="black" fill="transparent" strokeWidth="1.2"/>
-             <path d="M35 25 Q 60 10, 85 28 T 130 30" stroke="black" fill="transparent" strokeWidth="1.5" />
-             <path d="M120 30 C 135 45, 150 25, 165 35" stroke="black" fill="transparent" strokeWidth="1.2" />
-        </svg>
+    <div className="w-48 h-20 flex items-center justify-center border-dashed border-2 border-gray-300 -mb-4">
+        <span className="text-gray-400 text-xs">Firma</span>
     </div>
 );
 
@@ -75,6 +71,7 @@ export function CuentaCobro({ servicio }: Props) {
     
     return (
         <div className="p-1">
+            <ScrollArea className="h-[70vh] w-full">
             <div id="printable-area" className="p-8 bg-white text-black text-xs font-sans">
                 <header className="grid grid-cols-2 gap-4 mb-4">
                     <div className="border-2 border-black">
@@ -119,7 +116,7 @@ export function CuentaCobro({ servicio }: Props) {
                         <div className="col-span-2 border-b-2 border-black p-1"><span className="font-bold">NÚMERO DE IDENTIFICACION:</span></div>
                      </div>
                       <div className="border-l-2 border-r-2 border-black grid grid-cols-3">
-                        <div className="border-b-2 border-r-2 border-black p-1 h-12">JUAN ESTEBAN OVALLE PINEDA</div>
+                        <div className="border-b-2 border-r-2 border-black p-1 h-12 flex items-center">JUAN ESTEBAN OVALLE PINEDA</div>
                         <div className="col-span-2 border-b-2 border-black p-1 flex items-center justify-between">
                             <span>1.023.940.641</span>
                             <div className="border-l-2 border-black h-full flex items-center pl-2 ml-2">
@@ -134,9 +131,9 @@ export function CuentaCobro({ servicio }: Props) {
                         <div className="col-span-2 p-1"><span className="font-bold">CIUDAD</span></div>
                      </div>
                       <div className="border-l-2 border-r-2 border-b-2 border-black grid grid-cols-5 h-10">
-                        <div className="col-span-2 border-r-2 border-black p-1">CALLE 34 B SUR # 3A-16</div>
-                        <div className="border-r-2 border-black p-1">3058532676</div>
-                        <div className="col-span-2 p-1">BOGOTA</div>
+                        <div className="col-span-2 border-r-2 border-black p-1 flex items-center">CALLE 34 B SUR # 3A-16</div>
+                        <div className="border-r-2 border-black p-1 flex items-center">3058532676</div>
+                        <div className="col-span-2 p-1 flex items-center">BOGOTA</div>
                      </div>
                 </div>
 
@@ -182,6 +179,7 @@ export function CuentaCobro({ servicio }: Props) {
                     </div>
                 </div>
             </div>
+            </ScrollArea>
 
             <Separator className="my-4" />
 
