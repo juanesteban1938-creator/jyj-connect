@@ -6,6 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { Printer } from "lucide-react";
 import React from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 type Props = {
     servicio: Servicio;
