@@ -208,11 +208,11 @@ export default function RentabilidadPage() {
         <StatCard title="Utilidad Neta" value={currencyFormatter.format(utilidadNeta)} change="+8% vs mes ant." changeType="positive" icon={CreditCard} iconBgColor="bg-orange-100" />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-1">
-            <RentabilidadForms vehiculos={vehiculos} onSave={handleSaveTransaccion} />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+        <div className="lg:col-span-2">
+          <RentabilidadForms vehiculos={vehiculos} onSave={handleSaveTransaccion} />
         </div>
-        <div className="lg:col-span-2 grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="lg:col-span-3 grid grid-cols-1 gap-6 md:grid-cols-2">
             <Card>
                 <CardHeader>
                     <CardTitle>Distribución de Gastos</CardTitle>
