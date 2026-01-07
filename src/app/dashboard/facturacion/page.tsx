@@ -453,15 +453,15 @@ export default function FacturacionPage() {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => { setSelectedServicio(servicio); setIsResumenOpen(true); }}>
+                                <DropdownMenuItem onSelect={() => { setSelectedServicio(servicio); setIsResumenOpen(true); }}>
                                     <Eye className="mr-2 h-4 w-4" />
                                     Ver resumen
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => { setSelectedServicio(servicio); setIsFormOpen(true); }}>
+                                <DropdownMenuItem onSelect={() => { setSelectedServicio(servicio); setIsFormOpen(true); }}>
                                     <Edit className="mr-2 h-4 w-4" />
                                     Editar información
                                 </DropdownMenuItem>
-                                 <DropdownMenuItem onClick={() => { setSelectedServicio(servicio); setIsFacturaOpen(true); }}>
+                                 <DropdownMenuItem onSelect={() => { setSelectedServicio(servicio); setIsFacturaOpen(true); }}>
                                     <FileText className="mr-2 h-4 w-4" />
                                     Ver cuenta de cobro
                                 </DropdownMenuItem>
