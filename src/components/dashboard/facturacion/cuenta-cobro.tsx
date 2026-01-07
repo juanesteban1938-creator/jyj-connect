@@ -100,7 +100,7 @@ export function CuentaCobro({ servicio }: Props) {
                     <p className="font-bold">NOMBRE DEL CLIENTE</p>
                     <p>{servicio.cliente}</p>
                     <p className="font-bold mt-2">NIT DEL CLIENTE</p>
-                    <p>{servicio.nitCliente}</p>
+                    <p>{`NIT: ${servicio.nitCliente}`}</p>
                 </div>
 
 
@@ -156,10 +156,10 @@ export function CuentaCobro({ servicio }: Props) {
                     <p className="font-bold">NOTA: POR FAVOR REALIZAR TRANSFERENCIA A LA CUENTA DE AHORROS No: 032-053858-69 DE BANCO BANCOLOMBIA AHORROS A MI NOMBRE</p>
                 </div>
                 
-                <div className="mt-8 flex justify-between items-end">
+                 <div className="mt-8 flex justify-between items-end">
                     <div className="w-64">
                          <Image src="https://i.ibb.co/qFPM4pf4/firma.png" alt="Firma Juan Esteban Ovalle" width={180} height={50} objectFit="contain" />
-                        <div className="border-t-2 border-black w-full pt-1 mt-2">
+                        <div className="border-t-2 border-black pt-1">
                              <p className="font-bold">JUAN ESTEBAN OVALLE PINEDA</p>
                             <p className="font-bold">C.C. Ó NIT: 1023940641</p>
                         </div>
