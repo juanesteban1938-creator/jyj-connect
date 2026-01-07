@@ -468,7 +468,7 @@ export default function FacturacionPage() {
                                 {fechaInicio ? format(fechaInicio, 'dd MMM yyyy') : <span>Fecha Inicio</span>}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
+                        <PopoverContent className="w-auto p-0" onPointerDownOutside={(e) => e.preventDefault()}>
                             <Calendar mode="single" selected={fechaInicio} onSelect={(date) => { setFechaInicio(date); setIsInicioOpen(false); }} initialFocus />
                         </PopoverContent>
                     </Popover>
@@ -479,7 +479,7 @@ export default function FacturacionPage() {
                                 {fechaFin ? format(fechaFin, 'dd MMM yyyy') : <span>Fecha Fin</span>}
                             </Button>
                         </PopoverTrigger>
-                         <PopoverContent className="w-auto p-0" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
+                         <PopoverContent className="w-auto p-0" onPointerDownOutside={(e) => e.preventDefault()}>
                             <Calendar mode="single" selected={fechaFin} onSelect={(date) => { setFechaFin(date); setIsFinOpen(false); }} initialFocus />
                         </PopoverContent>
                     </Popover>
