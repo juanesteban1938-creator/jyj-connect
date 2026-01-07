@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import { Printer } from "lucide-react";
 import React from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import Image from "next/image";
 
 type Props = {
     servicio: Servicio;
@@ -157,8 +158,8 @@ export function CuentaCobro({ servicio }: Props) {
                 
                 <div className="mt-8 flex justify-between items-end">
                     <div>
-                        <div className="w-64 h-20 flex items-center justify-center border-dashed border-2 border-gray-300 mb-1">
-                            <span className="text-gray-400 text-xs">Firma</span>
+                        <div className="relative w-64 h-20 mb-1">
+                             <Image src="https://i.ibb.co/qFPM4pf4/firma.png" alt="Firma Juan Esteban Ovalle" layout="fill" objectFit="contain" />
                         </div>
                         <div className="border-t-2 border-black w-64 pt-1">
                              <p className="font-bold">JUAN ESTEBAN OVALLE PINEDA</p>
