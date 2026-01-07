@@ -58,6 +58,7 @@ import { CuentaCobro } from '@/components/dashboard/facturacion/cuenta-cobro';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { AbonoForm, AbonoFormValues } from '@/components/dashboard/facturacion/abono-form';
+import { FacturacionMensual, type MonthlyBilling } from '@/components/dashboard/facturacion/facturacion-mensual';
 
 const StatCard = ({ title, value, change, changeType, icon: Icon, iconBgColor }: { title: string; value: string; change?: string; changeType?: 'positive' | 'negative'; icon: React.ElementType, iconBgColor: string }) => (
     <Card>
@@ -101,6 +102,7 @@ export default function FacturacionPage() {
   const [isAbonoFormOpen, setIsAbonoFormOpen] = useState(false);
   const [isFacturaOpen, setIsFacturaOpen] = useState(false);
   const [isResumenOpen, setIsResumenOpen] = useState(false);
+  const [isFacturacionMesOpen, setIsFacturacionMesOpen] = useState(false);
   const [selectedServicio, setSelectedServicio] = useState<Servicio | null>(null);
   const { toast } = useToast();
   const ITEMS_PER_PAGE = 5;
@@ -284,7 +286,7 @@ export default function FacturacionPage() {
     }
   };
   
-  const { monthlyRecordData, annualRecordData } = useMemo(() => {
+  const { monthlyRecordData, annualRecordData, facturacionMensualData } = useMemo(() => {
     const now = new Date();
     
     // Monthly data (last 4 weeks)
@@ -307,6 +309,8 @@ export default function FacturacionPage() {
       costos: 0,
     }));
 
+     const monthlyBillingMap = new Map<string, MonthlyBilling>();
+
     servicios.forEach(s => {
       const serviceDate = new Date(s.fecha);
       if (getYear(serviceDate) === getYear(now)) {
@@ -314,9 +318,29 @@ export default function FacturacionPage() {
         annualData[monthIndex].ventas += s.valorServicio || 0;
         annualData[monthIndex].costos += s.costoOperacion || 0;
       }
+      
+      const monthKey = format(serviceDate, 'yyyy-MM');
+      if (!monthlyBillingMap.has(monthKey)) {
+        monthlyBillingMap.set(monthKey, {
+            mes: format(serviceDate, 'MMMM yyyy', { locale: es }),
+            totalFacturado: 0,
+            totalCostos: 0,
+            ganancia: 0,
+            numServicios: 0,
+        });
+      }
+
+      const monthBilling = monthlyBillingMap.get(monthKey)!;
+      const venta = s.valorServicio || 0;
+      const costo = s.costoOperacion || 0;
+      
+      monthBilling.totalFacturado += venta;
+      monthBilling.totalCostos += costo;
+      monthBilling.ganancia += (venta - costo);
+      monthBilling.numServicios += 1;
     });
 
-    return { monthlyRecordData: monthlyData, annualRecordData: annualData };
+    return { monthlyRecordData: monthlyData, annualRecordData: annualData, facturacionMensualData: Array.from(monthlyBillingMap.values()) };
   }, [servicios]);
 
   return (
@@ -456,6 +480,18 @@ export default function FacturacionPage() {
             )}
         </DialogContent>
       </Dialog>
+      
+      <Dialog open={isFacturacionMesOpen} onOpenChange={setIsFacturacionMesOpen}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Facturación por Mes</DialogTitle>
+            <DialogDescription>
+              Resumen financiero detallado por cada mes de operación.
+            </DialogDescription>
+          </DialogHeader>
+          <FacturacionMensual data={facturacionMensualData} />
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>
@@ -488,7 +524,7 @@ export default function FacturacionPage() {
                         <Input placeholder="Buscar por cliente, ruta o ID..." className="pl-9" value={searchTerm} onChange={(e) => {setSearchTerm(e.target.value); setCurrentPage(1);}} />
                     </div>
                 </div>
-                 <Button className="w-full sm:w-auto">
+                 <Button className="w-full sm:w-auto" onClick={() => setIsFacturacionMesOpen(true)}>
                     <FileText className="mr-2 h-4 w-4" />
                     Ver Facturación por Mes
                 </Button>
