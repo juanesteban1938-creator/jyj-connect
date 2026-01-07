@@ -8,7 +8,7 @@ import {
   Truck,
   Briefcase,
   Monitor,
-  TrendingUp,
+  PieChart,
   BookText,
   LogOut,
   Users2,
@@ -35,7 +35,7 @@ const menuItems = [
 ];
 
 const finanzasItems = [
-    { href: '/dashboard/rentabilidad', label: 'Rentabilidad', icon: TrendingUp },
+    { href: '/dashboard/rentabilidad', label: 'Rentabilidad', icon: PieChart },
     { href: '/dashboard/facturacion', label: 'Facturación', icon: BookText },
 ]
 
