@@ -27,6 +27,7 @@ import {
   Edit,
   Eye,
   MoreHorizontal,
+  PlusCircle,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -54,8 +55,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { FacturacionForm, type FacturacionFormValues } from '@/components/dashboard/facturacion/facturacion-form';
 import { CuentaCobro } from '@/components/dashboard/facturacion/cuenta-cobro';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
+import { AbonoForm, AbonoFormValues } from '@/components/dashboard/facturacion/abono-form';
 
 const StatCard = ({ title, value, change, changeType, icon: Icon, iconBgColor }: { title: string; value: string; change?: string; changeType?: 'positive' | 'negative'; icon: React.ElementType, iconBgColor: string }) => (
     <Card>
@@ -96,6 +98,7 @@ export default function FacturacionPage() {
   const [isInicioOpen, setIsInicioOpen] = useState(false);
   const [isFinOpen, setIsFinOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isAbonoFormOpen, setIsAbonoFormOpen] = useState(false);
   const [isFacturaOpen, setIsFacturaOpen] = useState(false);
   const [isResumenOpen, setIsResumenOpen] = useState(false);
   const [selectedServicio, setSelectedServicio] = useState<Servicio | null>(null);
@@ -154,6 +157,44 @@ export default function FacturacionPage() {
     setSelectedServicio(null);
   };
   
+    const handleSaveAbono = (data: AbonoFormValues) => {
+    if (!selectedServicio) return;
+    
+    const updatedServicios = servicios.map(s => {
+      if (s.id === selectedServicio.id) {
+        const valorAbono = data.valorAbono || 0;
+        const anticipoAnterior = s.anticipo || 0;
+        const nuevoAnticipo = anticipoAnterior + valorAbono;
+        const valorServicio = s.valorServicio || 0;
+        const nuevoSaldo = valorServicio - nuevoAnticipo;
+
+        let updatedService: Servicio = {
+          ...s,
+          anticipo: nuevoAnticipo,
+          saldo: nuevoSaldo,
+          estadoPago: nuevoSaldo <= 0 ? 'Pagado' : data.nuevoEstadoPago,
+          metodoPago: data.metodoPago,
+          numeroComprobante: data.metodoPago === 'Transferencia' ? data.numeroComprobante : s.numeroComprobante,
+          banco: data.metodoPago === 'Transferencia' ? data.banco : s.banco,
+        };
+
+        return updatedService;
+      }
+      return s;
+    });
+
+    localStorage.setItem('servicios', JSON.stringify(updatedServicios));
+    setServicios(updatedServicios);
+
+    toast({
+      title: '¡Abono Registrado!',
+      description: `Se ha registrado un abono de ${currencyFormatter.format(data.valorAbono || 0)} al servicio ${selectedServicio.consecutivo}.`,
+    });
+
+    setIsAbonoFormOpen(false);
+    setSelectedServicio(null);
+  }
+
   const filteredServicios = useMemo(() => {
     return servicios
       .filter(s => {
@@ -350,6 +391,22 @@ export default function FacturacionPage() {
           )}
         </DialogContent>
       </Dialog>
+      
+       <Dialog open={isAbonoFormOpen} onOpenChange={(isOpen) => { setIsAbonoFormOpen(isOpen); if (!isOpen) setSelectedServicio(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Registrar Abono</DialogTitle>
+            <DialogDescription>Abona un pago al saldo pendiente del servicio {selectedServicio?.consecutivo}.</DialogDescription>
+          </DialogHeader>
+          {selectedServicio && (
+            <AbonoForm
+              servicio={selectedServicio}
+              onSave={handleSaveAbono}
+              onCancel={() => { setIsAbonoFormOpen(false); setSelectedServicio(null); }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isFacturaOpen} onOpenChange={(isOpen) => { setIsFacturaOpen(isOpen); if (!isOpen) setSelectedServicio(null); }}>
         <DialogContent className="sm:max-w-4xl">
@@ -465,6 +522,15 @@ export default function FacturacionPage() {
                                     <FileText className="mr-2 h-4 w-4" />
                                     Ver cuenta de cobro
                                 </DropdownMenuItem>
+                                 {(servicio.saldo ?? 0) > 0 && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onSelect={() => { setSelectedServicio(servicio); setIsAbonoFormOpen(true); }} className="text-blue-600 focus:text-blue-700">
+                                        <PlusCircle className="mr-2 h-4 w-4" />
+                                        Registrar Abono
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </TableCell>
