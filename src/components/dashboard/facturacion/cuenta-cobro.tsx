@@ -158,9 +158,7 @@ export function CuentaCobro({ servicio }: Props) {
                 
                 <div className="mt-8 flex justify-between items-end">
                     <div>
-                        <div className="relative w-64 h-20 mb-1">
-                             <Image src="https://i.ibb.co/qFPM4pf4/firma.png" alt="Firma Juan Esteban Ovalle" layout="fill" objectFit="contain" />
-                        </div>
+                         <Image src="https://i.ibb.co/qFPM4pf4/firma.png" alt="Firma Juan Esteban Ovalle" width={256} height={80} objectFit="contain" />
                         <div className="border-t-2 border-black w-64 pt-1">
                              <p className="font-bold">JUAN ESTEBAN OVALLE PINEDA</p>
                             <p className="font-bold">C.C. Ó NIT: 1023940641</p>
