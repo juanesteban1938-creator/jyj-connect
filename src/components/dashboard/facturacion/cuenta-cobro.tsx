@@ -155,17 +155,17 @@ export function CuentaCobro({ servicio }: Props) {
                     <p className="font-bold">NOTA: POR FAVOR REALIZAR TRANSFERENCIA A LA CUENTA DE AHORROS No: 032-053858-69 DE BANCO BANCOLOMBIA AHORROS A MI NOMBRE</p>
                 </div>
                 
-                <div className="mt-20 flex justify-between items-end">
+                <div className="mt-8 flex justify-between items-end">
                     <div>
-                        <div className="w-64 h-20 flex items-center justify-center border-dashed border-2 border-gray-300">
-                           <span className="text-gray-400 text-xs">Firma</span>
+                        <div className="w-64 h-20 flex items-center justify-center border-dashed border-2 border-gray-300 mb-1">
+                            <span className="text-gray-400 text-xs">Firma</span>
                         </div>
                         <div className="border-t-2 border-black w-64 pt-1">
                              <p className="font-bold">JUAN ESTEBAN OVALLE PINEDA</p>
                             <p className="font-bold">C.C. Ó NIT: 1023940641</p>
                         </div>
                     </div>
-                    <div>
+                    <div className="text-right">
                         <p>
                             Transportes Especiales J&J S.A.S <br/>
                             NIT. 901.123.456-7 <br/>
