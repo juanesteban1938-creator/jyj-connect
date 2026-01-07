@@ -153,7 +153,7 @@ export function CuentaCobro({ servicio }: Props) {
                         <div className="col-span-1 p-2 border-r-2 border-black text-center">1</div>
                         <div className="col-span-8 p-2 border-r-2 border-black">
                            <p className="font-bold">CONCEPTO DE:</p>
-                           <p>Transporte especial de pasajeros con el vehiculo {placaVehiculo} en la ruta {servicio.origen} - {servicio.destino}.</p>
+                           <p>Transporte especial de pasajeros con el vehiculo {placaVehiculo} en la ruta {servicio.origen} hasta {servicio.destino}.</p>
                         </div>
                         <div className="col-span-3 p-2 text-right">{currencyFormatter.format(servicio.valorServicio || 0)}</div>
                     </div>
