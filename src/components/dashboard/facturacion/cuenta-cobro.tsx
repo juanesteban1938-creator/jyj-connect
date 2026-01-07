@@ -17,6 +17,20 @@ const currencyFormatter = new Intl.NumberFormat('es-CO', {
   minimumFractionDigits: 0,
 });
 
+const Signature = () => (
+    <div className="w-48 h-20 -mb-4">
+        <svg viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 40 Q 15 10, 30 30 T 50 40" stroke="black" fill="transparent" strokeWidth="1.5"/>
+            <path d="M40 35 Q 50 20, 70 30 T 90 38" stroke="black" fill="transparent" strokeWidth="1.5"/>
+            <path d="M65 32 Q 80 25, 95 35 T 120 40" stroke="black" fill="transparent" strokeWidth="1.5"/>
+            <path d="M110 38 Q 120 30, 130 35 T 150 38" stroke="black" fill="transparent" strokeWidth="1.2"/>
+            <path d="M145 38 Q 155 32, 165 38 T 180 42" stroke="black" fill="transparent" strokeWidth="1.2"/>
+            <path d="M175 41 Q 185 30, 190 45 C 195 60, 180 50, 170 45" stroke="black" fill="transparent" strokeWidth="1.5"/>
+        </svg>
+    </div>
+);
+
+
 export function CuentaCobro({ servicio }: Props) {
     
     const handlePrint = () => {
@@ -155,6 +169,7 @@ export function CuentaCobro({ servicio }: Props) {
                 
                 <div className="mt-20 flex justify-between items-end">
                     <div>
+                        <Signature />
                         <div className="border-t-2 border-black w-64 pt-1">
                              <p className="font-bold">JUAN ESTEBAN OVALLE PINEDA</p>
                             <p className="font-bold">C.C. Ó NIT: 1023940641</p>
