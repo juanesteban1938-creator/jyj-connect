@@ -81,6 +81,9 @@
   body {
     @apply bg-background text-foreground;
   }
+  body[style*="pointer-events: none"] {
+    pointer-events: auto !important;
+  }
 }
 
 .rdp-months { display: flex !important; flex-direction: column !important; }

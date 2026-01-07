@@ -531,22 +531,22 @@ export default function FacturacionPage() {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem onSelect={() => handleOpenResumen(servicio)}>
+                                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleOpenResumen(servicio); }}>
                                     <Eye className="mr-2 h-4 w-4" />
                                     Ver resumen
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => handleOpenEditar(servicio)}>
+                                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleOpenEditar(servicio); }}>
                                     <Edit className="mr-2 h-4 w-4" />
                                     Editar información
                                 </DropdownMenuItem>
-                                 <DropdownMenuItem onSelect={() => handleOpenFactura(servicio)}>
+                                 <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleOpenFactura(servicio); }}>
                                     <FileText className="mr-2 h-4 w-4" />
                                     Ver cuenta de cobro
                                 </DropdownMenuItem>
                                  {(servicio.saldo ?? 0) > 0 && (
                                   <>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem onSelect={() => handleOpenAbono(servicio)} className="text-blue-600 focus:text-blue-700">
+                                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleOpenAbono(servicio); }} className="text-blue-600 focus:text-blue-700">
                                         <PlusCircle className="mr-2 h-4 w-4" />
                                         Registrar Abono
                                     </DropdownMenuItem>
