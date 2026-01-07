@@ -84,7 +84,8 @@ export function CuentaCobro({ servicio }: Props) {
             <div id="printable-area" className="p-8 bg-white text-black text-xs font-sans">
                 <header className="grid grid-cols-2 gap-4 mb-4">
                      <div>
-                        <p className="font-bold">Transportes Especiales J&J S.A.S</p>
+                        <Image src="https://i.ibb.co/X8y6cBn/logo-jj.png" alt="Logo J&J" width={150} height={50} />
+                        <p className="font-bold mt-2">Transportes Especiales J&J S.A.S</p>
                         <p>NIT. 901.123.456-7</p>
                         <p>Carrera 100 # 25 - 30, Bogotá D.C.</p>
                         <p>Tel. 3101234567</p>
@@ -177,8 +178,8 @@ export function CuentaCobro({ servicio }: Props) {
                 
                 <div className="mt-8 flex justify-between items-end">
                     <div className="w-64">
-                        <div className="w-full">
-                            <Image src="https://i.ibb.co/qFPM4pf4/firma.png" alt="Firma Juan Esteban Ovalle" width={180} height={50} objectFit="contain" />
+                        <div className="relative h-[50px]">
+                          <Image src="https://i.ibb.co/qFPM4pf4/firma.png" alt="Firma Juan Esteban Ovalle" layout="fill" objectFit="contain" />
                         </div>
                         <div className="border-t-2 border-black pt-1 mt-1">
                             <p className="font-bold">JUAN ESTEBAN OVALLE PINEDA</p>
@@ -192,7 +193,7 @@ export function CuentaCobro({ servicio }: Props) {
                 </div>
 
                 <div className="mt-12 text-center">
-                    <p className="font-bold">Esta factura fue generada a través de Software propio suministrado por J&amp;J Connect</p>
+                    <p className="font-bold">Esta factura fue generada a través de Software propio suministrado por J&J Connect</p>
                 </div>
             </div>
             </ScrollArea>
