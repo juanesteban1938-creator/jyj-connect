@@ -24,7 +24,7 @@ import {
   DollarSign,
   Filter,
   Fuel,
-  LineChart,
+  LineChart as LineChartIcon,
   Search,
   Wrench,
 } from 'lucide-react';
@@ -38,6 +38,8 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  Line,
+  LineChart
 } from 'recharts';
 import type { Servicio } from '@/app/dashboard/servicios/page';
 import type { Vehiculo } from '@/app/dashboard/vehiculos/page';
@@ -47,6 +49,7 @@ import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { RentabilidadForms } from '@/components/dashboard/rentabilidad/rentabilidad-forms';
 import { Badge } from '@/components/ui/badge';
+import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 
 export type Transaccion = {
   id: string;
@@ -201,7 +204,7 @@ export default function RentabilidadPage() {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <StatCard title="Ingresos Brutos" value={currencyFormatter.format(ingresosBrutos)} change="+12% vs mes ant." changeType="positive" icon={DollarSign} iconBgColor="bg-green-100" />
-        <StatCard title="Gastos Totales" value={currencyFormatter.format(gastosTotales)} change="+5% vs mes ant." changeType="negative" icon={LineChart} iconBgColor="bg-red-100" />
+        <StatCard title="Gastos Totales" value={currencyFormatter.format(gastosTotales)} change="+5% vs mes ant." changeType="negative" icon={LineChartIcon} iconBgColor="bg-red-100" />
         <StatCard title="Utilidad Neta" value={currencyFormatter.format(utilidadNeta)} change="+8% vs mes ant." changeType="positive" icon={CreditCard} iconBgColor="bg-orange-100" />
       </div>
 

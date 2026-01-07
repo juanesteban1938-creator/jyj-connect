@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { useForm, useFormContext, FormProvider } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {
@@ -8,7 +8,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
   CardFooter
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,7 +32,6 @@ import { Calendar } from '@/components/jj-ui/calendar';
 import { AlertCircle, CalendarIcon, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { useToast } from '@/hooks/use-toast';
 import type { Transaccion } from '@/app/dashboard/rentabilidad/page';
 import type { Vehiculo } from '@/app/dashboard/vehiculos/page';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -63,7 +61,6 @@ type Props = {
 };
 
 function RegistrarGastoForm({ vehiculos, onSave }: Props) {
-  const { toast } = useToast();
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   const form = useForm<GastoFormValues>({
@@ -100,7 +97,7 @@ function RegistrarGastoForm({ vehiculos, onSave }: Props) {
              )} />
             <div className="grid grid-cols-2 gap-4">
                 <FormField name="fecha" control={form.control} render={({ field }) => (
-                    <FormItem className="flex flex-col"><FormLabel>Fecha</FormLabel><Popover modal open={isCalendarOpen} onOpenChange={setIsCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" type="button" className={cn(!field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, 'dd/MM/yy') : <span>mm/dd/yyyy</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" onPointerDownOutside={(e) => e.preventDefault()}><Calendar mode="single" selected={field.value} onSelect={(date) => {field.onChange(date); setIsCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+                    <FormItem className="flex flex-col"><FormLabel>Fecha</FormLabel><Popover modal open={isCalendarOpen} onOpenChange={setIsCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" type="button" className={cn("text-sm justify-start text-left font-normal",!field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, 'dd/MM/yy') : <span>Fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" onPointerDownOutside={(e) => e.preventDefault()}><Calendar mode="single" selected={field.value} onSelect={(date) => {field.onChange(date); setIsCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
                 )}/>
                 <FormField name="categoria" control={form.control} render={({ field }) => (
                     <FormItem><FormLabel>Categoría</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{['Combustible', 'Mantenimiento', 'Peajes', 'Otros'].map(c=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
@@ -110,7 +107,7 @@ function RegistrarGastoForm({ vehiculos, onSave }: Props) {
                 <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input placeholder="Detalle del gasto" {...field} /></FormControl><FormMessage/></FormItem>
             )} />
             <FormField name="valor" control={form.control} render={({field}) => (
-                <FormItem><FormLabel>Valor</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0.00" {...field} /></div></FormControl><FormMessage/></FormItem>
+                <FormItem><FormLabel>Valor</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0" {...field} /></div></FormControl><FormMessage/></FormItem>
             )} />
           </CardContent>
           <CardFooter>
@@ -123,7 +120,6 @@ function RegistrarGastoForm({ vehiculos, onSave }: Props) {
 }
 
 function RegistrarIngresoForm({ vehiculos, onSave }: Props) {
-  const { toast } = useToast();
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   const form = useForm<IngresoFormValues>({
@@ -188,13 +184,13 @@ function RegistrarIngresoForm({ vehiculos, onSave }: Props) {
                 <FormItem><FormLabel>Vehículo (Opcional)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger></FormControl><SelectContent>{vehiculos.map(v => <SelectItem key={v.id} value={v.id}>{v.marca} {v.linea} ({v.placa})</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
              )} />
              <FormField name="fecha" control={form.control} render={({ field }) => (
-                <FormItem className="flex flex-col"><FormLabel>Fecha</FormLabel><Popover modal open={isCalendarOpen} onOpenChange={setIsCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" type="button" className={cn(!field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, 'dd/MM/yy') : <span>mm/dd/yyyy</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" onPointerDownOutside={(e) => e.preventDefault()}><Calendar mode="single" selected={field.value} onSelect={(date) => {field.onChange(date); setIsCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+                <FormItem className="flex flex-col"><FormLabel>Fecha</FormLabel><Popover modal open={isCalendarOpen} onOpenChange={setIsCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" type="button" className={cn("text-sm justify-start text-left font-normal",!field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, 'dd/MM/yy') : <span>Fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" onPointerDownOutside={(e) => e.preventDefault()}><Calendar mode="single" selected={field.value} onSelect={(date) => {field.onChange(date); setIsCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
             )}/>
              <FormField name="descripcion" control={form.control} render={({field}) => (
                 <FormItem><FormLabel>Concepto</FormLabel><FormControl><Input placeholder="Concepto del ingreso" {...field} /></FormControl><FormMessage/></FormItem>
             )} />
              <FormField name="valor" control={form.control} render={({field}) => (
-                <FormItem><FormLabel>Valor</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0.00" {...field} /></div></FormControl><FormMessage/></FormItem>
+                <FormItem><FormLabel>Valor</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0" {...field} /></div></FormControl><FormMessage/></FormItem>
             )} />
              <Alert>
                 <AlertCircle className="h-4 w-4" />
