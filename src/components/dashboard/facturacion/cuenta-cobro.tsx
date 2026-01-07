@@ -22,14 +22,13 @@ export function CuentaCobro({ servicio }: Props) {
     const handlePrint = () => {
         const printContent = document.getElementById("printable-area");
         if (printContent) {
-            const originalContents = document.body.innerHTML;
             const newWindow = window.open('', '_blank');
             if(newWindow) {
                 newWindow.document.write(`
                     <html>
                         <head>
                             <title>Cuenta de Cobro ${servicio.consecutivo}</title>
-                            <script src="https://cdn.tailwindcss.com"></script>
+                            <script src="https://cdn.tailwindcss.com"><\/script>
                             <style>
                                 @media print {
                                     @page { size: letter; margin: 0.5in; }
@@ -45,7 +44,7 @@ export function CuentaCobro({ servicio }: Props) {
                                     window.print();
                                     setTimeout(function() { window.close(); }, 1);
                                 }
-                            </script>
+                            <\/script>
                         </body>
                     </html>
                 `);
@@ -66,56 +65,37 @@ export function CuentaCobro({ servicio }: Props) {
     return (
         <div>
             <div id="printable-area" className="p-8 bg-white text-black text-sm font-sans">
-                <header className="grid grid-cols-2 gap-4 items-start mb-8">
-                    <div className="flex flex-col">
-                        <h2 className="font-bold text-lg text-center">FECHA DE EXPEDICION</h2>
-                        <div className="flex border-2 border-black">
-                            <div className="p-2 border-r-2 border-black text-center w-1/3">
-                                <p className="font-bold text-xs">AÑO</p>
-                                <p>{format(fecha, 'yyyy')}</p>
-                            </div>
-                            <div className="p-2 border-r-2 border-black text-center w-1/3">
-                                <p className="font-bold text-xs">MES</p>
-                                <p>{format(fecha, 'MM')}</p>
-                            </div>
-                            <div className="p-2 text-center w-1/3">
-                                <p className="font-bold text-xs">DIA</p>
-                                <p>{format(fecha, 'dd')}</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="flex items-center justify-end gap-4">
-                        <h2 className="font-bold text-lg whitespace-nowrap">CUENTA DE COBRO No</h2>
-                        <div className="border-2 border-black p-2 min-w-[150px] text-center">
-                            <p className="font-bold">{servicio.consecutivo}</p>
-                        </div>
-                    </div>
-                </header>
-
-                <div className="mb-4">
+                 <header className="mb-4">
                     <p><span className="font-bold">NOMBRE DEL CLIENTE:</span> {servicio.cliente}</p>
                     <p><span className="font-bold">NIT DEL CLIENTE:</span> {servicio.nitCliente}</p>
-                </div>
-                
-                <div className="mb-4 border-2 border-black p-4">
+                 </header>
+
+
+                <div className="mb-4 border-2 border-black p-2">
                      <p className="font-bold mb-2">DEBE A:</p>
-                     <div className="grid grid-cols-3 gap-x-2 border-t-2 border-l-2 border-r-2 border-black">
+                     <div className="border-t-2 border-l-2 border-r-2 border-black grid grid-cols-3">
                         <div className="border-b-2 border-r-2 border-black p-1"><span className="text-xs font-bold">NOMBRES Y APELLIDOS</span></div>
                         <div className="col-span-2 border-b-2 border-black p-1"><span className="text-xs font-bold">NÚMERO DE IDENTIFICACION:</span></div>
                      </div>
-                      <div className="grid grid-cols-3 gap-x-2 border-l-2 border-r-2 border-black">
-                        <div className="border-b-2 border-r-2 border-black p-1">JUAN ESTEBAN OVALLE PINEDA</div>
-                        <div className="border-b-2 border-black p-1 flex justify-between"><span>1.023.940.641</span><span className="border-l-2 border-black pl-2">DV <span className="font-bold ml-2">9</span></span></div>
+                      <div className="border-l-2 border-r-2 border-black grid grid-cols-3">
+                        <div className="border-b-2 border-r-2 border-black p-1 h-12">JUAN ESTEBAN OVALLE PINEDA</div>
+                        <div className="border-b-2 border-black p-1 flex items-center justify-between">
+                            <span>1.023.940.641</span>
+                            <div className="border-l-2 border-black h-full flex items-center pl-2 ml-2">
+                                <span className="mr-2">DV</span>
+                                <span className="font-bold">9</span>
+                            </div>
+                        </div>
                      </div>
-                     <div className="grid grid-cols-5 gap-x-2 border-l-2 border-r-2 border-b-2 border-black">
+                     <div className="border-l-2 border-r-2 border-b-2 border-black grid grid-cols-5">
                         <div className="col-span-2 border-r-2 border-black p-1"><span className="text-xs font-bold">DIRECCIÓN:</span></div>
-                        <div className="col-span-2 border-r-2 border-black p-1"><span className="text-xs font-bold">TELEFONO</span></div>
-                        <div className="p-1"><span className="text-xs font-bold">CIUDAD</span></div>
+                        <div className="border-r-2 border-black p-1"><span className="text-xs font-bold">TELEFONO</span></div>
+                        <div className="col-span-2 p-1"><span className="text-xs font-bold">CIUDAD</span></div>
                      </div>
-                      <div className="grid grid-cols-5 gap-x-2 border-l-2 border-r-2 border-b-2 border-black">
+                      <div className="border-l-2 border-r-2 border-b-2 border-black grid grid-cols-5 h-10">
                         <div className="col-span-2 border-r-2 border-black p-1">CALLE 34 B SUR # 3A-16</div>
-                        <div className="col-span-2 border-r-2 border-black p-1">3058532676</div>
-                        <div className="p-1">BOGOTA</div>
+                        <div className="border-r-2 border-black p-1">3058532676</div>
+                        <div className="col-span-2 p-1">BOGOTA</div>
                      </div>
                 </div>
 
@@ -125,7 +105,7 @@ export function CuentaCobro({ servicio }: Props) {
                         <div className="col-span-8 p-2 border-r-2 border-black">CONCEPTO</div>
                         <div className="col-span-3 p-2 text-center">VALOR DE LA OPERACIÓN</div>
                     </div>
-                    <div className="grid grid-cols-12 h-40">
+                    <div className="grid grid-cols-12 min-h-[160px]">
                         <div className="col-span-1 p-2 border-r-2 border-black text-center">1</div>
                         <div className="col-span-8 p-2 border-r-2 border-black">
                            <p className="font-bold">CONCEPTO DE:</p>
