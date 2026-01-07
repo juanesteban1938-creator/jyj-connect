@@ -49,6 +49,8 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Calendar } from '@/components/jj-ui/calendar';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FacturacionForm, type FacturacionFormValues } from '@/components/dashboard/facturacion/facturacion-form';
 
 const StatCard = ({ title, value, change, changeType, icon: Icon, iconBgColor }: { title: string; value: string; change?: string; changeType?: 'positive' | 'negative'; icon: React.ElementType, iconBgColor: string }) => (
     <Card>
@@ -88,6 +90,8 @@ export default function FacturacionPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isInicioOpen, setIsInicioOpen] = useState(false);
   const [isFinOpen, setIsFinOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedServicio, setSelectedServicio] = useState<Servicio | null>(null);
   const { toast } = useToast();
   const ITEMS_PER_PAGE = 5;
 
@@ -106,6 +110,34 @@ export default function FacturacionPage() {
       });
     }
   }, [toast]);
+  
+  const handleSave = (data: FacturacionFormValues) => {
+    if (!selectedServicio) return;
+
+    const updatedServicios = servicios.map(s => {
+      if (s.id === selectedServicio.id) {
+        const valorServicio = data.valorServicio || 0;
+        const anticipo = data.estadoPago === 'Anticipo' ? (data.anticipo || 0) : 0;
+        return {
+          ...s,
+          ...data,
+          saldo: valorServicio - anticipo,
+        };
+      }
+      return s;
+    });
+
+    localStorage.setItem('servicios', JSON.stringify(updatedServicios));
+    setServicios(updatedServicios);
+
+    toast({
+      title: '¡Servicio Actualizado!',
+      description: `La información financiera del servicio ${selectedServicio.consecutivo} ha sido actualizada.`,
+    });
+
+    setIsFormOpen(false);
+    setSelectedServicio(null);
+  };
   
   const filteredServicios = useMemo(() => {
     return servicios
@@ -275,6 +307,21 @@ export default function FacturacionPage() {
           </CardContent>
         </Card>
       </div>
+      
+       <Dialog open={isFormOpen} onOpenChange={(isOpen) => { setIsFormOpen(isOpen); if (!isOpen) setSelectedServicio(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Datos Financieros</DialogTitle>
+          </DialogHeader>
+          {selectedServicio && (
+            <FacturacionForm
+              servicio={selectedServicio}
+              onSave={handleSave}
+              onCancel={() => { setIsFormOpen(false); setSelectedServicio(null); }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>
@@ -342,7 +389,7 @@ export default function FacturacionPage() {
                     </TableCell>
                     <TableCell className="text-center">{getEstadoBadge(servicio.estadoPago)}</TableCell>
                      <TableCell className="text-center">
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" onClick={() => { setSelectedServicio(servicio); setIsFormOpen(true); }}>
                             <Edit className="h-4 w-4 text-muted-foreground" />
                         </Button>
                     </TableCell>
