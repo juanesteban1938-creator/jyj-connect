@@ -68,7 +68,7 @@ export function CuentaCobro({ servicio }: Props) {
             <div id="printable-area" className="p-8 bg-white text-black text-sm font-sans">
                 <header className="grid grid-cols-2 gap-4 items-start mb-8">
                     <div className="flex flex-col">
-                        <h2 className="font-bold text-lg">FECHA DE EXPEDICION</h2>
+                        <h2 className="font-bold text-lg text-center">FECHA DE EXPEDICION</h2>
                         <div className="flex border-2 border-black">
                             <div className="p-2 border-r-2 border-black text-center w-1/3">
                                 <p className="font-bold text-xs">AÑO</p>
@@ -129,7 +129,7 @@ export function CuentaCobro({ servicio }: Props) {
                         <div className="col-span-1 p-2 border-r-2 border-black text-center">1</div>
                         <div className="col-span-8 p-2 border-r-2 border-black">
                            <p className="font-bold">CONCEPTO DE:</p>
-                           <p>Transporte especial de pasajeros con el vehiculo {placaVehiculo}.</p>
+                           <p>Transporte especial de pasajeros con el vehiculo {placaVehiculo} en la ruta {servicio.origen} - {servicio.destino}.</p>
                         </div>
                         <div className="col-span-3 p-2 text-right">{currencyFormatter.format(servicio.valorServicio || 0)}</div>
                     </div>
@@ -146,6 +146,7 @@ export function CuentaCobro({ servicio }: Props) {
                 <div className="mt-20 flex justify-between items-end">
                     <div>
                         <div className="border-t-2 border-black w-64 pt-1">
+                             <p className="font-bold">JUAN ESTEBAN OVALLE PINEDA</p>
                             <p className="font-bold">C.C. Ó NIT: 1023940641</p>
                         </div>
                     </div>
