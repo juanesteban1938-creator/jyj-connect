@@ -4,6 +4,7 @@ import type { Servicio } from "@/app/dashboard/servicios/page";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Banknote, Landmark, Hash, CheckCircle, Clock, AlertCircle } from "lucide-react";
 
 type Props = {
@@ -50,39 +51,41 @@ export function ResumenServicio({ servicio }: Props) {
     };
     
     return (
-        <div className="space-y-4 p-1">
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-lg">Resumen Financiero</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-1">
-                        <InfoRow label="Estado del Pago" value={getEstadoBadge(servicio.estadoPago)} />
-                        <InfoRow label="Método de Pago" value={servicio.metodoPago} />
-                        <Separator />
-                        <InfoRow label="Valor Venta" value={currencyFormatter.format(venta)} />
-                        <InfoRow label="Total Abonado" value={currencyFormatter.format(totalAbonado)} />
-                        <InfoRow label="Costo Operación" value={currencyFormatter.format(costo)} />
-                        <Separator />
-                        <InfoRow label="Ganancia" value={<span className="font-bold text-green-600">{currencyFormatter.format(ganancia)}</span>} />
-                        <InfoRow label="Cartera Pendiente" value={<span className="font-bold text-red-600">{currencyFormatter.format(saldo)}</span>} />
-                    </div>
-                </CardContent>
-            </Card>
-            
-            {servicio.metodoPago === 'Transferencia' && (
-                 <Card>
+        <ScrollArea className="h-[70vh] w-full">
+            <div className="space-y-4 p-1">
+                <Card>
                     <CardHeader>
-                        <CardTitle className="text-lg">Detalles de Transferencia</CardTitle>
+                        <CardTitle className="text-lg">Resumen Financiero</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-1">
-                            <InfoRow label="Número de Comprobante" value={servicio.numeroComprobante || 'No disponible'} icon={Hash} />
-                            <InfoRow label="Banco" value={servicio.banco || 'No disponible'} icon={Landmark} />
+                            <InfoRow label="Estado del Pago" value={getEstadoBadge(servicio.estadoPago)} />
+                            <InfoRow label="Método de Pago" value={servicio.metodoPago} />
+                            <Separator />
+                            <InfoRow label="Valor Venta" value={currencyFormatter.format(venta)} />
+                            <InfoRow label="Total Abonado" value={currencyFormatter.format(totalAbonado)} />
+                            <InfoRow label="Costo Operación" value={currencyFormatter.format(costo)} />
+                            <Separator />
+                            <InfoRow label="Ganancia" value={<span className="font-bold text-green-600">{currencyFormatter.format(ganancia)}</span>} />
+                            <InfoRow label="Cartera Pendiente" value={<span className="font-bold text-red-600">{currencyFormatter.format(saldo)}</span>} />
                         </div>
                     </CardContent>
                 </Card>
-            )}
-        </div>
+                
+                {servicio.metodoPago === 'Transferencia' && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg">Detalles de Transferencia</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-1">
+                                <InfoRow label="Número de Comprobante" value={servicio.numeroComprobante || 'No disponible'} icon={Hash} />
+                                <InfoRow label="Banco" value={servicio.banco || 'No disponible'} icon={Landmark} />
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
+        </ScrollArea>
     )
 }
