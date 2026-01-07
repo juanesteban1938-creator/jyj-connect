@@ -32,6 +32,7 @@ export function ResumenServicio({ servicio }: Props) {
     const costo = servicio.costoOperacion || 0;
     const ganancia = venta - costo;
     const saldo = servicio.saldo ?? (venta - (servicio.anticipo ?? 0));
+    const totalAbonado = venta - saldo;
 
     const getEstadoBadge = (estado: Servicio['estadoPago']) => {
         switch (estado) {
@@ -60,7 +61,7 @@ export function ResumenServicio({ servicio }: Props) {
                         <InfoRow label="Método de Pago" value={servicio.metodoPago} />
                         <Separator />
                         <InfoRow label="Valor Venta" value={currencyFormatter.format(venta)} />
-                        {servicio.estadoPago === 'Anticipo' && <InfoRow label="Anticipo Recibido" value={currencyFormatter.format(servicio.anticipo || 0)} />}
+                        <InfoRow label="Total Abonado" value={currencyFormatter.format(totalAbonado)} />
                         <InfoRow label="Costo Operación" value={currencyFormatter.format(costo)} />
                         <Separator />
                         <InfoRow label="Ganancia" value={<span className="font-bold text-green-600">{currencyFormatter.format(ganancia)}</span>} />
