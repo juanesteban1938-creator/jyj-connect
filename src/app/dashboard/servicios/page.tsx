@@ -145,8 +145,10 @@ export default function ServiciosPage() {
             conductor: 'Carlos M.',
             vehiculo: 'Mercedes V-Class • 2390 KLP',
             estado: 'En Servicio',
-            metodoPago: 'Facturacion',
+            valorServicio: 250000,
             costoOperacion: 50000,
+            saldo: 250000,
+            metodoPago: 'Facturacion',
             estadoPago: 'Pendiente',
             paradasAdicionales: [],
           },
@@ -165,8 +167,10 @@ export default function ServiciosPage() {
             conductor: 'Luisa P.',
             vehiculo: 'Sprinter • ABC-456',
             estado: 'Programado',
-            metodoPago: 'Facturacion',
+            valorServicio: 180000,
             costoOperacion: 45000,
+            saldo: 180000,
+            metodoPago: 'Facturacion',
             estadoPago: 'Pendiente',
             paradasAdicionales: [],
           },
@@ -185,8 +189,10 @@ export default function ServiciosPage() {
             conductor: 'Conductor de Prueba',
             vehiculo: 'XYZ-789',
             estado: 'Finalizado',
-            metodoPago: 'Efectivo',
+            valorServicio: 120000,
             costoOperacion: 30000,
+            saldo: 0,
+            metodoPago: 'Efectivo',
             estadoPago: 'Pagado',
             paradasAdicionales: [],
           },
@@ -205,9 +211,12 @@ export default function ServiciosPage() {
             conductor: 'Otro Conductor',
             vehiculo: 'DEF-456',
             estado: 'Finalizado',
-            metodoPago: 'Transferencia',
+            valorServicio: 300000,
             costoOperacion: 60000,
-            estadoPago: 'Pagado',
+            saldo: 150000,
+            anticipo: 150000,
+            metodoPago: 'Transferencia',
+            estadoPago: 'Anticipo',
             paradasAdicionales: [],
           },
         ];
@@ -527,3 +536,5 @@ export default function ServiciosPage() {
     </div>
   );
 }
+
+    
