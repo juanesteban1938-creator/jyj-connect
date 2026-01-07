@@ -65,10 +65,40 @@ export function CuentaCobro({ servicio }: Props) {
     return (
         <div className="p-1">
             <div id="printable-area" className="p-8 bg-white text-black text-xs font-sans">
-                 <header className="mb-4">
-                    <p><span className="font-bold">NOMBRE DEL CLIENTE:</span> {servicio.cliente}</p>
-                    <p><span className="font-bold">NIT DEL CLIENTE:</span> {servicio.nitCliente}</p>
-                 </header>
+                <header className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="border-2 border-black">
+                        <div className="border-b-2 border-black text-center font-bold p-1">FECHA DE EXPEDICION</div>
+                        <div className="grid grid-cols-3 text-center">
+                            <div className="border-r-2 border-black">
+                                <div className="border-b-2 border-black font-bold">AÑO</div>
+                                <div>{format(fecha, 'yyyy')}</div>
+                            </div>
+                            <div className="border-r-2 border-black">
+                                <div className="border-b-2 border-black font-bold">MES</div>
+                                <div>{format(fecha, 'MM')}</div>
+                            </div>
+                            <div>
+                                <div className="border-b-2 border-black font-bold">DIA</div>
+                                <div>{format(fecha, 'dd')}</div>
+                            </div>
+                        </div>
+                    </div>
+                     <div className="flex items-start justify-end">
+                        <div className="text-center">
+                            <p className="font-bold">CUENTA DE COBRO No</p>
+                            <div className="border-2 border-black p-2 mt-1">
+                                <span className="font-bold">{servicio.consecutivo}</span>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+                
+                <div className="my-6 space-y-1 text-center">
+                    <p className="font-bold">NOMBRE DEL CLIENTE</p>
+                    <p>{servicio.cliente}</p>
+                    <p className="font-bold mt-2">NIT DEL CLIENTE</p>
+                    <p>{servicio.nitCliente}</p>
+                </div>
 
 
                 <div className="mb-4 border-2 border-black p-2">
@@ -79,7 +109,7 @@ export function CuentaCobro({ servicio }: Props) {
                      </div>
                       <div className="border-l-2 border-r-2 border-black grid grid-cols-3">
                         <div className="border-b-2 border-r-2 border-black p-1 h-12">JUAN ESTEBAN OVALLE PINEDA</div>
-                        <div className="border-b-2 border-black p-1 flex items-center justify-between">
+                        <div className="col-span-2 border-b-2 border-black p-1 flex items-center justify-between">
                             <span>1.023.940.641</span>
                             <div className="border-l-2 border-black h-full flex items-center pl-2 ml-2">
                                 <span className="mr-2">DV</span>
