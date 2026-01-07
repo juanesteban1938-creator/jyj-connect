@@ -63,7 +63,7 @@ export function CuentaCobro({ servicio }: Props) {
     const placaVehiculo = servicio.vehiculo.split('•')[1]?.trim() || servicio.vehiculo;
     
     return (
-        <div>
+        <div className="p-1">
             <div id="printable-area" className="p-8 bg-white text-black text-xs font-sans">
                  <header className="mb-4">
                     <p><span className="font-bold">NOMBRE DEL CLIENTE:</span> {servicio.cliente}</p>
@@ -143,7 +143,7 @@ export function CuentaCobro({ servicio }: Props) {
 
             <Separator className="my-4" />
 
-            <div className="flex justify-end no-print">
+            <div className="flex justify-end gap-2 p-4 pt-0 no-print">
                 <Button onClick={handlePrint}>
                     <Printer className="mr-2 h-4 w-4" />
                     Imprimir / Guardar PDF

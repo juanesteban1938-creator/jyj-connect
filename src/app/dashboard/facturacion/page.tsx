@@ -53,6 +53,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { FacturacionForm, type FacturacionFormValues } from '@/components/dashboard/facturacion/facturacion-form';
 import { CuentaCobro } from '@/components/dashboard/facturacion/cuenta-cobro';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const StatCard = ({ title, value, change, changeType, icon: Icon, iconBgColor }: { title: string; value: string; change?: string; changeType?: 'positive' | 'negative'; icon: React.ElementType, iconBgColor: string }) => (
     <Card>
@@ -334,9 +335,11 @@ export default function FacturacionPage() {
               Visualización de la cuenta de cobro para el servicio {selectedServicio?.consecutivo}.
             </DialogDescription>
           </DialogHeader>
-          {selectedServicio && (
-            <CuentaCobro servicio={selectedServicio} />
-          )}
+          <ScrollArea className="h-[70vh] w-full">
+            {selectedServicio && (
+              <CuentaCobro servicio={selectedServicio} />
+            )}
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 
