@@ -109,8 +109,8 @@ export function CuentaCobro({ servicio }: Props) {
                 </header>
                 
                 <div className="my-6 space-y-2 text-center">
-                    <p className="font-bold">NOMBRE DEL CLIENTE: {servicio.cliente}</p>
-                    <p className="font-bold">NIT DEL CLIENTE: {servicio.nitCliente}</p>
+                    <p className="font-bold">{servicio.cliente}</p>
+                    <p className="font-bold">Nit: {servicio.nitCliente}</p>
                     <p className="font-bold mt-4">DEBE A:</p>
                 </div>
 
@@ -170,7 +170,7 @@ export function CuentaCobro({ servicio }: Props) {
                 <div className="mt-8 flex justify-between items-end">
                     <div className="w-64">
                          <div className="relative h-[50px]">
-                          <Image src="https://i.ibb.co/qFPM4pf4/firma.png" alt="Firma Juan Esteban Ovalle" width={180} height={50} objectFit="contain" />
+                          <Image src="https://i.ibb.co/qFPM4pf4/firma.png" alt="Firma Juan Esteban Ovalle" width={180} height={50} style={{objectFit: "contain"}} />
                         </div>
                         <div className="border-t-2 border-black pt-1 mt-1">
                             <p className="font-bold">JUAN ESTEBAN OVALLE PINEDA</p>
