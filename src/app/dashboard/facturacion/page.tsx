@@ -327,7 +327,7 @@ export default function FacturacionPage() {
       </Dialog>
 
       <Dialog open={isFacturaOpen} onOpenChange={(isOpen) => { setIsFacturaOpen(isOpen); if (!isOpen) setSelectedServicio(null); }}>
-        <DialogContent className="sm:max-w-3xl">
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>Cuenta de Cobro</DialogTitle>
             <DialogDescription>

@@ -64,7 +64,7 @@ export function CuentaCobro({ servicio }: Props) {
     
     return (
         <div>
-            <div id="printable-area" className="p-8 bg-white text-black text-sm font-sans">
+            <div id="printable-area" className="p-8 bg-white text-black text-xs font-sans">
                  <header className="mb-4">
                     <p><span className="font-bold">NOMBRE DEL CLIENTE:</span> {servicio.cliente}</p>
                     <p><span className="font-bold">NIT DEL CLIENTE:</span> {servicio.nitCliente}</p>
@@ -74,8 +74,8 @@ export function CuentaCobro({ servicio }: Props) {
                 <div className="mb-4 border-2 border-black p-2">
                      <p className="font-bold mb-2">DEBE A:</p>
                      <div className="border-t-2 border-l-2 border-r-2 border-black grid grid-cols-3">
-                        <div className="border-b-2 border-r-2 border-black p-1"><span className="text-xs font-bold">NOMBRES Y APELLIDOS</span></div>
-                        <div className="col-span-2 border-b-2 border-black p-1"><span className="text-xs font-bold">NÚMERO DE IDENTIFICACION:</span></div>
+                        <div className="border-b-2 border-r-2 border-black p-1"><span className="font-bold">NOMBRES Y APELLIDOS</span></div>
+                        <div className="col-span-2 border-b-2 border-black p-1"><span className="font-bold">NÚMERO DE IDENTIFICACION:</span></div>
                      </div>
                       <div className="border-l-2 border-r-2 border-black grid grid-cols-3">
                         <div className="border-b-2 border-r-2 border-black p-1 h-12">JUAN ESTEBAN OVALLE PINEDA</div>
@@ -88,9 +88,9 @@ export function CuentaCobro({ servicio }: Props) {
                         </div>
                      </div>
                      <div className="border-l-2 border-r-2 border-b-2 border-black grid grid-cols-5">
-                        <div className="col-span-2 border-r-2 border-black p-1"><span className="text-xs font-bold">DIRECCIÓN:</span></div>
-                        <div className="border-r-2 border-black p-1"><span className="text-xs font-bold">TELEFONO</span></div>
-                        <div className="col-span-2 p-1"><span className="text-xs font-bold">CIUDAD</span></div>
+                        <div className="col-span-2 border-r-2 border-black p-1"><span className="font-bold">DIRECCIÓN:</span></div>
+                        <div className="border-r-2 border-black p-1"><span className="font-bold">TELEFONO</span></div>
+                        <div className="col-span-2 p-1"><span className="font-bold">CIUDAD</span></div>
                      </div>
                       <div className="border-l-2 border-r-2 border-b-2 border-black grid grid-cols-5 h-10">
                         <div className="col-span-2 border-r-2 border-black p-1">CALLE 34 B SUR # 3A-16</div>
@@ -120,7 +120,7 @@ export function CuentaCobro({ servicio }: Props) {
                 </div>
                 
                 <div className="mt-4 border-2 border-black p-2">
-                    <p className="font-bold text-xs">NOTA: POR FAVOR REALIZAR TRANSFERENCIA A LA CUENTA DE AHORROS No: 032-053858-69 DE BANCO BANCOLOMBIA AHORROS A MI NOMBRE</p>
+                    <p className="font-bold">NOTA: POR FAVOR REALIZAR TRANSFERENCIA A LA CUENTA DE AHORROS No: 032-053858-69 DE BANCO BANCOLOMBIA AHORROS A MI NOMBRE</p>
                 </div>
                 
                 <div className="mt-20 flex justify-between items-end">
@@ -131,7 +131,7 @@ export function CuentaCobro({ servicio }: Props) {
                         </div>
                     </div>
                     <div>
-                        <p className="text-xs">
+                        <p>
                             Transportes Especiales J&J S.A.S <br/>
                             NIT. 901.123.456-7 <br/>
                             Carrera 100 # 25 - 30, Bogotá D.C. <br/>
