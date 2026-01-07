@@ -485,7 +485,7 @@ export default function FacturacionPage() {
                     </Popover>
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="Buscar por cliente, ruta o ID..." className="pl-9" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        <Input placeholder="Buscar por cliente, ruta o ID..." className="pl-9" value={searchTerm} onChange={(e) => {setSearchTerm(e.target.value); setCurrentPage(1);}} />
                     </div>
                 </div>
                  <Button className="w-full sm:w-auto">
@@ -531,22 +531,22 @@ export default function FacturacionPage() {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleOpenResumen(servicio); }}>
+                                <DropdownMenuItem onSelect={() => handleOpenResumen(servicio)}>
                                     <Eye className="mr-2 h-4 w-4" />
                                     Ver resumen
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleOpenEditar(servicio); }}>
+                                <DropdownMenuItem onSelect={() => handleOpenEditar(servicio)}>
                                     <Edit className="mr-2 h-4 w-4" />
                                     Editar información
                                 </DropdownMenuItem>
-                                 <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleOpenFactura(servicio); }}>
+                                 <DropdownMenuItem onSelect={() => handleOpenFactura(servicio)}>
                                     <FileText className="mr-2 h-4 w-4" />
                                     Ver cuenta de cobro
                                 </DropdownMenuItem>
                                  {(servicio.saldo ?? 0) > 0 && (
                                   <>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleOpenAbono(servicio); }} className="text-blue-600 focus:text-blue-700">
+                                    <DropdownMenuItem onSelect={() => handleOpenAbono(servicio)} className="text-blue-600 focus:text-blue-700">
                                         <PlusCircle className="mr-2 h-4 w-4" />
                                         Registrar Abono
                                     </DropdownMenuItem>
