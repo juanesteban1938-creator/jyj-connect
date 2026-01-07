@@ -99,7 +99,7 @@ export function CuentaCobro({ servicio }: Props) {
                 <div className="my-6 space-y-1 text-center">
                     <p className="font-bold">NOMBRE DEL CLIENTE:</p>
                     <p>{servicio.cliente}</p>
-                    <p className="font-bold mt-2">NIT DEL CLIENTE</p>
+                    <p className="font-bold mt-2">NIT DEL CLIENTE:</p>
                     <p>{servicio.nitCliente}</p>
                 </div>
 
