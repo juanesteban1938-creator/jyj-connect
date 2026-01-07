@@ -483,12 +483,6 @@ export default function FacturacionPage() {
       
       <Dialog open={isFacturacionMesOpen} onOpenChange={setIsFacturacionMesOpen}>
         <DialogContent className="sm:max-w-3xl">
-          <DialogHeader className="text-center">
-            <DialogTitle>Facturación por Mes</DialogTitle>
-            <DialogDescription>
-              Resumen financiero detallado por cada mes de operación.
-            </DialogDescription>
-          </DialogHeader>
           <FacturacionMensual data={facturacionMensualData} />
         </DialogContent>
       </Dialog>
