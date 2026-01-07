@@ -43,7 +43,7 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import type { Servicio } from '@/app/dashboard/servicios/page';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay, isBefore, isAfter } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/jj-ui/calendar';
@@ -122,10 +122,11 @@ export default function FacturacionPage() {
         if (!s.fecha) return true;
         try {
             const fechaServicio = new Date(s.fecha);
-            if (fechaInicio && fechaServicio < fechaInicio) return false;
-            if (fechaFin && fechaServicio > fechaFin) return false;
+            if (fechaInicio && isBefore(fechaServicio, startOfDay(fechaInicio))) return false;
+            if (fechaFin && isAfter(fechaServicio, endOfDay(fechaFin))) return false;
             return true;
-        } catch {
+        } catch (e){
+             console.error("Error parsing service date:", s.fecha, e);
             return true;
         }
       });
@@ -331,7 +332,7 @@ export default function FacturacionPage() {
                 {paginatedServicios.map((servicio) => (
                 <TableRow key={servicio.id}>
                     <TableCell className="font-medium">{servicio.consecutivo}</TableCell>
-                    <TableCell>{format(parseISO(servicio.fecha), "dd MMM yyyy", { locale: es })}</TableCell>
+                    <TableCell>{format(new Date(servicio.fecha), "dd MMM yyyy", { locale: es })}</TableCell>
                     <TableCell>{servicio.cliente}</TableCell>
                     <TableCell>{servicio.origen} - {servicio.destino}</TableCell>
                     <TableCell className="text-right">{currencyFormatter.format(servicio.valorServicio || 0)}</TableCell>
@@ -359,7 +360,7 @@ export default function FacturacionPage() {
         </CardContent>
          <div className="flex flex-col items-center justify-between gap-4 p-4 border-t md:flex-row">
           <div className="text-sm text-muted-foreground">
-            Mostrando <strong>{Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filteredServicios.length)}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredServicios.length)}</strong> de <strong>{filteredServicios.length}</strong> servicios
+            Mostrando <strong>{filteredServicios.length > 0 ? Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filteredServicios.length) : 0}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredServicios.length)}</strong> de <strong>{filteredServicios.length}</strong> servicios
           </div>
           <div className="flex items-center gap-2">
             <Button
