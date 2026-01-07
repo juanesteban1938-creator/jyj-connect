@@ -25,6 +25,7 @@ import {
   TrendingUp,
   AlertTriangle,
   Edit,
+  Eye,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -49,8 +50,9 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Calendar } from '@/components/jj-ui/calendar';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { FacturacionForm, type FacturacionFormValues } from '@/components/dashboard/facturacion/facturacion-form';
+import { CuentaCobro } from '@/components/dashboard/facturacion/cuenta-cobro';
 
 const StatCard = ({ title, value, change, changeType, icon: Icon, iconBgColor }: { title: string; value: string; change?: string; changeType?: 'positive' | 'negative'; icon: React.ElementType, iconBgColor: string }) => (
     <Card>
@@ -91,6 +93,7 @@ export default function FacturacionPage() {
   const [isInicioOpen, setIsInicioOpen] = useState(false);
   const [isFinOpen, setIsFinOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isFacturaOpen, setIsFacturaOpen] = useState(false);
   const [selectedServicio, setSelectedServicio] = useState<Servicio | null>(null);
   const { toast } = useToast();
   const ITEMS_PER_PAGE = 5;
@@ -323,6 +326,20 @@ export default function FacturacionPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={isFacturaOpen} onOpenChange={(isOpen) => { setIsFacturaOpen(isOpen); if (!isOpen) setSelectedServicio(null); }}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Cuenta de Cobro</DialogTitle>
+            <DialogDescription>
+              Visualización de la cuenta de cobro para el servicio {selectedServicio?.consecutivo}.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedServicio && (
+            <CuentaCobro servicio={selectedServicio} />
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Card>
         <CardHeader>
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -389,6 +406,9 @@ export default function FacturacionPage() {
                     </TableCell>
                     <TableCell className="text-center">{getEstadoBadge(servicio.estadoPago)}</TableCell>
                      <TableCell className="text-center">
+                        <Button variant="ghost" size="icon" onClick={() => { setSelectedServicio(servicio); setIsFacturaOpen(true); }}>
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => { setSelectedServicio(servicio); setIsFormOpen(true); }}>
                             <Edit className="h-4 w-4 text-muted-foreground" />
                         </Button>
