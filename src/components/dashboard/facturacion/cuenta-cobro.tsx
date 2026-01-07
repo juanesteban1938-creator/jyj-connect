@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { Printer } from "lucide-react";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
+import QRCode from 'qrcode';
 
 type Props = {
     servicio: Servicio;
@@ -20,6 +21,16 @@ const currencyFormatter = new Intl.NumberFormat('es-CO', {
 });
 
 export function CuentaCobro({ servicio }: Props) {
+    const [qrCodeUrl, setQrCodeUrl] = useState('');
+
+    useEffect(() => {
+        if (servicio && servicio.consecutivo) {
+            QRCode.toDataURL(servicio.consecutivo, { errorCorrectionLevel: 'H' }, function (err, url) {
+                if (err) console.error(err)
+                setQrCodeUrl(url);
+            })
+        }
+    }, [servicio]);
     
     const handlePrint = () => {
         const printContent = document.getElementById("printable-area");
@@ -33,7 +44,10 @@ export function CuentaCobro({ servicio }: Props) {
                             <script src="https://cdn.tailwindcss.com"><\/script>
                             <style>
                                 @media print {
-                                    @page { size: letter; margin: 0.5in; }
+                                    @page { 
+                                        size: letter;
+                                        margin: 0.5in; 
+                                    }
                                     body { -webkit-print-color-adjust: exact; }
                                     .no-print { display: none; }
                                 }
@@ -69,8 +83,8 @@ export function CuentaCobro({ servicio }: Props) {
             <ScrollArea className="h-[70vh] w-full">
             <div id="printable-area" className="p-8 bg-white text-black text-xs font-sans">
                 <header className="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                         <p className="font-bold">Transportes Especiales J&J S.A.S</p>
+                     <div>
+                        <p className="font-bold">Transportes Especiales J&J S.A.S</p>
                         <p>NIT. 901.123.456-7</p>
                         <p>Carrera 100 # 25 - 30, Bogotá D.C.</p>
                         <p>Tel. 3101234567</p>
@@ -172,6 +186,7 @@ export function CuentaCobro({ servicio }: Props) {
                         </div>
                     </div>
                     <div className="text-right">
+                       {qrCodeUrl && <Image src={qrCodeUrl} alt="Código QR" width={80} height={80} />}
                        <p className="text-[8px] mt-1">Verifica autenticidad</p>
                     </div>
                 </div>
