@@ -177,11 +177,11 @@ export function CuentaCobro({ servicio }: Props) {
                 
                 <div className="mt-8 flex justify-between items-end">
                     <div className="w-64">
-                         <div className="w-full">
+                        <div className="w-full">
                             <Image src="https://i.ibb.co/qFPM4pf4/firma.png" alt="Firma Juan Esteban Ovalle" width={180} height={50} objectFit="contain" />
                         </div>
                         <div className="border-t-2 border-black pt-1 mt-1">
-                             <p className="font-bold">JUAN ESTEBAN OVALLE PINEDA</p>
+                            <p className="font-bold">JUAN ESTEBAN OVALLE PINEDA</p>
                             <p className="font-bold">C.C. Ó NIT: 1023940641</p>
                         </div>
                     </div>
@@ -189,6 +189,10 @@ export function CuentaCobro({ servicio }: Props) {
                        {qrCodeUrl && <Image src={qrCodeUrl} alt="Código QR" width={80} height={80} />}
                        <p className="text-[8px] mt-1">Verifica autenticidad</p>
                     </div>
+                </div>
+
+                <div className="mt-12 text-center">
+                    <p className="font-bold">Esta factura fue generada a través de Software propio suministrado por J&amp;J Connect</p>
                 </div>
             </div>
             </ScrollArea>
