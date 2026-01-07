@@ -44,7 +44,7 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import type { Servicio } from '@/app/dashboard/servicios/page';
-import { format, parseISO, startOfDay, endOfDay, isBefore, isAfter } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay, isBefore, isAfter, startOfWeek, endOfWeek, subWeeks, startOfMonth, getMonth, getYear } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/jj-ui/calendar';
@@ -103,7 +103,7 @@ export default function FacturacionPage() {
     try {
       const storedServicios = localStorage.getItem('servicios');
       if (storedServicios) {
-        setServicios(JSON.parse(storedServicios));
+        setServicios(JSON.parse(storedServicios).map((s:Servicio) => ({...s, fecha: parseISO(s.fecha)})));
       }
     } catch (error) {
       console.error("Failed to load services from localStorage", error);
@@ -219,27 +219,40 @@ export default function FacturacionPage() {
     }
   };
   
-    const monthlyRecordData = [
-        { name: 'Sem 1', total: Math.floor(Math.random() * 5000000) + 1000000 },
-        { name: 'Sem 2', total: Math.floor(Math.random() * 5000000) + 1000000 },
-        { name: 'Sem 3', total: Math.floor(Math.random() * 5000000) + 1000000 },
-        { name: 'Sem 4', total: Math.floor(Math.random() * 5000000) + 1000000 },
-    ];
+  const { monthlyRecordData, annualRecordData } = useMemo(() => {
+    const now = new Date();
     
-    const annualRecordData = [
-      { month: 'Ene', ventas: 4000, costos: 2400 },
-      { month: 'Feb', ventas: 3000, costos: 1398 },
-      { month: 'Mar', ventas: 2000, costos: 9800 },
-      { month: 'Abr', ventas: 2780, costos: 3908 },
-      { month: 'May', ventas: 1890, costos: 4800 },
-      { month: 'Jun', ventas: 2390, costos: 3800 },
-      { month: 'Jul', ventas: 3490, costos: 4300 },
-      { month: 'Ago', ventas: 3650, costos: 4100 },
-      { month: 'Sep', ventas: 3800, costos: 4200 },
-      { month: 'Oct', ventas: 4200, costos: 4500 },
-      { month: 'Nov', ventas: 4500, costos: 4800 },
-      { month: 'Dic', ventas: 4800, costos: 5000 },
-    ];
+    // Monthly data (last 4 weeks)
+    const monthlyData = [0, 1, 2, 3].map(weekIndex => {
+      const weekStart = startOfWeek(subWeeks(now, weekIndex), { weekStartsOn: 1 });
+      const weekEnd = endOfWeek(subWeeks(now, weekIndex), { weekStartsOn: 1 });
+      const total = servicios
+        .filter(s => {
+          const serviceDate = new Date(s.fecha);
+          return isAfter(serviceDate, weekStart) && isBefore(serviceDate, weekEnd);
+        })
+        .reduce((sum, s) => sum + (s.valorServicio || 0), 0);
+      return { name: `Sem ${4 - weekIndex}`, total };
+    }).reverse();
+
+    // Annual data
+    const annualData = Array.from({ length: 12 }, (_, i) => ({
+      month: format(startOfMonth(new Date(now.getFullYear(), i)), 'MMM', { locale: es }),
+      ventas: 0,
+      costos: 0,
+    }));
+
+    servicios.forEach(s => {
+      const serviceDate = new Date(s.fecha);
+      if (getYear(serviceDate) === getYear(now)) {
+        const monthIndex = getMonth(serviceDate);
+        annualData[monthIndex].ventas += s.valorServicio || 0;
+        annualData[monthIndex].costos += s.costoOperacion || 0;
+      }
+    });
+
+    return { monthlyRecordData: monthlyData, annualRecordData: annualData };
+  }, [servicios]);
 
   return (
     <div className="space-y-6">
@@ -287,7 +300,7 @@ export default function FacturacionPage() {
        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Récord Mensual (Octubre)</CardTitle>
+            <CardTitle>Récord Mensual ({format(new Date(), 'MMMM', {locale: es})})</CardTitle>
           </CardHeader>
           <CardContent>
             <ChartContainer config={{}} className="h-[200px] w-full">
@@ -295,7 +308,7 @@ export default function FacturacionPage() {
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="name" tickLine={false} axisLine={false} />
                 <YAxis hide={true}/>
-                <Tooltip content={<ChartTooltipContent />} />
+                <Tooltip content={<ChartTooltipContent formatter={(value) => currencyFormatter.format(value as number)} />} />
                 <Bar dataKey="total" fill="hsl(var(--primary))" radius={4} />
               </BarChart>
             </ChartContainer>
@@ -303,7 +316,7 @@ export default function FacturacionPage() {
         </Card>
         <Card className="lg:col-span-3">
           <CardHeader>
-            <CardTitle>Récord Anual (2023)</CardTitle>
+            <CardTitle>Récord Anual ({getYear(new Date())})</CardTitle>
           </CardHeader>
           <CardContent>
             <ChartContainer config={{}} className="h-[200px] w-full">
@@ -311,7 +324,7 @@ export default function FacturacionPage() {
                  <CartesianGrid vertical={false} />
                 <XAxis dataKey="month" tickLine={false} axisLine={false} />
                 <YAxis tickFormatter={(val) => currencyFormatter.format(val).slice(0,-4) + 'M'} />
-                <Tooltip content={<ChartTooltipContent />} />
+                <Tooltip content={<ChartTooltipContent formatter={(value) => currencyFormatter.format(value as number)} />} />
                 <Line type="monotone" dataKey="ventas" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4, fill: "hsl(var(--primary))" }}/>
                 <Line type="monotone" dataKey="costos" stroke="hsl(var(--muted-foreground))" strokeWidth={2} strokeDasharray="3 3"/>
               </LineChart>
@@ -463,5 +476,3 @@ export default function FacturacionPage() {
     </div>
   );
 }
-
-    
