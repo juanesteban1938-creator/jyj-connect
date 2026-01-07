@@ -195,6 +195,27 @@ export default function FacturacionPage() {
     setSelectedServicio(null);
   }
 
+  const handleOpenResumen = (servicio: Servicio) => {
+    setSelectedServicio(servicio);
+    setIsResumenOpen(true);
+  }
+
+  const handleOpenFactura = (servicio: Servicio) => {
+    setSelectedServicio(servicio);
+    setIsFacturaOpen(true);
+  }
+  
+  const handleOpenAbono = (servicio: Servicio) => {
+    setSelectedServicio(servicio);
+    setIsAbonoFormOpen(true);
+  }
+
+  const handleOpenEditar = (servicio: Servicio) => {
+    setSelectedServicio(servicio);
+    setIsFormOpen(true);
+  }
+
+
   const filteredServicios = useMemo(() => {
     return servicios
       .filter(s => {
@@ -510,22 +531,22 @@ export default function FacturacionPage() {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem onSelect={() => { setSelectedServicio(servicio); setIsResumenOpen(true); }}>
+                                <DropdownMenuItem onSelect={() => handleOpenResumen(servicio)}>
                                     <Eye className="mr-2 h-4 w-4" />
                                     Ver resumen
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => { setSelectedServicio(servicio); setIsFormOpen(true); }}>
+                                <DropdownMenuItem onSelect={() => handleOpenEditar(servicio)}>
                                     <Edit className="mr-2 h-4 w-4" />
                                     Editar información
                                 </DropdownMenuItem>
-                                 <DropdownMenuItem onSelect={() => { setSelectedServicio(servicio); setIsFacturaOpen(true); }}>
+                                 <DropdownMenuItem onSelect={() => handleOpenFactura(servicio)}>
                                     <FileText className="mr-2 h-4 w-4" />
                                     Ver cuenta de cobro
                                 </DropdownMenuItem>
                                  {(servicio.saldo ?? 0) > 0 && (
                                   <>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem onSelect={() => { setSelectedServicio(servicio); setIsAbonoFormOpen(true); }} className="text-blue-600 focus:text-blue-700">
+                                    <DropdownMenuItem onSelect={() => handleOpenAbono(servicio)} className="text-blue-600 focus:text-blue-700">
                                         <PlusCircle className="mr-2 h-4 w-4" />
                                         Registrar Abono
                                     </DropdownMenuItem>
