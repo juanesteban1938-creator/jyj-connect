@@ -82,70 +82,68 @@ export function CuentaCobro({ servicio }: Props) {
         <div className="p-1">
             <ScrollArea className="h-[70vh] w-full">
             <div id="printable-area" className="p-8 bg-white text-black text-xs font-sans">
-                <header className="flex justify-end items-start mb-4">
-                     <div className="flex items-start justify-end">
-                        <div className="text-center">
-                            <p className="font-bold">CUENTA DE COBRO No</p>
-                            <div className="border-2 border-black p-2 mt-1">
-                                <span className="font-bold">{servicio.consecutivo}</span>
+                <header className="flex justify-between items-start mb-8">
+                     <div className="border-2 border-black w-48">
+                         <div className="border-b-2 border-black text-center font-bold p-1">FECHA DE EXPEDICION</div>
+                            <div className="grid grid-cols-3 text-center">
+                                <div className="border-r-2 border-black">
+                                    <div className="border-b-2 border-black font-bold">AÑO</div>
+                                    <div>{format(fecha, 'yyyy')}</div>
+                                </div>
+                                <div className="border-r-2 border-black">
+                                    <div className="border-b-2 border-black font-bold">MES</div>
+                                    <div>{format(fecha, 'MM')}</div>
+                                </div>
+                                <div>
+                                    <div className="border-b-2 border-black font-bold">DIA</div>
+                                    <div>{format(fecha, 'dd')}</div>
+                                </div>
                             </div>
+                     </div>
+                     <div className="text-center">
+                        <p className="font-bold">CUENTA DE COBRO No</p>
+                        <div className="border-2 border-black p-2 mt-1 w-48">
+                            <span className="font-bold">{servicio.consecutivo}</span>
                         </div>
                     </div>
                 </header>
                 
-                 <div className="border-2 border-black">
-                     <div className="border-b-2 border-black text-center font-bold p-1">FECHA DE EXPEDICION</div>
-                        <div className="grid grid-cols-3 text-center">
-                            <div className="border-r-2 border-black">
-                                <div className="border-b-2 border-black font-bold">AÑO</div>
-                                <div>{format(fecha, 'yyyy')}</div>
-                            </div>
-                            <div className="border-r-2 border-black">
-                                <div className="border-b-2 border-black font-bold">MES</div>
-                                <div>{format(fecha, 'MM')}</div>
-                            </div>
-                            <div>
-                                <div className="border-b-2 border-black font-bold">DIA</div>
-                                <div>{format(fecha, 'dd')}</div>
-                            </div>
-                        </div>
-                 </div>
-                
-                <div className="my-6 space-y-1">
+                <div className="my-6 space-y-2 text-center">
                     <p className="font-bold">NOMBRE DEL CLIENTE: {servicio.cliente}</p>
                     <p className="font-bold">NIT DEL CLIENTE: {servicio.nitCliente}</p>
+                    <p className="font-bold mt-4">DEBE A:</p>
                 </div>
 
 
-                <div className="mb-4 border-2 border-black p-2">
-                     <p className="font-bold mb-2">DEBE A:</p>
-                     <div className="border-t-2 border-l-2 border-r-2 border-black grid grid-cols-3">
-                        <div className="border-b-2 border-r-2 border-black p-1"><span className="font-bold">NOMBRES Y APELLIDOS</span></div>
-                        <div className="col-span-2 border-b-2 border-black p-1"><span className="font-bold">NÚMERO DE IDENTIFICACION:</span></div>
+                <div className="mb-4 border-2 border-black">
+                     <div className="border-b-2 border-black grid grid-cols-3">
+                        <div className="p-1"><span className="font-bold">NOMBRES Y APELLIDOS</span></div>
+                        <div className="col-span-2 p-1"><span className="font-bold">NÚMERO DE IDENTIFICACION:</span></div>
                      </div>
-                      <div className="border-l-2 border-r-2 border-black grid grid-cols-3">
-                        <div className="border-b-2 border-r-2 border-black p-1 h-12 flex items-center">JUAN ESTEBAN OVALLE PINEDA</div>
-                        <div className="col-span-2 border-b-2 border-black p-1 flex items-center justify-between">
+                      <div className="border-b-2 border-black grid grid-cols-3">
+                        <div className="p-1 h-8 flex items-center">JUAN ESTEBAN OVALLE PINEDA</div>
+                        <div className="col-span-2 p-1 flex items-center justify-between">
                             <span>1.023.940.641</span>
-                            <div className="border-l-2 border-black h-full flex items-center pl-2 ml-2">
+                            <div className="flex items-center">
                                 <span className="mr-2">DV</span>
                                 <span className="font-bold">9</span>
                             </div>
                         </div>
                      </div>
-                     <div className="border-l-2 border-r-2 border-b-2 border-black grid grid-cols-5">
+                     <div className="border-b-2 border-black grid grid-cols-5">
                         <div className="col-span-2 border-r-2 border-black p-1"><span className="font-bold">DIRECCIÓN:</span></div>
                         <div className="border-r-2 border-black p-1"><span className="font-bold">TELEFONO</span></div>
                         <div className="col-span-2 p-1"><span className="font-bold">CIUDAD</span></div>
                      </div>
-                      <div className="border-l-2 border-r-2 border-b-2 border-black grid grid-cols-5 h-10">
+                      <div className="grid grid-cols-5 h-8">
                         <div className="col-span-2 border-r-2 border-black p-1 flex items-center">CALLE 34 B SUR # 3A-16</div>
                         <div className="border-r-2 border-black p-1 flex items-center">3058532676</div>
                         <div className="col-span-2 p-1 flex items-center">BOGOTA</div>
                      </div>
                 </div>
-
-                <div className="border-2 border-black">
+                 
+                <div className="border-2 border-black mt-4">
+                    <div className="text-center font-bold p-1 border-b-2 border-black">DETALLE DE LA OPERACIÓN</div>
                     <div className="grid grid-cols-12 bg-gray-200 font-bold border-b-2 border-black">
                         <div className="col-span-1 p-2 border-r-2 border-black text-center">CANTIDAD</div>
                         <div className="col-span-8 p-2 border-r-2 border-black">CONCEPTO</div>
