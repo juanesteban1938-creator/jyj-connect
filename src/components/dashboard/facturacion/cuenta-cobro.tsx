@@ -9,7 +9,6 @@ import React, { useEffect, useState, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
 import QRCode from 'qrcode';
-import { sendInvoice } from '@/ai/flows/send-invoice-flow';
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -111,19 +110,21 @@ export function CuentaCobro({ servicio }: Props) {
             const imgY = 0;
             pdf.addImage(canvas, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
             
-            const pdfBase64 = pdf.output('datauristring').split(',')[1];
+            const pdfBlob = pdf.output('blob');
             
-            if (!pdfBase64) {
-                throw new Error('El PDF no se generó a tiempo');
-            }
+            const formData = new FormData();
+            formData.append('to', servicio.emailCliente);
+            formData.append('nroFactura', servicio.consecutivo);
+            formData.append('pdf', pdfBlob, 'Cuenta_de_Cobro_JJ.pdf');
 
-            const result = await sendInvoice({
-                to: servicio.emailCliente,
-                nroFactura: servicio.consecutivo,
-                pdfBase64: pdfBase64,
+            const response = await fetch('/api/send-invoice', {
+                method: 'POST',
+                body: formData,
             });
 
-            if (result.success) {
+            const result = await response.json();
+
+            if (response.ok) {
                 toast({
                     title: '¡Correo Enviado!',
                     description: `La cuenta de cobro ha sido enviada a ${servicio.emailCliente}.`,
@@ -132,7 +133,7 @@ export function CuentaCobro({ servicio }: Props) {
                  toast({
                     variant: 'destructive',
                     title: 'Error al Enviar',
-                    description: result.message,
+                    description: result.message || 'Ocurrió un error en el servidor.',
                 });
             }
         } catch (error: any) {

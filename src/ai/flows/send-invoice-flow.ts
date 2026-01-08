@@ -1,5 +1,7 @@
 'use server';
-
+// This file is no longer used for sending emails from the client,
+// but is kept to avoid breaking the genkit dev server.
+// The email sending logic has been moved to /api/send-invoice/route.ts
 import { ai } from '@/ai/genkit';
 import { SendInvoiceInputSchema, type SendInvoiceInput, SendInvoiceOutputSchema } from '@/lib/schemas';
 import nodemailer from 'nodemailer';
