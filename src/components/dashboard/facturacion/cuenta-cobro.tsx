@@ -160,8 +160,8 @@ export function CuentaCobro({ servicio }: Props) {
     return (
         <div className="p-1">
             <ScrollArea className="h-[70vh] w-full">
-            <div ref={printableAreaRef} id="printable-area" className="p-8 bg-white text-black text-xs font-sans">
-                <header className="flex justify-between items-start mb-8">
+            <div ref={printableAreaRef} id="printable-area" className="p-6 bg-white text-black text-xs font-sans">
+                <header className="flex justify-between items-start mb-4">
                      <div className="border-2 border-black w-48">
                          <div className="border-b-2 border-black text-center font-bold p-1">FECHA DE EXPEDICION</div>
                             <div className="grid grid-cols-3 text-center">
@@ -187,10 +187,10 @@ export function CuentaCobro({ servicio }: Props) {
                     </div>
                 </header>
                 
-                <div className="my-6 space-y-2 text-center">
+                <div className="my-4 space-y-1 text-center">
                     <p className="font-bold">{servicio.cliente}</p>
                     <p className="font-bold">Nit: {servicio.nitCliente}</p>
-                    <p className="font-bold mt-4">DEBE A:</p>
+                    <p className="font-bold mt-2">DEBE A:</p>
                 </div>
 
 
@@ -228,7 +228,7 @@ export function CuentaCobro({ servicio }: Props) {
                         <div className="col-span-8 p-2 border-r-2 border-black">CONCEPTO</div>
                         <div className="col-span-3 p-2 text-center">VALOR DE LA OPERACIÓN</div>
                     </div>
-                    <div className="grid grid-cols-12 min-h-[160px]">
+                    <div className="grid grid-cols-12 min-h-[120px]">
                         <div className="col-span-1 p-2 border-r-2 border-black text-center">1</div>
                         <div className="col-span-8 p-2 border-r-2 border-black">
                            <p className="font-bold">CONCEPTO DE:</p>
@@ -246,23 +246,23 @@ export function CuentaCobro({ servicio }: Props) {
                     <p className="font-bold">NOTA: POR FAVOR REALIZAR TRANSFERENCIA A LA CUENTA DE AHORROS No: 032-053858-69 DE BANCO BANCOLOMBIA AHORROS A MI NOMBRE</p>
                 </div>
                 
-                <div className="mt-8 flex justify-between items-end">
+                <div className="mt-6 flex justify-between items-end">
                     <div className="w-64">
-                         <div className="relative h-[50px] mb-2">
-                          <Image src="https://i.ibb.co/qFPM4pf4/firma.png" alt="Firma Juan Esteban Ovalle" width={120} height={40} style={{objectFit: "contain"}} />
+                         <div className="relative h-[40px] mb-1">
+                          <Image src="https://i.ibb.co/qFPM4pf4/firma.png" alt="Firma Juan Esteban Ovalle" width={100} height={35} style={{objectFit: "contain"}} />
                         </div>
-                        <div className="border-t-2 border-black pt-1 mt-1">
+                        <div className="border-t-2 border-black pt-1">
                             <p className="font-bold">JUAN ESTEBAN OVALLE PINEDA</p>
                             <p className="font-bold">C.C. Ó NIT: 1023940641</p>
                         </div>
                     </div>
                     <div className="text-right">
-                       {qrCodeUrl && <Image src={qrCodeUrl} alt="Código QR" width={80} height={80} />}
+                       {qrCodeUrl && <Image src={qrCodeUrl} alt="Código QR" width={60} height={60} />}
                        <p className="text-[8px] mt-1">Verifica autenticidad</p>
                     </div>
                 </div>
 
-                <div className="mt-12 text-center">
+                <div className="mt-8 text-center">
                     <p className="font-bold">Esta factura fue generada a través de Software propio suministrado por J&J Connect</p>
                 </div>
             </div>
