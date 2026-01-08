@@ -167,15 +167,15 @@ export function CuentaCobro({ servicio }: Props) {
                             <div className="grid grid-cols-3 text-center">
                                 <div className="border-r-2 border-black">
                                     <div className="border-b-2 border-black font-bold">AÑO</div>
-                                    <div>{format(fecha, 'yyyy')}</div>
+                                    <div className="h-8 flex items-center justify-center">{format(fecha, 'yyyy')}</div>
                                 </div>
                                 <div className="border-r-2 border-black">
                                     <div className="border-b-2 border-black font-bold">MES</div>
-                                    <div>{format(fecha, 'MM')}</div>
+                                    <div className="h-8 flex items-center justify-center">{format(fecha, 'MM')}</div>
                                 </div>
                                 <div>
                                     <div className="border-b-2 border-black font-bold">DIA</div>
-                                    <div>{format(fecha, 'dd')}</div>
+                                    <div className="h-8 flex items-center justify-center">{format(fecha, 'dd')}</div>
                                 </div>
                             </div>
                      </div>
@@ -248,8 +248,8 @@ export function CuentaCobro({ servicio }: Props) {
                 
                 <div className="mt-8 flex justify-between items-end">
                     <div className="w-64">
-                         <div className="relative h-[50px]">
-                          <Image src="https://i.ibb.co/qFPM4pf4/firma.png" alt="Firma Juan Esteban Ovalle" width={180} height={50} style={{objectFit: "contain"}} />
+                         <div className="relative h-[50px] mb-2">
+                          <Image src="https://i.ibb.co/qFPM4pf4/firma.png" alt="Firma Juan Esteban Ovalle" width={120} height={40} style={{objectFit: "contain"}} />
                         </div>
                         <div className="border-t-2 border-black pt-1 mt-1">
                             <p className="font-bold">JUAN ESTEBAN OVALLE PINEDA</p>
