@@ -1,13 +1,34 @@
 'use server';
 
 import { ai } from '@/ai/genkit';
-import { transportOptions } from '@/lib/mailer';
-import nodemailer from 'nodemailer';
 import { SendInvoiceInputSchema, SendInvoiceOutputSchema, type SendInvoiceInput, type SendInvoiceOutput } from '@/lib/schemas';
-
+import nodemailer from 'nodemailer';
 
 export async function sendInvoice(input: SendInvoiceInput): Promise<SendInvoiceOutput> {
-    return sendInvoiceFlow(input);
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT),
+    secure: true, 
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  const mailOptions = {
+    from: process.env.SMTP_USER,
+    to: input.to,
+    subject: input.subject,
+    html: input.htmlContent,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    return { success: true, message: `Correo enviado a ${input.to}.` };
+  } catch (error: any) {
+    console.error('Error al enviar el correo:', error);
+    return { success: false, message: 'Error al enviar el correo: ' + error.message };
+  }
 }
 
 const sendInvoiceFlow = ai.defineFlow(
@@ -16,23 +37,5 @@ const sendInvoiceFlow = ai.defineFlow(
     inputSchema: SendInvoiceInputSchema,
     outputSchema: SendInvoiceOutputSchema,
   },
-  async ({ to, subject, htmlContent }) => {
-    const transporter = nodemailer.createTransport(transportOptions);
-
-    const mailOptions = {
-      from: process.env.SMTP_USER,
-      to: to,
-      subject: subject,
-      html: htmlContent,
-    };
-
-    try {
-      await transporter.sendMail(mailOptions);
-      console.log(`Correo enviado exitosamente a ${to}.`);
-      return { success: true, message: `Correo enviado a ${to}.` };
-    } catch (error: any) {
-      console.error('Error al enviar el correo:', error);
-      return { success: false, message: 'Error al enviar el correo: ' + error.message };
-    }
-  }
+  sendInvoice
 );

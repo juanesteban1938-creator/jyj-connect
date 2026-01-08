@@ -1,22 +1,20 @@
 'use server';
 
 import { ai } from '@/ai/genkit';
-import { transportOptions } from '@/lib/mailer';
-import nodemailer from 'nodemailer';
 import { SendTestEmailOutputSchema, type SendTestEmailOutput } from '@/lib/schemas';
+import nodemailer from 'nodemailer';
 
 
 export async function sendTestEmail(): Promise<SendTestEmailOutput> {
-    return sendTestEmailFlow();
-}
-
-const sendTestEmailFlow = ai.defineFlow(
-  {
-    name: 'sendTestEmailFlow',
-    outputSchema: SendTestEmailOutputSchema
-  },
-  async () => {
-    const transporter = nodemailer.createTransport(transportOptions);
+    const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT),
+        secure: true, 
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+        },
+    });
     
     const mailOptions = {
       from: process.env.SMTP_USER,
@@ -34,5 +32,12 @@ const sendTestEmailFlow = ai.defineFlow(
       console.error('Error al enviar el correo de prueba:', error);
       return { success: false, message: 'Error al enviar el correo de prueba: ' + error.message };
     }
-  }
+}
+
+const sendTestEmailFlow = ai.defineFlow(
+  {
+    name: 'sendTestEmailFlow',
+    outputSchema: SendTestEmailOutputSchema
+  },
+  sendTestEmail
 );

@@ -245,8 +245,6 @@ export function CuentaCobro({ servicio }: Props) {
             </div>
             </ScrollArea>
 
-            <Separator className="my-4" />
-
             <div className="flex justify-end gap-2 p-4 pt-0 no-print">
                  <Button onClick={handleSendEmail} disabled={isSending || !servicio.emailCliente} className="bg-blue-600 hover:bg-blue-700">
                     <Mail className="mr-2 h-4 w-4" />
