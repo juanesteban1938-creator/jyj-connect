@@ -29,12 +29,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/jj-ui/calendar';
 import { Calendar as CalendarIcon, User, Briefcase, MapPin, DollarSign, GripVertical, MinusCircle, PlusCircle, CreditCard, Wallet, Mail } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { useState, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Conductor } from '@/app/dashboard/conductores/page';
 import type { Vehiculo } from '@/app/dashboard/vehiculos/page';
+import type { Servicio } from '@/app/dashboard/servicios/page';
 
 
 const formSchema = z.object({
@@ -83,6 +84,7 @@ const formSchema = z.object({
 export type ServicioFormValues = z.infer<typeof formSchema>;
 
 type Props = {
+  servicio: Servicio | null;
   onSave: (data: ServicioFormValues) => void;
   onCancel: () => void;
   conductores: Conductor[];
@@ -114,7 +116,7 @@ const bancosColombia = [
   "Nequi",
 ];
 
-export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props) {
+export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculos }: Props) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   
   const form = useForm<ServicioFormValues>({
@@ -151,6 +153,60 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
   
   const [hora, setHora] = useState('00');
   const [minutos, setMinutos] = useState('00');
+  
+    useEffect(() => {
+    if (servicio) {
+        const [h, m] = servicio.hora.split(':');
+        setHora(h);
+        setMinutos(m);
+        form.reset({
+            nombreCliente: servicio.cliente,
+            nitCliente: servicio.nitCliente,
+            telefonoCliente: servicio.telefonoCliente,
+            emailCliente: servicio.emailCliente,
+            // Logic for conductor/vehicle would need more info on how they are stored
+            fechaRecogida: parseISO(servicio.fecha),
+            horaRecogida: servicio.hora,
+            direccionRecogida: servicio.origen,
+            direccionDestino: servicio.destino,
+            paradasAdicionales: servicio.paradasAdicionales.map(p => ({ direccion: p })),
+            metodoPago: servicio.metodoPago,
+            valorServicio: servicio.valorServicio,
+            costoOperacion: servicio.costoOperacion,
+            estadoPago: servicio.estadoPago,
+            anticipo: servicio.anticipo,
+            numeroComprobante: servicio.numeroComprobante,
+            banco: servicio.banco,
+        });
+    } else {
+        form.reset({
+            nombreCliente: '',
+            nitCliente: '',
+            telefonoCliente: '',
+            emailCliente: '',
+            esConductorNoRegistrado: false,
+            conductorId: '',
+            conductorOtro: '',
+            esVehiculoNoRegistrado: false,
+            vehiculoId: '',
+            vehiculoOtro: '',
+            horaRecogida: '00:00',
+            direccionRecogida: '',
+            paradasAdicionales: [],
+            direccionDestino: '',
+            metodoPago: 'Facturacion',
+            valorServicio: 0,
+            costoOperacion: 0,
+            estadoPago: 'Pendiente',
+            anticipo: 0,
+            numeroComprobante: '',
+            banco: '',
+        });
+        setHora('00');
+        setMinutos('00');
+    }
+  }, [servicio, form]);
+
 
   useEffect(() => {
     form.setValue('horaRecogida', `${hora}:${minutos}`);
@@ -542,12 +598,10 @@ export function ServicioForm({ onSave, onCancel, conductores, vehiculos }: Props
             Cancelar
         </Button>
         <Button type="submit">
-          Guardar Servicio
+          {servicio ? 'Guardar Cambios' : 'Guardar Servicio'}
         </Button>
       </div>
       </form>
     </Form>
   );
 }
-
-    

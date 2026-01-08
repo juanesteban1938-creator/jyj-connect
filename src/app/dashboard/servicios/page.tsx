@@ -45,10 +45,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ServicioForm, type ServicioFormValues } from '@/components/dashboard/servicios/servicio-form';
 import type { Conductor } from '@/app/dashboard/conductores/page';
 import type { Vehiculo } from '@/app/dashboard/vehiculos/page';
+import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
+
 
 type ServicioEstado = 'Programado' | 'En Servicio' | 'Finalizado' | 'Cancelado';
 type MetodoPago = 'Efectivo' | 'Transferencia' | 'Facturacion';
@@ -120,6 +122,7 @@ export default function ServiciosPage() {
   const [estadoFiltro, setEstadoFiltro] = useState<string>('todos');
   const [currentPage, setCurrentPage] = useState(1);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isResumenOpen, setIsResumenOpen] = useState(false);
   const [selectedServicio, setSelectedServicio] = useState<Servicio | null>(null);
   const [consecutiveId, setConsecutiveId] = useState(101);
   const { toast } = useToast();
@@ -268,45 +271,86 @@ export default function ServiciosPage() {
           ? data.vehiculoOtro
           : vehiculos.find(v => v.id === data.vehiculoId)?.placa;
 
-        const nuevoServicio: Servicio = {
-            id: new Date().toISOString(),
-            consecutivo: `GA-CCT-${consecutiveId}`,
-            fecha: format(data.fechaRecogida, 'yyyy-MM-dd'),
-            hora: data.horaRecogida || "00:00",
-            cliente: data.nombreCliente,
-            nitCliente: data.nitCliente,
-            telefonoCliente: data.telefonoCliente,
-            clienteIniciales: data.nombreCliente.substring(0,2).toUpperCase(),
-            emailCliente: data.emailCliente,
-            origen: data.direccionRecogida,
-            destino: data.direccionDestino,
-            conductor: conductorName || 'No asignado',
-            vehiculo: vehiculoPlaca || 'No asignado',
-            estado: 'Programado',
-            valorServicio: data.valorServicio,
-            anticipo: data.estadoPago === 'Anticipo' ? data.anticipo : 0,
-            saldo: (data.valorServicio || 0) - (data.estadoPago === 'Anticipo' ? (data.anticipo || 0) : 0),
-            metodoPago: data.metodoPago,
-            costoOperacion: data.costoOperacion,
-            estadoPago: data.estadoPago,
-            paradasAdicionales: data.paradasAdicionales.map(p => p.direccion).filter(Boolean),
-            numeroComprobante: data.numeroComprobante,
-            banco: data.banco,
-        };
+        let updatedServicios;
+        const isEditing = selectedServicio;
 
-        const updatedServicios = [...servicios, nuevoServicio];
+        if (isEditing) {
+            updatedServicios = servicios.map(s => {
+                if (s.id === selectedServicio.id) {
+                    return {
+                        ...s,
+                        fecha: format(data.fechaRecogida, 'yyyy-MM-dd'),
+                        hora: data.horaRecogida || "00:00",
+                        cliente: data.nombreCliente,
+                        nitCliente: data.nitCliente,
+                        telefonoCliente: data.telefonoCliente,
+                        clienteIniciales: data.nombreCliente.substring(0,2).toUpperCase(),
+                        emailCliente: data.emailCliente,
+                        origen: data.direccionRecogida,
+                        destino: data.direccionDestino,
+                        conductor: conductorName || 'No asignado',
+                        vehiculo: vehiculoPlaca || 'No asignado',
+                        valorServicio: data.valorServicio,
+                        anticipo: data.estadoPago === 'Anticipo' ? data.anticipo : 0,
+                        saldo: (data.valorServicio || 0) - (data.estadoPago === 'Anticipo' ? (data.anticipo || 0) : 0),
+                        metodoPago: data.metodoPago,
+                        costoOperacion: data.costoOperacion,
+                        estadoPago: data.estadoPago,
+                        paradasAdicionales: data.paradasAdicionales.map(p => p.direccion).filter(Boolean),
+                        numeroComprobante: data.numeroComprobante,
+                        banco: data.banco,
+                    };
+                }
+                return s;
+            });
+             toast({
+                title: '¡Servicio Actualizado!',
+                description: `El servicio ${selectedServicio.consecutivo} ha sido actualizado.`,
+            });
+        } else {
+            const nuevoServicio: Servicio = {
+                id: new Date().toISOString(),
+                consecutivo: `GA-CCT-${consecutiveId}`,
+                fecha: format(data.fechaRecogida, 'yyyy-MM-dd'),
+                hora: data.horaRecogida || "00:00",
+                cliente: data.nombreCliente,
+                nitCliente: data.nitCliente,
+                telefonoCliente: data.telefonoCliente,
+                clienteIniciales: data.nombreCliente.substring(0,2).toUpperCase(),
+                emailCliente: data.emailCliente,
+                origen: data.direccionRecogida,
+                destino: data.direccionDestino,
+                conductor: conductorName || 'No asignado',
+                vehiculo: vehiculoPlaca || 'No asignado',
+                estado: 'Programado',
+                valorServicio: data.valorServicio,
+                anticipo: data.estadoPago === 'Anticipo' ? data.anticipo : 0,
+                saldo: (data.valorServicio || 0) - (data.estadoPago === 'Anticipo' ? (data.anticipo || 0) : 0),
+                metodoPago: data.metodoPago,
+                costoOperacion: data.costoOperacion,
+                estadoPago: data.estadoPago,
+                paradasAdicionales: data.paradasAdicionales.map(p => p.direccion).filter(Boolean),
+                numeroComprobante: data.numeroComprobante,
+                banco: data.banco,
+            };
+            updatedServicios = [...servicios, nuevoServicio];
+
+            const nextId = consecutiveId + 1;
+            setConsecutiveId(nextId);
+            localStorage.setItem('servicioConsecutivo', nextId.toString());
+
+            toast({
+                title: '¡Servicio Creado!',
+                description: `El servicio ${nuevoServicio.consecutivo} para ${nuevoServicio.cliente} ha sido programado.`,
+            });
+        }
+
         localStorage.setItem('servicios', JSON.stringify(updatedServicios));
         setServicios(updatedServicios);
 
-        const nextId = consecutiveId + 1;
-        setConsecutiveId(nextId);
-        localStorage.setItem('servicioConsecutivo', nextId.toString());
-
-        toast({
-            title: '¡Servicio Creado!',
-            description: `El servicio ${nuevoServicio.consecutivo} para ${nuevoServicio.cliente} ha sido programado.`,
-        });
         setIsFormOpen(false);
+        setSelectedServicio(null);
+
     } catch (error) {
         console.error("Error saving service:", error);
         toast({
@@ -316,6 +360,16 @@ export default function ServiciosPage() {
         });
     }
   };
+
+  const handleOpenResumen = (servicio: Servicio) => {
+    setSelectedServicio(servicio);
+    setIsResumenOpen(true);
+  }
+
+  const handleOpenEditar = (servicio: Servicio) => {
+    setSelectedServicio(servicio);
+    setIsFormOpen(true);
+  }
 
   const filteredServicios = servicios
     .filter(s => {
@@ -410,22 +464,45 @@ export default function ServiciosPage() {
             <StatCard title="Programados Hoy" value={serviciosProgramadosHoy.toString()} icon={<CalendarIcon className="h-5 w-5"/>} iconBgColor="bg-blue-100" />
             <StatCard title="Finalizados" value={serviciosFinalizados.toString()} icon={<CheckCircle className="h-5 w-5"/>} iconBgColor="bg-green-100" />
         </div>
-        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <Dialog open={isFormOpen} onOpenChange={(isOpen) => { setIsFormOpen(isOpen); if (!isOpen) setSelectedServicio(null); }}>
             <DialogTrigger asChild>
-                <Button size="lg" className="w-full sm:w-auto">
+                <Button size="lg" className="w-full sm:w-auto" onClick={() => setSelectedServicio(null)}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Nuevo Servicio
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-3xl">
                 <DialogHeader>
-                    <DialogTitle>Programar Nuevo Servicio <Badge variant="outline" className="ml-2">{`GA-CCT-${consecutiveId}`}</Badge></DialogTitle>
-                    <CardDescription>Diligencie la información para crear una orden de servicio.</CardDescription>
+                    <DialogTitle>
+                        {selectedServicio ? 'Editar Servicio' : 'Programar Nuevo Servicio'}
+                        <Badge variant="outline" className="ml-2">{selectedServicio ? selectedServicio.consecutivo : `GA-CCT-${consecutiveId}`}</Badge>
+                    </DialogTitle>
+                    <CardDescription>Diligencie la información para {selectedServicio ? 'actualizar la' : 'crear una'} orden de servicio.</CardDescription>
                 </DialogHeader>
-                <ServicioForm onSave={handleSaveServicio} onCancel={() => setIsFormOpen(false)} conductores={conductores} vehiculos={vehiculos} />
+                <ServicioForm 
+                    servicio={selectedServicio}
+                    onSave={handleSaveServicio} 
+                    onCancel={() => setIsFormOpen(false)} 
+                    conductores={conductores} 
+                    vehiculos={vehiculos} 
+                />
             </DialogContent>
         </Dialog>
       </div>
+
+        <Dialog open={isResumenOpen} onOpenChange={(isOpen) => { setIsResumenOpen(isOpen); if (!isOpen) setSelectedServicio(null); }}>
+            <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>Resumen del Servicio</DialogTitle>
+                    <DialogDescription>
+                        Resumen financiero detallado para el servicio {selectedServicio?.consecutivo}.
+                    </DialogDescription>
+                </DialogHeader>
+                {selectedServicio && (
+                    <ResumenServicio servicio={selectedServicio} />
+                )}
+            </DialogContent>
+        </Dialog>
 
       <Card>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -517,8 +594,8 @@ export default function ServiciosPage() {
                         </div>
 
                         <div className="col-span-6 sm:col-span-1 flex justify-end gap-1">
-                            <Button variant="ghost" size="icon"><Eye className="h-4 w-4"/></Button>
-                            <Button variant="ghost" size="icon"><Edit className="h-4 w-4"/></Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenResumen(servicio)}><Eye className="h-4 w-4"/></Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenEditar(servicio)}><Edit className="h-4 w-4"/></Button>
                         </div>
                     </div>
                 ))}
@@ -542,6 +619,3 @@ export default function ServiciosPage() {
     </div>
   );
 }
-
-    
-    
