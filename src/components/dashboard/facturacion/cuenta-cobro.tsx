@@ -112,6 +112,10 @@ export function CuentaCobro({ servicio }: Props) {
             pdf.addImage(canvas, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
             
             const pdfBase64 = pdf.output('datauristring').split(',')[1];
+            
+            if (!pdfBase64) {
+                throw new Error('El PDF no se generó a tiempo');
+            }
 
             const result = await sendInvoice({
                 to: servicio.emailCliente,
@@ -136,7 +140,7 @@ export function CuentaCobro({ servicio }: Props) {
             toast({
                 variant: 'destructive',
                 title: 'Error Inesperado',
-                description: 'Ocurrió un problema al generar o enviar el PDF.',
+                description: error.message || 'Ocurrió un problema al generar o enviar el PDF.',
             });
         } finally {
             setIsSending(false);
