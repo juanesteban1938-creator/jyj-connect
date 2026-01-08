@@ -59,6 +59,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { AbonoForm, AbonoFormValues } from '@/components/dashboard/facturacion/abono-form';
 import { FacturacionMensual, type MonthlyBilling } from '@/components/dashboard/facturacion/facturacion-mensual';
+import { barChartConfig } from './bar-chart-config';
 
 const StatCard = ({ title, value, change, changeType, icon: Icon, iconBgColor }: { title: string; value: string; change?: string; changeType?: 'positive' | 'negative'; icon: React.ElementType, iconBgColor: string }) => (
     <Card>
@@ -392,7 +393,7 @@ export default function FacturacionPage() {
             <CardTitle>Récord Mensual ({format(new Date(), 'MMMM', {locale: es})})</CardTitle>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={{}} className="h-[200px] w-full">
+            <ChartContainer config={barChartConfig} className="h-[200px] w-full">
               <BarChart data={monthlyRecordData} margin={{ top: 20, right: 20, bottom: 20, left: -20 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="name" tickLine={false} axisLine={false} />
