@@ -261,7 +261,7 @@ export default function ServiciosPage() {
           if (s.conductorId && !s.conductorTelefono) {
             const conductor = conductorMap.get(s.conductorId);
             if (conductor) {
-              return { ...s, conductorTelefono: conductor.telefono };
+              return { ...s, conductorTelefono: conductor.telefono, conductor: `${conductor.nombres} ${conductor.apellidos}` };
             }
           }
           return s;
@@ -283,8 +283,8 @@ export default function ServiciosPage() {
 
   const handleSaveServicio = (data: ServicioFormValues) => {
     try {
-        const conductorInfo = data.esConductorNoRegistrado
-          ? { id: undefined, nombre: data.conductorOtro, telefono: undefined }
+        const conductorData = data.esConductorNoRegistrado
+          ? { id: undefined, nombres: data.conductorOtro, apellidos: '', telefono: undefined }
           : conductores.find(c => c.id === data.conductorId);
         
         const vehiculoPlaca = data.esVehiculoNoRegistrado
@@ -308,9 +308,9 @@ export default function ServiciosPage() {
                         emailCliente: data.emailCliente,
                         origen: data.direccionRecogida,
                         destino: data.direccionDestino,
-                        conductor: conductorInfo?.nombres || 'No asignado',
-                        conductorId: conductorInfo?.id,
-                        conductorTelefono: conductorInfo?.telefono,
+                        conductor: `${conductorData?.nombres || ''} ${conductorData?.apellidos || ''}`.trim(),
+                        conductorId: conductorData?.id,
+                        conductorTelefono: conductorData?.telefono,
                         vehiculo: vehiculoPlaca || 'No asignado',
                         valorServicio: data.valorServicio,
                         anticipo: data.estadoPago === 'Anticipo' ? data.anticipo : 0,
@@ -342,9 +342,9 @@ export default function ServiciosPage() {
                 emailCliente: data.emailCliente,
                 origen: data.direccionRecogida,
                 destino: data.direccionDestino,
-                conductor: conductorInfo?.nombres || 'No asignado',
-                conductorId: conductorInfo?.id,
-                conductorTelefono: conductorInfo?.telefono,
+                conductor: `${conductorData?.nombres || ''} ${conductorData?.apellidos || ''}`.trim(),
+                conductorId: conductorData?.id,
+                conductorTelefono: conductorData?.telefono,
                 vehiculo: vehiculoPlaca || 'No asignado',
                 estado: 'Programado',
                 valorServicio: data.valorServicio,
