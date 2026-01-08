@@ -45,7 +45,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { ServicioForm, type ServicioFormValues } from '@/components/dashboard/servicios/servicio-form';
 import type { Conductor } from '@/app/dashboard/conductores/page';
 import type { Vehiculo } from '@/app/dashboard/vehiculos/page';
@@ -643,5 +643,3 @@ export default function ServiciosPage() {
     </div>
   );
 }
-
-    
