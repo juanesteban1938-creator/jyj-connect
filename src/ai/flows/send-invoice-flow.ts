@@ -12,11 +12,15 @@ export const SendInvoiceInputSchema = z.object({
 });
 export type SendInvoiceInput = z.infer<typeof SendInvoiceInputSchema>;
 
-export const sendInvoiceFlow = ai.defineFlow(
+export const SendInvoiceOutputSchema = z.object({ success: z.boolean(), message: z.string() });
+export type SendInvoiceOutput = z.infer<typeof SendInvoiceOutputSchema>;
+
+
+const sendInvoiceFlow = ai.defineFlow(
   {
     name: 'sendInvoiceFlow',
     inputSchema: SendInvoiceInputSchema,
-    outputSchema: z.object({ success: z.boolean(), message: z.string() }),
+    outputSchema: SendInvoiceOutputSchema,
   },
   async ({ to, subject, htmlContent }) => {
     const transporter = nodemailer.createTransport(transportOptions);
@@ -38,3 +42,7 @@ export const sendInvoiceFlow = ai.defineFlow(
     }
   }
 );
+
+export async function sendInvoice(input: SendInvoiceInput): Promise<SendInvoiceOutput> {
+    return sendInvoiceFlow(input);
+}

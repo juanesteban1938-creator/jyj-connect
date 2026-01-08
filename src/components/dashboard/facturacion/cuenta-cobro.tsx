@@ -9,7 +9,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
 import QRCode from 'qrcode';
-import { sendInvoiceFlow } from '@/ai/flows/send-invoice-flow';
+import { sendInvoice } from '@/ai/flows/send-invoice-flow';
 import { useToast } from "@/hooks/use-toast";
 
 type Props = {
@@ -96,7 +96,7 @@ export function CuentaCobro({ servicio }: Props) {
         
         setIsSending(true);
         try {
-            const result = await sendInvoiceFlow({
+            const result = await sendInvoice({
                 to: servicio.emailCliente,
                 subject: `Cuenta de Cobro ${servicio.consecutivo} - Transportes J&J`,
                 htmlContent: htmlContent,

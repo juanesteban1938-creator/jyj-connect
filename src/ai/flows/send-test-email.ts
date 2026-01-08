@@ -3,10 +3,16 @@
 import { ai } from '@/ai/genkit';
 import { transportOptions } from '@/lib/mailer';
 import nodemailer from 'nodemailer';
+import { z } from 'zod';
 
-export const sendTestEmailFlow = ai.defineFlow(
+const SendTestEmailOutputSchema = z.object({ success: z.boolean(), message: z.string() });
+export type SendTestEmailOutput = z.infer<typeof SendTestEmailOutputSchema>;
+
+
+const sendTestEmailFlow = ai.defineFlow(
   {
     name: 'sendTestEmailFlow',
+    outputSchema: SendTestEmailOutputSchema
   },
   async () => {
     const transporter = nodemailer.createTransport(transportOptions);
@@ -29,3 +35,7 @@ export const sendTestEmailFlow = ai.defineFlow(
     }
   }
 );
+
+export async function sendTestEmail(): Promise<SendTestEmailOutput> {
+    return sendTestEmailFlow();
+}
