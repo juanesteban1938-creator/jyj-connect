@@ -1,7 +1,8 @@
 'use server';
 
 import { ai } from '@/ai/genkit';
-import { transporter } from '@/lib/mailer';
+import { transportOptions } from '@/lib/mailer';
+import nodemailer from 'nodemailer';
 import { z } from 'zod';
 
 export const SendInvoiceInputSchema = z.object({
@@ -18,6 +19,8 @@ export const sendInvoiceFlow = ai.defineFlow(
     outputSchema: z.object({ success: z.boolean(), message: z.string() }),
   },
   async ({ to, subject, htmlContent }) => {
+    const transporter = nodemailer.createTransport(transportOptions);
+
     const mailOptions = {
       from: process.env.SMTP_USER,
       to: to,

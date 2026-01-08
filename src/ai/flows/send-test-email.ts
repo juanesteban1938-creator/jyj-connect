@@ -1,13 +1,16 @@
 'use server';
 
 import { ai } from '@/ai/genkit';
-import { transporter } from '@/lib/mailer';
+import { transportOptions } from '@/lib/mailer';
+import nodemailer from 'nodemailer';
 
 export const sendTestEmailFlow = ai.defineFlow(
   {
     name: 'sendTestEmailFlow',
   },
   async () => {
+    const transporter = nodemailer.createTransport(transportOptions);
+    
     const mailOptions = {
       from: process.env.SMTP_USER,
       to: process.env.SMTP_USER,

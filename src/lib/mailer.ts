@@ -1,7 +1,6 @@
 'use server';
 
 import 'dotenv/config';
-import nodemailer from 'nodemailer';
 
 const smtpHost = process.env.SMTP_HOST;
 const smtpPort = process.env.SMTP_PORT;
@@ -12,7 +11,7 @@ if (smtpHost && smtpPort && smtpUser && smtpPass) {
   console.log('Conexión SMTP lista');
 }
 
-export const transporter = nodemailer.createTransport({
+export const transportOptions = {
   host: smtpHost,
   port: Number(smtpPort),
   secure: true, // true for 465, false for other ports
@@ -20,4 +19,4 @@ export const transporter = nodemailer.createTransport({
     user: smtpUser,
     pass: smtpPass,
   },
-});
+};
