@@ -6,6 +6,10 @@ import nodemailer from 'nodemailer';
 import { SendTestEmailOutputSchema, type SendTestEmailOutput } from '@/lib/schemas';
 
 
+export async function sendTestEmail(): Promise<SendTestEmailOutput> {
+    return sendTestEmailFlow();
+}
+
 const sendTestEmailFlow = ai.defineFlow(
   {
     name: 'sendTestEmailFlow',
@@ -32,7 +36,3 @@ const sendTestEmailFlow = ai.defineFlow(
     }
   }
 );
-
-export async function sendTestEmail(): Promise<SendTestEmailOutput> {
-    return sendTestEmailFlow();
-}

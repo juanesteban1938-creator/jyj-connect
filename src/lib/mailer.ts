@@ -14,7 +14,7 @@ if (smtpHost && smtpPort && smtpUser && smtpPass) {
 export const transportOptions = {
   host: smtpHost,
   port: Number(smtpPort),
-  secure: true, // true for 465, false for other ports
+  secure: true, 
   auth: {
     user: smtpUser,
     pass: smtpPass,

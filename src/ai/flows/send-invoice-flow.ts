@@ -6,6 +6,10 @@ import nodemailer from 'nodemailer';
 import { SendInvoiceInputSchema, SendInvoiceOutputSchema, type SendInvoiceInput, type SendInvoiceOutput } from '@/lib/schemas';
 
 
+export async function sendInvoice(input: SendInvoiceInput): Promise<SendInvoiceOutput> {
+    return sendInvoiceFlow(input);
+}
+
 const sendInvoiceFlow = ai.defineFlow(
   {
     name: 'sendInvoiceFlow',
@@ -32,7 +36,3 @@ const sendInvoiceFlow = ai.defineFlow(
     }
   }
 );
-
-export async function sendInvoice(input: SendInvoiceInput): Promise<SendInvoiceOutput> {
-    return sendInvoiceFlow(input);
-}
