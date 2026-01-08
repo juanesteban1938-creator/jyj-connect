@@ -4,11 +4,13 @@ import type { Servicio } from "@/app/dashboard/servicios/page";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
-import { Printer } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { Printer, Mail } from "lucide-react";
+import React, { useEffect, useState, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
 import QRCode from 'qrcode';
+import { sendInvoiceFlow } from '@/ai/flows/send-invoice-flow';
+import { useToast } from "@/hooks/use-toast";
 
 type Props = {
     servicio: Servicio;
@@ -22,6 +24,9 @@ const currencyFormatter = new Intl.NumberFormat('es-CO', {
 
 export function CuentaCobro({ servicio }: Props) {
     const [qrCodeUrl, setQrCodeUrl] = useState('');
+    const [isSending, setIsSending] = useState(false);
+    const printableAreaRef = useRef<HTMLDivElement>(null);
+    const { toast } = useToast();
 
     useEffect(() => {
         if (servicio && servicio.consecutivo) {
@@ -33,7 +38,7 @@ export function CuentaCobro({ servicio }: Props) {
     }, [servicio]);
     
     const handlePrint = () => {
-        const printContent = document.getElementById("printable-area");
+        const printContent = printableAreaRef.current;
         if (printContent) {
             const newWindow = window.open('', '_blank');
             if(newWindow) {
@@ -68,6 +73,57 @@ export function CuentaCobro({ servicio }: Props) {
             }
         }
     }
+
+    const handleSendEmail = async () => {
+        if (!servicio.emailCliente) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'El cliente no tiene un correo electrónico registrado.',
+            });
+            return;
+        }
+
+        const htmlContent = printableAreaRef.current?.innerHTML;
+        if (!htmlContent) {
+             toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'No se pudo generar el contenido de la factura.',
+            });
+            return;
+        }
+        
+        setIsSending(true);
+        try {
+            const result = await sendInvoiceFlow({
+                to: servicio.emailCliente,
+                subject: `Cuenta de Cobro ${servicio.consecutivo} - Transportes J&J`,
+                htmlContent: htmlContent,
+            });
+
+            if (result.success) {
+                toast({
+                    title: '¡Correo Enviado!',
+                    description: `La cuenta de cobro ha sido enviada a ${servicio.emailCliente}.`,
+                });
+            } else {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Error al Enviar',
+                    description: result.message,
+                });
+            }
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Error Inesperado',
+                description: 'Ocurrió un problema al intentar enviar el correo.',
+            });
+        } finally {
+            setIsSending(false);
+        }
+    }
     
     let fecha;
     try {
@@ -81,7 +137,7 @@ export function CuentaCobro({ servicio }: Props) {
     return (
         <div className="p-1">
             <ScrollArea className="h-[70vh] w-full">
-            <div id="printable-area" className="p-8 bg-white text-black text-xs font-sans">
+            <div ref={printableAreaRef} id="printable-area" className="p-8 bg-white text-black text-xs font-sans">
                 <header className="flex justify-between items-start mb-8">
                      <div className="border-2 border-black w-48">
                          <div className="border-b-2 border-black text-center font-bold p-1">FECHA DE EXPEDICION</div>
@@ -192,6 +248,10 @@ export function CuentaCobro({ servicio }: Props) {
             <Separator className="my-4" />
 
             <div className="flex justify-end gap-2 p-4 pt-0 no-print">
+                 <Button onClick={handleSendEmail} disabled={isSending || !servicio.emailCliente} className="bg-blue-600 hover:bg-blue-700">
+                    <Mail className="mr-2 h-4 w-4" />
+                    {isSending ? 'Enviando...' : 'Enviar por Correo'}
+                </Button>
                 <Button onClick={handlePrint}>
                     <Printer className="mr-2 h-4 w-4" />
                     Imprimir / Guardar PDF
