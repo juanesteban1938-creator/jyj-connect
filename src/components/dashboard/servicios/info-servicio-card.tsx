@@ -51,5 +51,3 @@ export function InfoServicioCard({ servicio }: Props) {
         </Card>
     );
 }
-
-    
