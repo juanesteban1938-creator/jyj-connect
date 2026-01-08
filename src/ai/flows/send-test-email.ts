@@ -4,7 +4,6 @@ import { ai } from '@/ai/genkit';
 import { SendTestEmailOutputSchema, type SendTestEmailOutput } from '@/lib/schemas';
 import nodemailer from 'nodemailer';
 
-
 export async function sendTestEmail(): Promise<SendTestEmailOutput> {
     const transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
@@ -25,6 +24,7 @@ export async function sendTestEmail(): Promise<SendTestEmailOutput> {
     };
 
     try {
+      console.log(`Intento de conexión para: ${process.env.SMTP_USER}`);
       await transporter.sendMail(mailOptions);
       console.log('Correo de prueba enviado exitosamente.');
       return { success: true, message: 'Correo de prueba enviado exitosamente.' };

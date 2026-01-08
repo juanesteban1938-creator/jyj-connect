@@ -1,7 +1,7 @@
 'use server';
 
 import { ai } from '@/ai/genkit';
-import { SendInvoiceInputSchema, SendInvoiceOutputSchema, type SendInvoiceInput, type SendInvoiceOutput } from '@/lib/schemas';
+import { SendInvoiceInputSchema, type SendInvoiceInput, SendInvoiceOutputSchema, type SendInvoiceOutput } from '@/lib/schemas';
 import nodemailer from 'nodemailer';
 
 export async function sendInvoice(input: SendInvoiceInput): Promise<SendInvoiceOutput> {
@@ -23,6 +23,7 @@ export async function sendInvoice(input: SendInvoiceInput): Promise<SendInvoiceO
   };
 
   try {
+    console.log(`Intento de conexión para: ${process.env.SMTP_USER}`);
     await transporter.sendMail(mailOptions);
     return { success: true, message: `Correo enviado a ${input.to}.` };
   } catch (error: any) {
