@@ -3,10 +3,7 @@
 import { ai } from '@/ai/genkit';
 import { transportOptions } from '@/lib/mailer';
 import nodemailer from 'nodemailer';
-import { z } from 'zod';
-
-const SendTestEmailOutputSchema = z.object({ success: z.boolean(), message: z.string() });
-export type SendTestEmailOutput = z.infer<typeof SendTestEmailOutputSchema>;
+import { SendTestEmailOutputSchema, type SendTestEmailOutput } from '@/lib/schemas';
 
 
 const sendTestEmailFlow = ai.defineFlow(

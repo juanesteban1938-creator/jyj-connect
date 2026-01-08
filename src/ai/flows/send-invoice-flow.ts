@@ -3,17 +3,7 @@
 import { ai } from '@/ai/genkit';
 import { transportOptions } from '@/lib/mailer';
 import nodemailer from 'nodemailer';
-import { z } from 'zod';
-
-export const SendInvoiceInputSchema = z.object({
-  to: z.string().email(),
-  subject: z.string(),
-  htmlContent: z.string(),
-});
-export type SendInvoiceInput = z.infer<typeof SendInvoiceInputSchema>;
-
-export const SendInvoiceOutputSchema = z.object({ success: z.boolean(), message: z.string() });
-export type SendInvoiceOutput = z.infer<typeof SendInvoiceOutputSchema>;
+import { SendInvoiceInputSchema, SendInvoiceOutputSchema, type SendInvoiceInput, type SendInvoiceOutput } from '@/lib/schemas';
 
 
 const sendInvoiceFlow = ai.defineFlow(
