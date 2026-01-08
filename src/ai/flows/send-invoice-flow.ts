@@ -1,7 +1,7 @@
 'use server';
 
 import { ai } from '@/ai/genkit';
-import { SendInvoiceInputSchema, type SendInvoiceInput, SendInvoiceOutputSchema, type SendInvoiceOutput } from '@/lib/schemas';
+import { SendInvoiceInputSchema, type SendInvoiceInput, SendInvoiceOutputSchema } from '@/lib/schemas';
 import nodemailer from 'nodemailer';
 
 export async function sendInvoice(input: SendInvoiceInput): Promise<SendInvoiceOutput> {
@@ -11,7 +11,7 @@ export async function sendInvoice(input: SendInvoiceInput): Promise<SendInvoiceO
     secure: true, 
     auth: {
       user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
+      pass: process.env.SMTP_PASS?.trim(),
     },
   });
 
@@ -23,6 +23,7 @@ export async function sendInvoice(input: SendInvoiceInput): Promise<SendInvoiceO
   };
 
   try {
+    console.log('Intentando autenticación con clave de 16 caracteres...');
     console.log(`Intento de conexión para: ${process.env.SMTP_USER}`);
     await transporter.sendMail(mailOptions);
     return { success: true, message: `Correo enviado a ${input.to}.` };

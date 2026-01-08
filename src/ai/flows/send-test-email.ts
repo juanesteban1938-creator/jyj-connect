@@ -11,7 +11,7 @@ export async function sendTestEmail(): Promise<SendTestEmailOutput> {
         secure: true, 
         auth: {
             user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
+            pass: process.env.SMTP_PASS?.trim(),
         },
     });
     
@@ -24,6 +24,7 @@ export async function sendTestEmail(): Promise<SendTestEmailOutput> {
     };
 
     try {
+      console.log('Intentando autenticación con clave de 16 caracteres...');
       console.log(`Intento de conexión para: ${process.env.SMTP_USER}`);
       await transporter.sendMail(mailOptions);
       console.log('Correo de prueba enviado exitosamente.');
