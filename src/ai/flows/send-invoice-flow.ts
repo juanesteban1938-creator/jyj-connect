@@ -7,12 +7,11 @@ import nodemailer from 'nodemailer';
 export async function sendInvoice(input: SendInvoiceInput): Promise<SendInvoiceOutput> {
   const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // true for 465, false for other ports
-    requireTLS: true,
+    port: 465,
+    secure: true, // true for 465, false for other ports
     auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS?.trim(),
+      user: 'transportes.especialesjyj@gmail.com',
+      pass: 'cymeyvdehchdnrrf',
     },
   });
 
@@ -24,8 +23,7 @@ export async function sendInvoice(input: SendInvoiceInput): Promise<SendInvoiceO
   };
 
   try {
-    console.log('Intentando autenticación con clave de 16 caracteres...');
-    console.log(`Intento de conexión para: ${process.env.SMTP_USER}`);
+    console.log('Intento de conexión para:', process.env.SMTP_USER);
     await transporter.sendMail(mailOptions);
     return { success: true, message: `Correo enviado a ${input.to}.` };
   } catch (error: any) {
