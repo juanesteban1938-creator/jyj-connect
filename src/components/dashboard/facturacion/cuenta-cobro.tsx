@@ -115,6 +115,7 @@ export function CuentaCobro({ servicio }: Props) {
 
             const result = await sendInvoice({
                 to: servicio.emailCliente,
+                nroFactura: servicio.consecutivo,
                 pdfBuffer: Buffer.from(pdfBuffer),
             });
 
@@ -275,5 +276,3 @@ export function CuentaCobro({ servicio }: Props) {
         </div>
     )
 }
-
-    
