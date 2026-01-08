@@ -258,19 +258,19 @@ export default function ServiciosPage() {
         
         const conductorMap = new Map(storedConductores.map(c => [c.id, c]));
         const processedServicios = initialServicios.map(s => {
-          if (s.conductorId && !s.conductorTelefono) {
-            const conductor = conductorMap.get(s.conductorId);
-            if (conductor) {
-              return { ...s, conductorTelefono: conductor.telefono, conductor: `${conductor.nombres} ${conductor.apellidos}` };
-            }
+          if (s.conductorId && conductorMap.has(s.conductorId)) {
+            const conductor = conductorMap.get(s.conductorId)!;
+            return { ...s, conductorTelefono: conductor.telefono, conductor: `${conductor.nombres} ${conductor.apellidos}` };
           }
           return s;
         });
-
+        
+        setServicios(processedServicios);
+        
         if (!storedServiciosRaw) {
           localStorage.setItem('servicios', JSON.stringify(processedServicios));
         }
-        setServicios(processedServicios);
+
     } catch(e) {
         console.error(e);
     }
@@ -519,7 +519,7 @@ export default function ServiciosPage() {
               <DialogHeader>
                   <DialogTitle>Resumen Detallado del Servicio</DialogTitle>
                   <DialogDescription>
-                      Información operativa y financiera para el servicio {selectedServicio?.consecutivo}.
+                      ¡Gracias por elegirnos! Aquí tienes todos los detalles de tu experiencia con el servicio {selectedServicio?.consecutivo}.
                   </DialogDescription>
               </DialogHeader>
               {selectedServicio && (
