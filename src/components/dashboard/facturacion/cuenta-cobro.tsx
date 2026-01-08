@@ -111,12 +111,12 @@ export function CuentaCobro({ servicio }: Props) {
             const imgY = 0;
             pdf.addImage(canvas, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
             
-            const pdfBuffer = pdf.output('arraybuffer');
+            const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
             const result = await sendInvoice({
                 to: servicio.emailCliente,
                 nroFactura: servicio.consecutivo,
-                pdfBuffer: Buffer.from(pdfBuffer),
+                pdfBase64: pdfBase64,
             });
 
             if (result.success) {

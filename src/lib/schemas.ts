@@ -4,7 +4,7 @@ import { z } from 'zod';
 export const SendInvoiceInputSchema = z.object({
   to: z.string().email(),
   nroFactura: z.string(),
-  pdfBuffer: z.instanceof(Buffer),
+  pdfBase64: z.string(),
 });
 export type SendInvoiceInput = z.infer<typeof SendInvoiceInputSchema>;
 
