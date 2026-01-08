@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Banknote, Landmark, Hash, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { InfoServicioCard } from "@/components/dashboard/servicios/info-servicio-card";
 
 type Props = {
     servicio: Servicio;
@@ -53,6 +54,8 @@ export function ResumenServicio({ servicio }: Props) {
     return (
         <ScrollArea className="h-[70vh] w-full">
             <div className="space-y-4 p-1">
+                <InfoServicioCard servicio={servicio} />
+
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-lg">Resumen Financiero</CardTitle>

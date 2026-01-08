@@ -490,19 +490,19 @@ export default function ServiciosPage() {
         </Dialog>
       </div>
 
-        <Dialog open={isResumenOpen} onOpenChange={(isOpen) => { setIsResumenOpen(isOpen); if (!isOpen) setSelectedServicio(null); }}>
-            <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                    <DialogTitle>Resumen del Servicio</DialogTitle>
-                    <DialogDescription>
-                        Resumen financiero detallado para el servicio {selectedServicio?.consecutivo}.
-                    </DialogDescription>
-                </DialogHeader>
-                {selectedServicio && (
-                    <ResumenServicio servicio={selectedServicio} />
-                )}
-            </DialogContent>
-        </Dialog>
+      <Dialog open={isResumenOpen} onOpenChange={(isOpen) => { setIsResumenOpen(isOpen); if (!isOpen) setSelectedServicio(null); }}>
+          <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                  <DialogTitle>Resumen Detallado del Servicio</DialogTitle>
+                  <DialogDescription>
+                      Información operativa y financiera para el servicio {selectedServicio?.consecutivo}.
+                  </DialogDescription>
+              </DialogHeader>
+              {selectedServicio && (
+                  <ResumenServicio servicio={selectedServicio} />
+              )}
+          </DialogContent>
+      </Dialog>
 
       <Card>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
