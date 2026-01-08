@@ -45,7 +45,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ServicioForm, type ServicioFormValues } from '@/components/dashboard/servicios/servicio-form';
 import type { Conductor } from '@/app/dashboard/conductores/page';
 import type { Vehiculo } from '@/app/dashboard/vehiculos/page';
@@ -70,6 +70,8 @@ export type Servicio = {
   clienteIniciales: string;
   emailCliente?: string;
   conductor: string;
+  conductorId?: string;
+  conductorTelefono?: string;
   vehiculo: string;
   estado: ServicioEstado;
   valorServicio?: number;
@@ -132,9 +134,29 @@ export default function ServiciosPage() {
 
 
   useEffect(() => {
+    let storedConductores: Conductor[] = [];
     try {
-        const storedServicios = localStorage.getItem('servicios');
-        const initialServicios: Servicio[] = storedServicios ? JSON.parse(storedServicios) : [
+        const storedConductoresRaw = localStorage.getItem('conductores');
+        if (storedConductoresRaw) {
+          storedConductores = JSON.parse(storedConductoresRaw);
+          setConductores(storedConductores);
+        }
+    } catch (e) {
+        console.error(e);
+    }
+    
+    try {
+        const storedVehiculosRaw = localStorage.getItem('vehiculos');
+        if (storedVehiculosRaw) {
+          setVehiculos(JSON.parse(storedVehiculosRaw));
+        }
+    } catch (e) {
+        console.error(e)
+    }
+
+    try {
+        const storedServiciosRaw = localStorage.getItem('servicios');
+        const initialServicios: Servicio[] = storedServiciosRaw ? JSON.parse(storedServiciosRaw) : [
           {
             id: '1',
             consecutivo: 'GA-CCT-100',
@@ -147,7 +169,9 @@ export default function ServiciosPage() {
             telefonoCliente: "3112223344",
             clienteIniciales: 'TC',
             emailCliente: 'test@test.com',
-            conductor: 'Carlos M.',
+            conductor: 'Carlos Méndez',
+            conductorId: '1',
+            conductorTelefono: '3104558899',
             vehiculo: 'Mercedes V-Class • 2390 KLP',
             estado: 'En Servicio',
             valorServicio: 250000,
@@ -169,7 +193,9 @@ export default function ServiciosPage() {
             telefonoCliente: "3209998877",
             clienteIniciales: 'GC',
             emailCliente: 'test2@test.com',
-            conductor: 'Luisa P.',
+            conductor: 'Luisa Pérez',
+            conductorId: '2',
+            conductorTelefono: '3127701234',
             vehiculo: 'Sprinter • ABC-456',
             estado: 'Programado',
             valorServicio: 180000,
@@ -191,7 +217,9 @@ export default function ServiciosPage() {
             telefonoCliente: "3001234567",
             clienteIniciales: 'CP',
             emailCliente: 'test3@test.com',
-            conductor: 'Conductor de Prueba',
+            conductor: 'Jorge Ramírez',
+            conductorId: '3',
+            conductorTelefono: '3001105566',
             vehiculo: 'XYZ-789',
             estado: 'Finalizado',
             valorServicio: 120000,
@@ -227,11 +255,22 @@ export default function ServiciosPage() {
             banco: 'Bancolombia',
           },
         ];
+        
+        const conductorMap = new Map(storedConductores.map(c => [c.id, c]));
+        const processedServicios = initialServicios.map(s => {
+          if (s.conductorId && !s.conductorTelefono) {
+            const conductor = conductorMap.get(s.conductorId);
+            if (conductor) {
+              return { ...s, conductorTelefono: conductor.telefono };
+            }
+          }
+          return s;
+        });
 
-        if (!storedServicios) {
-          localStorage.setItem('servicios', JSON.stringify(initialServicios));
+        if (!storedServiciosRaw) {
+          localStorage.setItem('servicios', JSON.stringify(processedServicios));
         }
-        setServicios(initialServicios);
+        setServicios(processedServicios);
     } catch(e) {
         console.error(e);
     }
@@ -240,32 +279,13 @@ export default function ServiciosPage() {
     if(storedConsecutive) {
       setConsecutiveId(parseInt(storedConsecutive, 10));
     }
-
-    try {
-        const storedConductores = localStorage.getItem('conductores');
-        if (storedConductores) {
-          setConductores(JSON.parse(storedConductores));
-        }
-    } catch (e) {
-        console.error(e);
-    }
-
-    try {
-        const storedVehiculos = localStorage.getItem('vehiculos');
-        if (storedVehiculos) {
-          setVehiculos(JSON.parse(storedVehiculos));
-        }
-    } catch (e) {
-        console.error(e)
-    }
-
   }, []);
 
   const handleSaveServicio = (data: ServicioFormValues) => {
     try {
-        const conductorName = data.esConductorNoRegistrado
-          ? data.conductorOtro
-          : conductores.find(c => c.id === data.conductorId)?.nombres;
+        const conductorInfo = data.esConductorNoRegistrado
+          ? { id: undefined, nombre: data.conductorOtro, telefono: undefined }
+          : conductores.find(c => c.id === data.conductorId);
         
         const vehiculoPlaca = data.esVehiculoNoRegistrado
           ? data.vehiculoOtro
@@ -288,7 +308,9 @@ export default function ServiciosPage() {
                         emailCliente: data.emailCliente,
                         origen: data.direccionRecogida,
                         destino: data.direccionDestino,
-                        conductor: conductorName || 'No asignado',
+                        conductor: conductorInfo?.nombres || 'No asignado',
+                        conductorId: conductorInfo?.id,
+                        conductorTelefono: conductorInfo?.telefono,
                         vehiculo: vehiculoPlaca || 'No asignado',
                         valorServicio: data.valorServicio,
                         anticipo: data.estadoPago === 'Anticipo' ? data.anticipo : 0,
@@ -320,7 +342,9 @@ export default function ServiciosPage() {
                 emailCliente: data.emailCliente,
                 origen: data.direccionRecogida,
                 destino: data.direccionDestino,
-                conductor: conductorName || 'No asignado',
+                conductor: conductorInfo?.nombres || 'No asignado',
+                conductorId: conductorInfo?.id,
+                conductorTelefono: conductorInfo?.telefono,
                 vehiculo: vehiculoPlaca || 'No asignado',
                 estado: 'Programado',
                 valorServicio: data.valorServicio,
@@ -619,3 +643,5 @@ export default function ServiciosPage() {
     </div>
   );
 }
+
+    

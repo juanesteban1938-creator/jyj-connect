@@ -24,6 +24,10 @@ const InfoRow = ({ label, value, icon: Icon, iconClassName }: { label: string, v
 export function InfoServicioCard({ servicio }: Props) {
 
     const placa = servicio.vehiculo.split('•')[1]?.trim() || servicio.vehiculo;
+    
+    const conductorDisplay = servicio.conductorTelefono 
+        ? `${servicio.conductor} - ${servicio.conductorTelefono}`
+        : servicio.conductor;
 
     return (
         <Card>
@@ -33,8 +37,8 @@ export function InfoServicioCard({ servicio }: Props) {
             <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
                     <InfoRow label="Cliente" value={servicio.cliente} icon={Briefcase} iconClassName="text-primary" />
-                    <InfoRow label="Contacto" value={servicio.telefonoCliente} icon={Phone} iconClassName="text-primary" />
-                    <InfoRow label="Conductor Asignado" value={servicio.conductor} icon={User} iconClassName="text-primary" />
+                    <InfoRow label="Contacto Cliente" value={servicio.telefonoCliente} icon={Phone} iconClassName="text-primary" />
+                    <InfoRow label="Conductor Asignado" value={conductorDisplay} icon={User} iconClassName="text-primary" />
                     <InfoRow label="Vehículo / Placa" value={placa} icon={Truck} iconClassName="text-primary" />
                     <div className="sm:col-span-2">
                         <Separator className="my-2"/>
@@ -47,3 +51,5 @@ export function InfoServicioCard({ servicio }: Props) {
         </Card>
     );
 }
+
+    
