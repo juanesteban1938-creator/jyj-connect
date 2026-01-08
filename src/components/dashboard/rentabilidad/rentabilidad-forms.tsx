@@ -111,7 +111,7 @@ function IngresoForm({ vehiculos, onSave, onDone }: { vehiculos: Vehiculo[]; onS
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Genera un registro simple en Facturación y Cartera.
+            No genera registro en Facturación. Para ello, cree un servicio.
           </AlertDescription>
         </Alert>
         <Button type="submit" className="w-full">Registrar Ingreso</Button>
@@ -142,37 +142,6 @@ export function RentabilidadForms(props: Props) {
         fecha: data.fecha.toISOString(),
         vehiculoPlaca: vehiculo?.placa,
     });
-    
-    try {
-        const storedServicios = localStorage.getItem('servicios');
-        const servicios = storedServicios ? JSON.parse(storedServicios) : [];
-        const newService = {
-            id: new Date().toISOString() + '_ingreso',
-            consecutivo: `ING-${Date.now()}`,
-            fecha: data.fecha.toISOString(),
-            hora: format(new Date(), 'HH:mm'),
-            cliente: 'Ingreso Manual',
-            nitCliente: 'N/A',
-            telefonoCliente: 'N/A',
-            clienteIniciales: 'IM',
-            origen: 'N/A',
-            destino: 'N/A',
-            descripcion: data.descripcion,
-            valorServicio: data.valor,
-            estado: 'Finalizado',
-            estadoPago: 'Pagado',
-            costoOperacion: 0,
-            saldo: 0,
-            conductor: 'N/A',
-            vehiculo: vehiculo?.placa || 'N/A',
-            metodoPago: 'Efectivo',
-            paradasAdicionales: [],
-        };
-        const updatedServicios = [...servicios, newService];
-        localStorage.setItem('servicios', JSON.stringify(updatedServicios));
-    } catch (e) {
-        console.error(e)
-    }
   };
 
   return (

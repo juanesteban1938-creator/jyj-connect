@@ -105,6 +105,14 @@ export default function RentabilidadPage() {
       const storedTransacciones = localStorage.getItem('transacciones');
       if (storedTransacciones) {
         setTransacciones(JSON.parse(storedTransacciones));
+      } else {
+        const initialTransactions: Transaccion[] = [
+          {id: '1', tipo: 'Gasto', fecha: new Date().toISOString(), descripcion: 'Gasolina Corriente', categoria: 'Combustible', valor: 150000, vehiculoId: '1', vehiculoPlaca: 'XYZ-123'},
+          {id: '2', tipo: 'Gasto', fecha: new Date().toISOString(), descripcion: 'Peaje', categoria: 'Peajes', valor: 25000, vehiculoId: '2', vehiculoPlaca: 'ABC-456'},
+          {id: '3', tipo: 'Ingreso', fecha: new Date().toISOString(), descripcion: 'Servicio especial', categoria: 'Servicio', valor: 500000}
+        ];
+        setTransacciones(initialTransactions);
+        localStorage.setItem('transacciones', JSON.stringify(initialTransactions));
       }
 
     } catch (error) {
@@ -127,7 +135,9 @@ export default function RentabilidadPage() {
   };
   
   const { ingresosBrutos, gastosTotales, utilidadNeta, distribucionGastos, rentabilidadMensual } = useMemo(() => {
-    const ingresos = servicios.reduce((sum, s) => sum + (s.valorServicio || 0), 0);
+    const ingresos = transacciones
+        .filter(t => t.tipo === 'Ingreso')
+        .reduce((sum, t) => sum + t.valor, 0);
     const gastos = transacciones
         .filter(t => t.tipo === 'Gasto')
         .reduce((sum, t) => sum + t.valor, 0);
@@ -138,6 +148,8 @@ export default function RentabilidadPage() {
     transacciones.filter(t => t.tipo === 'Gasto').forEach(g => {
         if(distribucion[g.categoria] !== undefined) {
             distribucion[g.categoria] += g.valor;
+        } else {
+             distribucion['Otros'] += g.valor;
         }
     });
     
@@ -149,31 +161,38 @@ export default function RentabilidadPage() {
         const date = subMonths(new Date(), 5 - i);
         return {
             month: format(date, 'MMM', { locale: es }),
-            ganancia: 0,
+            ingresos: 0,
+            gastos: 0,
         }
     });
 
     const sixMonthsAgo = startOfMonth(subMonths(new Date(), 5));
     
-    servicios.forEach(s => {
-        const serviceDate = new Date(s.fecha);
-        if(serviceDate >= sixMonthsAgo) {
-            const monthIndex = (getMonth(serviceDate) - getMonth(sixMonthsAgo) + 12) % 12;
+    transacciones.forEach(t => {
+        const transaccionDate = new Date(t.fecha);
+        if(transaccionDate >= sixMonthsAgo) {
+            const monthIndex = (getMonth(transaccionDate) - getMonth(sixMonthsAgo) + 12) % 12;
             if(monthIndex >= 0 && monthIndex < 6) {
-                rentabilidadData[monthIndex].ganancia += (s.valorServicio || 0) - (s.costoOperacion || 0);
+                if(t.tipo === 'Ingreso') {
+                    rentabilidadData[monthIndex].ingresos += t.valor;
+                } else {
+                    rentabilidadData[monthIndex].gastos += t.valor;
+                }
             }
         }
     });
+    
+    const finalRentabilidadData = rentabilidadData.map(d => ({...d, ganancia: d.ingresos - d.gastos}));
 
     return { 
         ingresosBrutos: ingresos, 
         gastosTotales: gastos, 
         utilidadNeta: ingresos - gastos,
         distribucionGastos: pieData,
-        rentabilidadMensual: rentabilidadData
+        rentabilidadMensual: finalRentabilidadData
     };
 
-  }, [servicios, transacciones]);
+  }, [transacciones]);
   
   const filteredTransacciones = useMemo(() => {
     return transacciones.filter(t => {
@@ -298,8 +317,8 @@ export default function RentabilidadPage() {
                   <TableCell>{format(new Date(t.fecha), 'dd MMM yyyy', {locale: es})}</TableCell>
                   <TableCell>
                     {t.tipo === 'Ingreso' ? 
-                        <Badge variant="outline" className="text-green-600 border-green-200"><ArrowDown className="mr-1 h-3 w-3" />Ingreso</Badge> : 
-                        <Badge variant="outline" className="text-red-600 border-red-200"><ArrowUp className="mr-1 h-3 w-3" />Gasto</Badge>}
+                        <Badge variant="outline" className="text-green-600 border-green-200"><ArrowUp className="mr-1 h-3 w-3" />Ingreso</Badge> : 
+                        <Badge variant="outline" className="text-red-600 border-red-200"><ArrowDown className="mr-1 h-3 w-3" />Gasto</Badge>}
                   </TableCell>
                   <TableCell>{t.vehiculoPlaca || 'N/A'}</TableCell>
                   <TableCell>
