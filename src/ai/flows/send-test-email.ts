@@ -5,12 +5,13 @@ import { SendTestEmailOutputSchema, type SendTestEmailOutput } from '@/lib/schem
 import nodemailer from 'nodemailer';
 
 export async function sendTestEmail(): Promise<SendTestEmailOutput> {
+    console.log('Intento de conexión para:', process.env.SMTP_USER);
     const transporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
         port: 465,
         secure: true, // true for 465, false for other ports
         auth: {
-            user: 'transportes.especialesjyj@gmail.com',
+            user: process.env.SMTP_USER,
             pass: 'cymeyvdehchdnrrf',
         },
     });
@@ -19,12 +20,21 @@ export async function sendTestEmail(): Promise<SendTestEmailOutput> {
       from: process.env.SMTP_USER,
       to: process.env.SMTP_USER,
       subject: 'Prueba de Conexión SMTP - J&J Connect',
-      text: 'Este es un correo de prueba para verificar que la configuración SMTP funciona correctamente.',
-      html: '<h1>¡Conexión Exitosa!</h1><p>Este es un correo de prueba para verificar que la configuración SMTP funciona correctamente desde tu aplicación J&J Connect.</p>',
+      html: `
+        <div style="font-family: Arial, sans-serif; color: #333;">
+            <h1>¡Conexión Exitosa!</h1>
+            <p>Este es un correo de prueba para verificar que la configuración SMTP funciona correctamente desde tu aplicación J&J Connect.</p>
+            <br>
+            <p>Cordialmente,</p>
+            <p><strong>Departamento de Operaciones</strong><br>
+            Transportes.especialesjyj@gmail.com<br>
+            Celular: +57 314 2889955<br>
+            Carrera 58 numero 130A-82</p>
+        </div>
+    `,
     };
 
     try {
-      console.log('Intento de conexión para:', process.env.SMTP_USER);
       await transporter.sendMail(mailOptions);
       console.log('Correo de prueba enviado exitosamente.');
       return { success: true, message: 'Correo de prueba enviado exitosamente.' };
@@ -41,3 +51,5 @@ const sendTestEmailFlow = ai.defineFlow(
   },
   sendTestEmail
 );
+
+    

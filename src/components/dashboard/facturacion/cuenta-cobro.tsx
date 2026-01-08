@@ -11,6 +11,9 @@ import Image from "next/image";
 import QRCode from 'qrcode';
 import { sendInvoice } from '@/ai/flows/send-invoice-flow';
 import { useToast } from "@/hooks/use-toast";
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
 
 type Props = {
     servicio: Servicio;
@@ -84,8 +87,8 @@ export function CuentaCobro({ servicio }: Props) {
             return;
         }
 
-        const htmlContent = printableAreaRef.current?.innerHTML;
-        if (!htmlContent) {
+        const input = printableAreaRef.current;
+        if (!input) {
              toast({
                 variant: 'destructive',
                 title: 'Error',
@@ -95,11 +98,24 @@ export function CuentaCobro({ servicio }: Props) {
         }
         
         setIsSending(true);
+
         try {
+            const canvas = await html2canvas(input, { scale: 2 });
+            const pdf = new jsPDF('p', 'mm', 'letter');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = canvas.width;
+            const imgHeight = canvas.height;
+            const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+            const imgX = (pdfWidth - imgWidth * ratio) / 2;
+            const imgY = 0;
+            pdf.addImage(canvas, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+            
+            const pdfBuffer = pdf.output('arraybuffer');
+
             const result = await sendInvoice({
                 to: servicio.emailCliente,
-                subject: `Cuenta de Cobro ${servicio.consecutivo} - Transportes J&J`,
-                htmlContent: htmlContent,
+                pdfBuffer: Buffer.from(pdfBuffer),
             });
 
             if (result.success) {
@@ -115,10 +131,11 @@ export function CuentaCobro({ servicio }: Props) {
                 });
             }
         } catch (error: any) {
+            console.error("Error generating or sending PDF:", error);
             toast({
                 variant: 'destructive',
                 title: 'Error Inesperado',
-                description: 'Ocurrió un problema al intentar enviar el correo.',
+                description: 'Ocurrió un problema al generar o enviar el PDF.',
             });
         } finally {
             setIsSending(false);
@@ -258,3 +275,5 @@ export function CuentaCobro({ servicio }: Props) {
         </div>
     )
 }
+
+    
