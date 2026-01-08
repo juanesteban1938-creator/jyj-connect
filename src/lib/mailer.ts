@@ -1,5 +1,6 @@
 'use server';
 
+import 'dotenv/config';
 import nodemailer from 'nodemailer';
 
 const smtpHost = process.env.SMTP_HOST;
