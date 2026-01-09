@@ -33,7 +33,7 @@ export function ResumenServicio({ servicio }: Props) {
     const venta = servicio.valorServicio || 0;
     const costo = servicio.costoOperacion || 0;
     const ganancia = venta - costo;
-    const saldo = servicio.saldo ?? (venta - (servicio.anticipo ?? 0));
+    const saldo = servicio.estadoPago === 'Pagado' ? 0 : (servicio.saldo ?? (venta - (servicio.anticipo ?? 0)));
     const totalAbonado = venta - saldo;
 
     const getEstadoBadge = (estado: Servicio['estadoPago']) => {

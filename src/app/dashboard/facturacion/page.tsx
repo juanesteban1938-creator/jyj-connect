@@ -130,11 +130,19 @@ export default function FacturacionPage() {
     const updatedServicios = servicios.map(s => {
       if (s.id === selectedServicio.id) {
         const valorServicio = data.valorServicio || 0;
-        const anticipo = data.estadoPago === 'Anticipo' ? (data.anticipo || 0) : 0;
+        let anticipo;
+        if (data.estadoPago === 'Pagado') {
+          anticipo = valorServicio;
+        } else if (data.estadoPago === 'Anticipo') {
+          anticipo = data.anticipo || 0;
+        } else {
+          anticipo = 0;
+        }
         
         let updatedService: Servicio = {
           ...s,
           ...data,
+          anticipo,
           saldo: valorServicio - anticipo,
         };
 

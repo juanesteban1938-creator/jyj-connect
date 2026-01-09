@@ -112,7 +112,16 @@ export function FacturacionForm({ servicio, onSave, onCancel }: Props) {
   const valorServicio = form.watch('valorServicio') || 0;
   const estadoPago = form.watch('estadoPago');
   const metodoPago = form.watch('metodoPago');
-  const anticipo = estadoPago === 'Anticipo' ? (form.watch('anticipo') || 0) : 0;
+
+  useEffect(() => {
+    if (estadoPago === 'Pagado') {
+      form.setValue('anticipo', valorServicio);
+    } else if (estadoPago === 'Pendiente' || estadoPago === 'Anulado') {
+        form.setValue('anticipo', 0);
+    }
+  }, [estadoPago, valorServicio, form]);
+  
+  const anticipo = form.watch('anticipo') || 0;
   const saldo = valorServicio - anticipo;
 
   return (
