@@ -3,7 +3,7 @@
 import type { Servicio } from "@/app/dashboard/servicios/page";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
-import { Printer, Mail, MapPin, Phone } from "lucide-react";
+import { Printer, Mail } from "lucide-react";
 import React, { useEffect, useState, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
@@ -21,25 +21,6 @@ const currencyFormatter = new Intl.NumberFormat('es-CO', {
   currency: 'COP',
   minimumFractionDigits: 0,
 });
-
-const JJLogoWithWings = () => (
-     <div className="flex items-center justify-center">
-        <svg width="40" height="40" viewBox="0 0 53 45" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-yellow-500 -mr-3">
-            <path d="M22.259 13.232C19.982 9.248 16.517 7.02 12.016 7.02C5.972 7.02 1 11.237 1 18.067c0 3.231 1.054 5.926 2.822 7.746 1.107-5.068 4.303-8.841 8.358-10.742a18.375 18.375 0 014.08-1.282l5.999-0.657z" stroke="currentColor" strokeWidth="2"/>
-            <path d="M36.19 19.359c3.966-.34 7.23-1.637 9.507-3.766 2.502-2.34 3.823-5.328 3.823-8.572C49.52 2.651 46.541 1 42.13 1c-3.714 0-6.84 1.5-8.913 3.968-.946 1.127-1.638 2.38-2.072 3.69" stroke="currentColor" strokeWidth="2"/>
-        </svg>
-        <div className="relative">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2.5L3.5 7.5v9L12 21.5l8.5-5v-9L12 2.5z" fill="#1E3A8A" stroke="#FBBF24" strokeWidth="1.5"/>
-                <text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fontSize="7" fontWeight="bold" fill="#FBBF24">J&J</text>
-            </svg>
-        </div>
-        <svg width="40" height="40" viewBox="0 0 53 45" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-yellow-500 -ml-3 transform scale-x-[-1]">
-             <path d="M22.259 13.232C19.982 9.248 16.517 7.02 12.016 7.02C5.972 7.02 1 11.237 1 18.067c0 3.231 1.054 5.926 2.822 7.746 1.107-5.068 4.303-8.841 8.358-10.742a18.375 18.375 0 014.08-1.282l5.999-0.657z" stroke="currentColor" strokeWidth="2"/>
-            <path d="M36.19 19.359c3.966-.34 7.23-1.637 9.507-3.766 2.502-2.34 3.823-5.328 3.823-8.572C49.52 2.651 46.541 1 42.13 1c-3.714 0-6.84 1.5-8.913 3.968-.946 1.127-1.638 2.38-2.072 3.69" stroke="currentColor" strokeWidth="2"/>
-        </svg>
-    </div>
-);
 
 export function CuentaCobro({ servicio }: Props) {
     const [qrCodeUrl, setQrCodeUrl] = useState('');
@@ -183,75 +164,80 @@ export function CuentaCobro({ servicio }: Props) {
     return (
         <div className="p-1">
             <ScrollArea className="h-[70vh] w-full">
-            <div ref={printableAreaRef} id="printable-area" className="p-8 bg-white text-gray-800 text-sm font-sans w-[21cm]">
-                <header className="flex justify-between items-start mb-6">
+            <div ref={printableAreaRef} id="printable-area" className="p-6 bg-white text-gray-800 text-sm font-sans w-[21cm] mx-auto min-h-[29.7cm]">
+                <div className="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-4">
                     <div className="flex items-center gap-4">
-                        <JJLogoWithWings />
+                        <Image src="https://i.ibb.co/3sS5257/logo-placeholder.png" alt="Logo J&J" width={80} height={80} />
+                        <div>
+                            <h1 className="text-xl font-bold tracking-wider text-gray-800">TRANSPORTE ESPECIALES J&J</h1>
+                            <p className="text-xs">Laura Sthefania Galeano Velasquez | NIT: 1001060945</p>
+                            <p className="text-xs">Teléfono: +57 314 2889955</p>
+                            <p className="text-xs">Carrera 58 numero 130A-82, Bogotá</p>
+                        </div>
                     </div>
-                    <div className="text-right">
-                         <div className="bg-slate-200 p-2 rounded-md text-slate-800">
-                             <p className="font-bold">CUENTA DE COBRO No: {servicio.consecutivo}</p>
-                             <p className="font-bold">FECHA: {format(fecha, 'dd/MM/yyyy')}</p>
-                         </div>
+                    <div className="text-right border border-gray-400 rounded-md p-2">
+                        <p className="font-bold text-base">CUENTA DE COBRO</p>
+                        <p className="font-bold text-red-600">No: {servicio.consecutivo}</p>
+                        <p>FECHA: {format(fecha, 'dd/MM/yyyy')}</p>
                     </div>
-                </header>
-
-                <div className="text-center mb-6">
-                    <h1 className="text-2xl font-bold tracking-wider">TRANSPORTE ESPECIALES J&J</h1>
-                    <p className="text-xs">Laura Sthefania Galeano Velasquez | NIT: 1001060945</p>
                 </div>
-                 <hr className="mb-4" />
 
-                <div className="mb-6">
-                    <p className="text-xs font-bold text-gray-500">PARA:</p>
-                    <p className="font-bold">{servicio.cliente}</p>
-                    <p className="text-xs">ID. {servicio.nitCliente}</p>
-                    <div className="flex items-center gap-4 text-xs mt-1">
-                        <div className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3 text-gray-500"/>
-                            <span>UBICACIÓN: Calle 34 B Sur # 3A-16, Bogotá</span>
-                        </div>
-                         <div className="flex items-center gap-1">
-                            <Phone className="w-3 h-3 text-gray-500"/>
-                            <span>Tel: {servicio.telefonoCliente}</span>
-                        </div>
-                    </div>
+                <div className="border border-gray-400 rounded-md p-3 mb-4">
+                    <p className="text-xs font-bold text-gray-500 mb-1">PARA:</p>
+                    <p className="font-bold text-base">{servicio.cliente}</p>
+                    <p className="text-sm">ID: {servicio.nitCliente}</p>
+                    <p className="text-sm">Tel: {servicio.telefonoCliente}</p>
                 </div>
                  
-                <table className="w-full text-left mb-6">
+                <table className="w-full text-left mb-4 border-collapse border border-gray-400">
                     <thead>
-                        <tr className="bg-slate-800 text-white">
-                            <th className="p-2 w-16 text-center">Cant.</th>
-                            <th className="p-2">Descripción del Servicio</th>
-                            <th className="p-2 w-32 text-right">Valor</th>
+                        <tr className="bg-gray-800 text-white">
+                            <th className="p-2 border-r border-gray-300 text-center">Cant.</th>
+                            <th className="p-2 border-r border-gray-300">Descripción del Servicio</th>
+                            <th className="p-2 text-right">Valor</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr className="border-b">
-                            <td className="p-2 text-center">1</td>
-                            <td className="p-2">
-                                <p>Transporte especial de pasajeros (Vehículo {placaVehiculo}).</p>
-                                <p className="text-xs text-gray-600">Ruta: {servicio.origen} hasta {servicio.destino}.</p>
+                        <tr className="border-t border-gray-300">
+                            <td className="p-2 border-r border-gray-300 text-center">1</td>
+                            <td className="p-2 border-r border-gray-300">
+                                <p className="font-medium">Transporte especial de pasajeros.</p>
+                                <p className="text-xs text-gray-600">Vehículo: {placaVehiculo}. Ruta: {servicio.origen} a {servicio.destino}.</p>
                             </td>
-                            <td className="p-2 text-right">{currencyFormatter.format(servicio.valorServicio || 0)}</td>
+                            <td className="p-2 text-right font-semibold">{currencyFormatter.format(servicio.valorServicio || 0)}</td>
+                        </tr>
+                        <tr style={{height: '100px'}}>
+                           <td className="border-r border-gray-300"></td>
+                           <td className="border-r border-gray-300"></td>
+                           <td></td>
                         </tr>
                     </tbody>
                 </table>
                 
-                <div className="flex justify-end mb-6">
-                    <div className="bg-slate-800 text-white p-2 rounded-md">
-                        <span className="font-bold">TOTAL A PAGAR: {currencyFormatter.format(servicio.valorServicio || 0)}</span>
+                <div className="flex justify-between items-start gap-4 mb-8">
+                    <div className="w-2/3 border border-gray-400 rounded-md p-3">
+                        <p className="font-bold mb-1 text-xs">INFORMACIÓN DE PAGO:</p>
+                        <p>Consignar o transferir a la cuenta de Ahorros Bancolombia No. <span className="font-bold">032-053855-69</span> a nombre de Laura Galeano.</p>
+                    </div>
+                    <div className="w-1/3">
+                        <div className="bg-gray-200 p-2 rounded-md">
+                            <div className="flex justify-between items-center">
+                                <span className="font-bold">TOTAL:</span>
+                                <span className="font-bold text-lg">{currencyFormatter.format(servicio.valorServicio || 0)}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-
-                <div className="border border-slate-300 p-3 rounded-md text-xs mb-6">
-                    <p className="font-bold mb-1">INFORMACIÓN DE PAGO:</p>
-                    <p>Transferir a Ahorros Bancolombia No: 032-053855-69 a nombre de Laura Galeano.</p>
-                </div>
                 
-                <div className="flex justify-between items-end">
-                    <div>
-                         <p className="text-xs font-mono">VALLE PINEDA 40641</p>
+                <div className="flex justify-between items-end mt-16 pt-16">
+                    <div className="w-1/2 text-center">
+                         <div className="relative h-12 mb-1 mx-auto" style={{width: '150px'}}>
+                            <Image src="https://i.ibb.co/b3h3YmX/firma-transparente.png" alt="Firma Laura Galeano" layout="fill" objectFit="contain" />
+                        </div>
+                        <div className="border-t-2 border-black pt-1 w-2/3 mx-auto">
+                            <p className="font-semibold">Atentamente,</p>
+                            <p>Laura Sthefania Galeano Velasquez</p>
+                        </div>
                     </div>
                     <div className="text-center">
                        {qrCodeUrl && <Image src={qrCodeUrl} alt="Código QR" width={64} height={64} />}
