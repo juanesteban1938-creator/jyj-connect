@@ -2,9 +2,8 @@
 
 import type { Servicio } from "@/app/dashboard/servicios/page";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
-import { Printer, Mail } from "lucide-react";
+import { Printer, Mail, MapPin, Phone } from "lucide-react";
 import React, { useEffect, useState, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
@@ -12,7 +11,6 @@ import QRCode from 'qrcode';
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-
 
 type Props = {
     servicio: Servicio;
@@ -24,6 +22,25 @@ const currencyFormatter = new Intl.NumberFormat('es-CO', {
   minimumFractionDigits: 0,
 });
 
+const JJLogoWithWings = () => (
+     <div className="flex items-center justify-center">
+        <svg width="40" height="40" viewBox="0 0 53 45" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-yellow-500 -mr-3">
+            <path d="M22.259 13.232C19.982 9.248 16.517 7.02 12.016 7.02C5.972 7.02 1 11.237 1 18.067c0 3.231 1.054 5.926 2.822 7.746 1.107-5.068 4.303-8.841 8.358-10.742a18.375 18.375 0 014.08-1.282l5.999-0.657z" stroke="currentColor" strokeWidth="2"/>
+            <path d="M36.19 19.359c3.966-.34 7.23-1.637 9.507-3.766 2.502-2.34 3.823-5.328 3.823-8.572C49.52 2.651 46.541 1 42.13 1c-3.714 0-6.84 1.5-8.913 3.968-.946 1.127-1.638 2.38-2.072 3.69" stroke="currentColor" strokeWidth="2"/>
+        </svg>
+        <div className="relative">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2.5L3.5 7.5v9L12 21.5l8.5-5v-9L12 2.5z" fill="#1E3A8A" stroke="#FBBF24" strokeWidth="1.5"/>
+                <text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fontSize="7" fontWeight="bold" fill="#FBBF24">J&J</text>
+            </svg>
+        </div>
+        <svg width="40" height="40" viewBox="0 0 53 45" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-yellow-500 -ml-3 transform scale-x-[-1]">
+             <path d="M22.259 13.232C19.982 9.248 16.517 7.02 12.016 7.02C5.972 7.02 1 11.237 1 18.067c0 3.231 1.054 5.926 2.822 7.746 1.107-5.068 4.303-8.841 8.358-10.742a18.375 18.375 0 014.08-1.282l5.999-0.657z" stroke="currentColor" strokeWidth="2"/>
+            <path d="M36.19 19.359c3.966-.34 7.23-1.637 9.507-3.766 2.502-2.34 3.823-5.328 3.823-8.572C49.52 2.651 46.541 1 42.13 1c-3.714 0-6.84 1.5-8.913 3.968-.946 1.127-1.638 2.38-2.072 3.69" stroke="currentColor" strokeWidth="2"/>
+        </svg>
+    </div>
+);
+
 export function CuentaCobro({ servicio }: Props) {
     const [qrCodeUrl, setQrCodeUrl] = useState('');
     const [isSending, setIsSending] = useState(false);
@@ -32,7 +49,7 @@ export function CuentaCobro({ servicio }: Props) {
 
     useEffect(() => {
         if (servicio && servicio.consecutivo) {
-            QRCode.toDataURL(servicio.consecutivo, { errorCorrectionLevel: 'H', width: 80 }, function (err, url) {
+            QRCode.toDataURL(`Servicio: ${servicio.consecutivo}`, { errorCorrectionLevel: 'H', width: 64, margin: 1 }, function (err, url) {
                 if (err) console.error(err)
                 setQrCodeUrl(url);
             })
@@ -53,10 +70,16 @@ export function CuentaCobro({ servicio }: Props) {
                                 @media print {
                                     @page { 
                                         size: letter;
-                                        margin: 0.5in; 
+                                        margin: 0; 
                                     }
                                     body { -webkit-print-color-adjust: exact; }
                                     .no-print { display: none; }
+                                    .printable-area {
+                                        width: 8.5in;
+                                        height: 11in;
+                                        box-sizing: border-box;
+                                        padding: 0.5in;
+                                    }
                                 }
                             </style>
                         </head>
@@ -160,111 +183,82 @@ export function CuentaCobro({ servicio }: Props) {
     return (
         <div className="p-1">
             <ScrollArea className="h-[70vh] w-full">
-            <div ref={printableAreaRef} id="printable-area" className="p-6 bg-white text-black text-xs font-sans">
-                <header className="flex justify-between items-start mb-4">
-                     <div className="border-2 border-black w-48">
-                         <div className="border-b-2 border-black text-center font-bold p-1">FECHA DE EXPEDICION</div>
-                            <div className="grid grid-cols-3 text-center">
-                                <div className="border-r-2 border-black">
-                                    <div className="border-b-2 border-black font-bold">AÑO</div>
-                                    <div className="h-8 flex items-center justify-center">{format(fecha, 'yyyy')}</div>
-                                </div>
-                                <div className="border-r-2 border-black">
-                                    <div className="border-b-2 border-black font-bold">MES</div>
-                                    <div className="h-8 flex items-center justify-center">{format(fecha, 'MM')}</div>
-                                </div>
-                                <div>
-                                    <div className="border-b-2 border-black font-bold">DIA</div>
-                                    <div className="h-8 flex items-center justify-center">{format(fecha, 'dd')}</div>
-                                </div>
-                            </div>
-                     </div>
-                     <div className="text-center">
-                        <p className="font-bold">CUENTA DE COBRO No</p>
-                        <div className="border-2 border-black p-2 mt-1 w-48">
-                            <span className="font-bold">{servicio.consecutivo}</span>
-                        </div>
-                    </div>
-                </header>
-                
-                <div className="my-4 space-y-1 text-center">
-                    <p className="font-bold">{servicio.cliente}</p>
-                    <p className="font-bold">Nit: {servicio.nitCliente}</p>
-                    <p className="font-bold mt-2">DEBE A:</p>
-                </div>
-
-
-                <div className="mb-4 border-2 border-black">
-                     <div className="border-b-2 border-black grid grid-cols-3">
-                        <div className="p-1"><span className="font-bold">NOMBRES Y APELLIDOS</span></div>
-                        <div className="col-span-2 p-1"><span className="font-bold">NÚMERO DE IDENTIFICACION:</span></div>
-                     </div>
-                      <div className="border-b-2 border-black grid grid-cols-3">
-                        <div className="p-1 h-8 flex items-center">JUAN ESTEBAN OVALLE PINEDA</div>
-                        <div className="col-span-2 p-1 flex items-center justify-between">
-                            <span>1.023.940.641</span>
-                            <div className="flex items-center">
-                                <span className="mr-2">DV</span>
-                                <span className="font-bold">9</span>
-                            </div>
-                        </div>
-                     </div>
-                     <div className="border-b-2 border-black grid grid-cols-5">
-                        <div className="col-span-2 border-r-2 border-black p-1"><span className="font-bold">DIRECCIÓN:</span></div>
-                        <div className="border-r-2 border-black p-1"><span className="font-bold">TELEFONO</span></div>
-                        <div className="col-span-2 p-1"><span className="font-bold">CIUDAD</span></div>
-                     </div>
-                      <div className="grid grid-cols-5 h-8">
-                        <div className="col-span-2 border-r-2 border-black p-1 flex items-center">CALLE 34 B SUR # 3A-16</div>
-                        <div className="border-r-2 border-black p-1 flex items-center">3058532676</div>
-                        <div className="col-span-2 p-1 flex items-center">BOGOTA</div>
-                     </div>
-                </div>
-                 
-                <div className="border-2 border-black mt-4">
-                    <div className="text-center font-bold p-1 border-b-2 border-black">DETALLE DE LA OPERACIÓN</div>
-                    <div className="grid grid-cols-12 bg-gray-200 font-bold border-b-2 border-black">
-                        <div className="col-span-1 p-2 border-r-2 border-black text-center">CANTIDAD</div>
-                        <div className="col-span-8 p-2 border-r-2 border-black">CONCEPTO</div>
-                        <div className="col-span-3 p-2 text-center">VALOR DE LA OPERACIÓN</div>
-                    </div>
-                    <div className="grid grid-cols-12 min-h-[120px]">
-                        <div className="col-span-1 p-2 border-r-2 border-black text-center">1</div>
-                        <div className="col-span-8 p-2 border-r-2 border-black">
-                           <p className="font-bold">CONCEPTO DE:</p>
-                           <p>Transporte especial de pasajeros con el vehiculo {placaVehiculo} en la ruta {servicio.origen} hasta {servicio.destino}.</p>
-                        </div>
-                        <div className="col-span-3 p-2 text-right">{currencyFormatter.format(servicio.valorServicio || 0)}</div>
-                    </div>
-                    <div className="grid grid-cols-12 bg-gray-200 font-bold border-t-2 border-black">
-                         <div className="col-span-9 p-2 border-r-2 border-black text-right">TOTAL GENERAL</div>
-                         <div className="col-span-3 p-2 text-right">{currencyFormatter.format(servicio.valorServicio || 0)}</div>
-                    </div>
-                </div>
-                
-                <div className="mt-4 border-2 border-black p-2">
-                    <p className="font-bold">NOTA: POR FAVOR REALIZAR TRANSFERENCIA A LA CUENTA DE AHORROS No: 032-053858-69 DE BANCO BANCOLOMBIA AHORROS A MI NOMBRE</p>
-                </div>
-                
-                <div className="mt-6 flex justify-between items-end">
-                    <div className="w-64">
-                         <div className="relative h-[40px] mb-1">
-                          <Image src="https://i.ibb.co/qFPM4pf4/firma.png" alt="Firma Juan Esteban Ovalle" width={100} height={35} style={{objectFit: "contain"}} />
-                        </div>
-                        <div className="border-t-2 border-black pt-1">
-                            <p className="font-bold">JUAN ESTEBAN OVALLE PINEDA</p>
-                            <p className="font-bold">C.C. Ó NIT: 1023940641</p>
-                        </div>
+            <div ref={printableAreaRef} id="printable-area" className="p-8 bg-white text-gray-800 text-sm font-sans w-[21cm]">
+                <header className="flex justify-between items-start mb-6">
+                    <div className="flex items-center gap-4">
+                        <JJLogoWithWings />
                     </div>
                     <div className="text-right">
-                       {qrCodeUrl && <Image src={qrCodeUrl} alt="Código QR" width={60} height={60} />}
-                       <p className="text-[8px] mt-1">Verifica autenticidad</p>
+                         <div className="bg-slate-200 p-2 rounded-md text-slate-800">
+                             <p className="font-bold">CUENTA DE COBRO No: {servicio.consecutivo}</p>
+                             <p className="font-bold">FECHA: {format(fecha, 'dd/MM/yyyy')}</p>
+                         </div>
+                    </div>
+                </header>
+
+                <div className="text-center mb-6">
+                    <h1 className="text-2xl font-bold tracking-wider">TRANSPORTE ESPECIALES J&J</h1>
+                    <p className="text-xs">Laura Sthefania Galeano Velasquez | NIT: 1001060945</p>
+                </div>
+                 <hr className="mb-4" />
+
+                <div className="mb-6">
+                    <p className="text-xs font-bold text-gray-500">PARA:</p>
+                    <p className="font-bold">{servicio.cliente}</p>
+                    <p className="text-xs">ID. {servicio.nitCliente}</p>
+                    <div className="flex items-center gap-4 text-xs mt-1">
+                        <div className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-gray-500"/>
+                            <span>UBICACIÓN: Calle 34 B Sur # 3A-16, Bogotá</span>
+                        </div>
+                         <div className="flex items-center gap-1">
+                            <Phone className="w-3 h-3 text-gray-500"/>
+                            <span>Tel: {servicio.telefonoCliente}</span>
+                        </div>
+                    </div>
+                </div>
+                 
+                <table className="w-full text-left mb-6">
+                    <thead>
+                        <tr className="bg-slate-800 text-white">
+                            <th className="p-2 w-16 text-center">Cant.</th>
+                            <th className="p-2">Descripción del Servicio</th>
+                            <th className="p-2 w-32 text-right">Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr className="border-b">
+                            <td className="p-2 text-center">1</td>
+                            <td className="p-2">
+                                <p>Transporte especial de pasajeros (Vehículo {placaVehiculo}).</p>
+                                <p className="text-xs text-gray-600">Ruta: {servicio.origen} hasta {servicio.destino}.</p>
+                            </td>
+                            <td className="p-2 text-right">{currencyFormatter.format(servicio.valorServicio || 0)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div className="flex justify-end mb-6">
+                    <div className="bg-slate-800 text-white p-2 rounded-md">
+                        <span className="font-bold">TOTAL A PAGAR: {currencyFormatter.format(servicio.valorServicio || 0)}</span>
                     </div>
                 </div>
 
-                <div className="mt-8 text-center">
-                    <p className="font-bold">Esta factura fue generada a través de Software propio suministrado por J&J Connect</p>
+                <div className="border border-slate-300 p-3 rounded-md text-xs mb-6">
+                    <p className="font-bold mb-1">INFORMACIÓN DE PAGO:</p>
+                    <p>Transferir a Ahorros Bancolombia No: 032-053855-69 a nombre de Laura Galeano.</p>
                 </div>
+                
+                <div className="flex justify-between items-end">
+                    <div>
+                         <p className="text-xs font-mono">VALLE PINEDA 40641</p>
+                    </div>
+                    <div className="text-center">
+                       {qrCodeUrl && <Image src={qrCodeUrl} alt="Código QR" width={64} height={64} />}
+                       <p className="text-[10px] mt-1 text-gray-500">Verifica autenticidad</p>
+                    </div>
+                </div>
+
             </div>
             </ScrollArea>
 
