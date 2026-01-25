@@ -3,7 +3,7 @@
 import type { Servicio } from "@/app/dashboard/servicios/page";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
-import { Printer, Mail } from "lucide-react";
+import { Printer, Mail, MapPin, Phone } from "lucide-react";
 import React, { useEffect, useState, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
@@ -30,7 +30,7 @@ export function CuentaCobro({ servicio }: Props) {
 
     useEffect(() => {
         if (servicio && servicio.consecutivo) {
-            QRCode.toDataURL(`Servicio: ${servicio.consecutivo}`, { errorCorrectionLevel: 'H', width: 64, margin: 1 }, function (err, url) {
+            QRCode.toDataURL(`Servicio: ${servicio.consecutivo}`, { errorCorrectionLevel: 'H', width: 80, margin: 1 }, function (err, url) {
                 if (err) console.error(err)
                 setQrCodeUrl(url);
             })
@@ -59,7 +59,6 @@ export function CuentaCobro({ servicio }: Props) {
                                         width: 8.5in;
                                         height: 11in;
                                         box-sizing: border-box;
-                                        padding: 0.5in;
                                     }
                                 }
                             </style>
@@ -164,83 +163,88 @@ export function CuentaCobro({ servicio }: Props) {
     return (
         <div className="p-1">
             <ScrollArea className="h-[70vh] w-full">
-            <div ref={printableAreaRef} id="printable-area" className="p-6 bg-white text-gray-800 text-sm font-sans w-[21cm] mx-auto min-h-[29.7cm]">
-                <div className="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-4">
+            <div ref={printableAreaRef} id="printable-area" className="p-8 bg-white text-gray-800 text-sm font-sans w-[21cm] mx-auto min-h-[29.7cm]">
+                
+                {/* Header */}
+                <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-4">
-                        <Image src="https://i.ibb.co/3sS5257/logo-placeholder.png" alt="Logo J&J" width={80} height={80} />
-                        <div>
-                            <h1 className="text-xl font-bold tracking-wider text-gray-800">TRANSPORTE ESPECIALES J&J</h1>
-                            <p className="text-xs">Laura Sthefania Galeano Velasquez | NIT: 1001060945</p>
-                            <p className="text-xs">Teléfono: +57 314 2889955</p>
-                            <p className="text-xs">Carrera 58 numero 130A-82, Bogotá</p>
-                        </div>
+                        <Image src="https://i.ibb.co/3sS5257/logo-placeholder.png" alt="Logo J&J" width={60} height={60} />
                     </div>
-                    <div className="text-right border border-gray-400 rounded-md p-2">
-                        <p className="font-bold text-base">CUENTA DE COBRO</p>
-                        <p className="font-bold text-red-600">No: {servicio.consecutivo}</p>
-                        <p>FECHA: {format(fecha, 'dd/MM/yyyy')}</p>
+                    <div className="text-right">
+                        <div className="bg-gray-100 p-2 rounded-md inline-block">
+                            <p className="font-bold text-sm">CUENTA DE COBRO No: {servicio.consecutivo}</p>
+                            <p className="font-bold text-sm">FECHA: {format(fecha, 'dd/MM/yyyy')}</p>
+                        </div>
                     </div>
                 </div>
 
-                <div className="border border-gray-400 rounded-md p-3 mb-4">
-                    <p className="text-xs font-bold text-gray-500 mb-1">PARA:</p>
+                <div className="text-center mb-6">
+                    <h1 className="text-xl font-bold tracking-wider text-gray-800">TRANSPORTE ESPECIALES J&J</h1>
+                    <p className="text-xs">Laura Sthefania Galeano Velasquez | NIT: 1001060945</p>
+                </div>
+                
+                <div className="border-t border-b border-gray-300 py-4 mb-6">
+                     <p className="text-xs font-bold text-gray-500 mb-1">PARA:</p>
                     <p className="font-bold text-base">{servicio.cliente}</p>
                     <p className="text-sm">ID: {servicio.nitCliente}</p>
-                    <p className="text-sm">Tel: {servicio.telefonoCliente}</p>
+                    <div className="flex items-center gap-6 text-sm">
+                        <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3 text-gray-500"/>
+                            <span>UBICACIÓN: {servicio.origen}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <Phone className="h-3 w-3 text-gray-500"/>
+                            <span>Tel: {servicio.telefonoCliente}</span>
+                        </div>
+                    </div>
                 </div>
                  
-                <table className="w-full text-left mb-4 border-collapse border border-gray-400">
-                    <thead>
-                        <tr className="bg-gray-800 text-white">
-                            <th className="p-2 border-r border-gray-300 text-center">Cant.</th>
-                            <th className="p-2 border-r border-gray-300">Descripción del Servicio</th>
-                            <th className="p-2 text-right">Valor</th>
+                <table className="w-full text-left mb-4">
+                    <thead className="bg-gray-800 text-white">
+                        <tr>
+                            <th className="p-2 w-1/12 text-center">Cant.</th>
+                            <th className="p-2 w-8/12">Descripción del Servicio</th>
+                            <th className="p-2 w-3/12 text-right">Valor</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr className="border-t border-gray-300">
-                            <td className="p-2 border-r border-gray-300 text-center">1</td>
-                            <td className="p-2 border-r border-gray-300">
-                                <p className="font-medium">Transporte especial de pasajeros.</p>
-                                <p className="text-xs text-gray-600">Vehículo: {placaVehiculo}. Ruta: {servicio.origen} a {servicio.destino}.</p>
+                        <tr className="border-b border-gray-200">
+                            <td className="p-2 text-center">1</td>
+                            <td className="p-2">
+                                <p className="font-medium">Transporte especial de pasajeros (Vehículo {placaVehiculo}).</p>
+                                <p className="text-xs text-gray-600">Ruta: {servicio.origen} hasta {servicio.destino}.</p>
                             </td>
                             <td className="p-2 text-right font-semibold">{currencyFormatter.format(servicio.valorServicio || 0)}</td>
-                        </tr>
-                        <tr style={{height: '100px'}}>
-                           <td className="border-r border-gray-300"></td>
-                           <td className="border-r border-gray-300"></td>
-                           <td></td>
                         </tr>
                     </tbody>
                 </table>
                 
-                <div className="flex justify-between items-start gap-4 mb-8">
-                    <div className="w-2/3 border border-gray-400 rounded-md p-3">
-                        <p className="font-bold mb-1 text-xs">INFORMACIÓN DE PAGO:</p>
-                        <p>Consignar o transferir a la cuenta de Ahorros Bancolombia No. <span className="font-bold">032-053855-69</span> a nombre de Laura Galeano.</p>
-                    </div>
-                    <div className="w-1/3">
-                        <div className="bg-gray-200 p-2 rounded-md">
-                            <div className="flex justify-between items-center">
-                                <span className="font-bold">TOTAL:</span>
-                                <span className="font-bold text-lg">{currencyFormatter.format(servicio.valorServicio || 0)}</span>
-                            </div>
+                <div className="flex justify-end mb-6">
+                     <div className="w-1/3">
+                        <div className="bg-gray-800 text-white p-2 rounded-md flex justify-between items-center">
+                            <span className="font-bold">TOTAL A PAGAR:</span>
+                            <span className="font-bold text-lg">{currencyFormatter.format(servicio.valorServicio || 0)}</span>
                         </div>
                     </div>
                 </div>
                 
-                <div className="flex justify-between items-end mt-16 pt-16">
-                    <div className="w-1/2 text-center">
-                         <div className="relative h-12 mb-1 mx-auto" style={{width: '150px'}}>
+                <div className="mb-8">
+                     <p className="font-bold mb-1 text-xs">INFORMACIÓN DE PAGO:</p>
+                     <p>Transferir a Ahorros Bancolombia No: 032-053855-69 a nombre de Laura Galeano.</p>
+                </div>
+                
+                 <div className="border-t border-gray-300 pt-6 flex justify-between items-end" style={{marginTop: '10rem'}}>
+                    <div className="w-1/2">
+                        <div className="relative h-12 mb-1" style={{width: '200px'}}>
                             <Image src="https://i.ibb.co/b3h3YmX/firma-transparente.png" alt="Firma Laura Galeano" layout="fill" objectFit="contain" />
                         </div>
-                        <div className="border-t-2 border-black pt-1 w-2/3 mx-auto">
+                        <div className="border-t-2 border-black pt-1" style={{width: '200px'}}>
                             <p className="font-semibold">Atentamente,</p>
                             <p>Laura Sthefania Galeano Velasquez</p>
                         </div>
                     </div>
                     <div className="text-center">
-                       {qrCodeUrl && <Image src={qrCodeUrl} alt="Código QR" width={64} height={64} />}
+                       {qrCodeUrl && <Image src={qrCodeUrl} alt="Código QR" width={80} height={80} />}
                        <p className="text-[10px] mt-1 text-gray-500">Verifica autenticidad</p>
                     </div>
                 </div>
