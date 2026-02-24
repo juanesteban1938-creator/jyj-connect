@@ -184,6 +184,7 @@ export default function DashboardHomePage() {
                 <Badge variant="outline" className="text-[10px] font-bold uppercase">{s.estado}</Badge>
               </div>
             ))}
+            {recientes.length === 0 && <p className="text-xs text-muted-foreground text-center">No hay servicios recientes.</p>}
             <Link href="/dashboard/servicios" className="flex items-center justify-center text-primary text-xs font-bold hover:underline gap-1 pt-2">
                 Ver todos los servicios <ChevronRight className="h-3 w-3" />
             </Link>

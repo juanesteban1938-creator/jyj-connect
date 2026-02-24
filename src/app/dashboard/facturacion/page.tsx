@@ -84,6 +84,7 @@ export default function FacturacionPage() {
         <p className="page-subtitle">Gestión financiera, control de pagos y estado de cuenta.</p>
       </header>
 
+      {/* INDICADORES DE GESTIÓN */}
       <div className="grid gap-6 md:grid-cols-3 mb-8">
         <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none">
           <CardContent className="p-6">
@@ -173,6 +174,7 @@ export default function FacturacionPage() {
 
       <Dialog open={isAbonoOpen} onOpenChange={setIsAbonoOpen}>
         <DialogContent className="sm:max-w-md">
+          <VisuallyHidden><DialogHeader><DialogTitle>Registrar Pago / Abono</DialogTitle></DialogHeader></VisuallyHidden>
           <DialogHeader><DialogTitle>Registrar Pago / Abono</DialogTitle></DialogHeader>
           {selected && <AbonoForm servicio={selected} onSave={handleSaveAbono} onCancel={() => setIsAbonoOpen(false)} />}
         </DialogContent>
@@ -180,6 +182,7 @@ export default function FacturacionPage() {
 
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="sm:max-w-lg">
+          <VisuallyHidden><DialogHeader><DialogTitle>Editar Facturación</DialogTitle></DialogHeader></VisuallyHidden>
           <DialogHeader><DialogTitle>Editar Facturación</DialogTitle></DialogHeader>
           {selected && <FacturacionForm servicio={selected} onSave={handleSaveEdit} onCancel={() => setIsEditOpen(false)} />}
         </DialogContent>
