@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * VIANOVA S.A.S. - TRANSPORT MANAGEMENT SYSTEM
+     * SECURITY RULES PHILOSOPHY:
+     * 1. ADMINISTRATIVE CONTROL: This system operates on a central administrative model. Access to 
+     *    clients and billing accounts (Cuentas de Cobro) is restricted to authenticated users 
+     *    with administrative privileges.
+     * 2. DATABASE-BACKED AUTHORIZATION (DBAC): User roles are managed via a dedicated 
+     *    '/roles_admin' collection. A user's UID must exist in this collection to perform 
+     *    any operations on business data.
+     * 3. RELATIONAL INTEGRITY: To prevent data corruption during the prototyping phase, we enforce 
+     *    that document IDs within the data payload match their Firestore document paths.
+     * 4. AUTHORIZATION INDEPENDENCE: Billing accounts are designed to be self-contained for 
+     *    security checks, denormalizing critical client metadata to ensure rules remain fast 
+     *    and avoid unnecessary document lookups.
+     */
+
+    // --- GLOBAL HELPER FUNCTIONS ---
+
+    /** @description Checks if the request is from an authenticated user. */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** @description Checks if the authenticated user has an entry in the admin roles collection. */
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    /** @description Combined check for authentication, admin role, and document existence for write operations. */
+    function isExistingAdmin() {
+      return isAdmin() && resource != null;
+    }
+
+    // --- COLLECTION RULES ---
+
+    /**
+     * @description Administrative management of global client records.
+     * @path /clientes/{clienteId}
+     * @allow (create) if user is an admin and provides a matching 'id' field.
+     * @deny (list) if user is not authenticated or lacks the admin role.
+     * @principle Role-Based Access Control (RBAC) and path-to-data consistency.
+     */
+    match /clientes/{clienteId} {
+      allow get, list: if isAdmin();
+      
+      allow create: if isAdmin() 
+        && request.resource.data.id == clienteId;
+      
+      allow update: if isExistingAdmin() 
+        && request.resource.data.id == resource.data.id;
+      
+      allow delete: if isExistingAdmin();
+    }
+
+    /**
+     * @description Management of billing accounts (Cuentas de Cobro).
+     * @path /cuentas_cobro/{cuentaCobroId}
+     * @allow (update) if admin updates the 'estado' field (e.g., 'pagada').
+     * @deny (create) if the 'id' field in the body does not match the document path.
+     * @principle Administrative ownership and immutability of record identifiers.
+     */
+    match /cuentas_cobro/{cuentaCobroId} {
+      allow get, list: if isAdmin();
+      
+      allow create: if isAdmin() 
+        && request.resource.data.id == cuentaCobroId;
+      
+      allow update: if isExistingAdmin() 
+        && request.resource.data.id == resource.data.id;
+        
+      allow delete: if isExistingAdmin();
+    }
+
+    /**
+     * @description System collection for storing administrative user UIDs.
+     * @path /roles_admin/{uid}
+     * @allow (get) if a user is checking their own administrative status.
+     * @deny (write) to all users via client SDK; admin roles should be managed via Firebase Console or Admin SDK.
+     * @principle Secure, server-side role management.
+     */
+    match /roles_admin/{uid} {
+      allow get: if isSignedIn() && request.auth.uid == uid;
+      allow list: if isAdmin();
+      allow write: if false; // Role assignment is a sensitive operation performed outside client rules.
+    }
+  }
+}
