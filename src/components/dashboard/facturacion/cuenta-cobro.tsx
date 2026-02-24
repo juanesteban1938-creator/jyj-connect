@@ -115,7 +115,7 @@ export function CuentaCobro({ servicio }: Props) {
             const formData = new FormData();
             formData.append('to', servicio.emailCliente);
             formData.append('nroFactura', servicio.consecutivo);
-            formData.append('pdf', pdfBlob, 'Cuenta_de_Cobro_Vianova.pdf');
+            formData.append('pdf', pdfBlob, 'Cuenta_de_Cobro_JJ.pdf');
 
             const response = await fetch('/api/send-invoice', {
                 method: 'POST',
@@ -162,8 +162,13 @@ export function CuentaCobro({ servicio }: Props) {
                 <div 
                     ref={printableAreaRef} 
                     id="printable-area" 
-                    className="bg-white text-black text-[12px] font-sans mx-auto p-10 min-h-[27.9cm]"
-                    style={{ width: '21.59cm', maxWidth: '794px', boxSizing: 'border-box' }}
+                    className="bg-white text-black text-[12px] font-sans mx-auto min-h-[27.9cm]"
+                    style={{ 
+                        width: '21.59cm', 
+                        maxWidth: '794px', 
+                        boxSizing: 'border-box',
+                        padding: '40px 48px'
+                    }}
                 >
                     {/* HEADER — dos columnas */}
                     <div className="flex justify-between items-start mb-2">
@@ -192,25 +197,26 @@ export function CuentaCobro({ servicio }: Props) {
                         </div>
                     </div>
 
-                    {/* EMPRESA — centrado */}
+                    {/* DATOS DEL CLIENTE — centrado */}
                     <div className="text-center mb-8">
-                        <h1 className="text-2xl font-bold tracking-[0.2em] uppercase">VIANOVA S.A.S.</h1>
-                        <p className="font-bold text-lg">NIT 900.431.142-1</p>
+                        <h1 className="text-2xl font-bold tracking-[0.2em] uppercase">{servicio.cliente}</h1>
+                        <p className="font-bold text-lg">NIT {servicio.nitCliente}</p>
+                        <p className="text-base">{servicio.emailCliente}</p>
                     </div>
 
-                    {/* SECCIÓN CLIENTE — tabla con bordes grises */}
+                    {/* SECCIÓN PRESTADOR (JUAN ESTEBAN) — tabla con bordes grises */}
                     <div className="mb-6">
                         <p className="font-bold mb-1">Prestado a</p>
                         <table className="w-full border-collapse border border-[#999]">
                             <tbody>
                                 <tr>
-                                    <td className="border border-[#999] p-3 font-medium">Cliente: {servicio.cliente}</td>
-                                    <td className="border border-[#999] p-3 text-right">{servicio.nitCliente}</td>
+                                    <td className="border border-[#999] p-3 font-medium">Cliente: Juan Esteban Ovalle Pineda</td>
+                                    <td className="border border-[#999] p-3 text-right">1.023.940.641</td>
                                 </tr>
                                 <tr>
-                                    <td className="border border-[#999] p-3">DIRECCION: {servicio.origen}</td>
+                                    <td className="border border-[#999] p-3">DIRECCION: CALLE 34 B SUR # 3A-16</td>
                                     <td className="border border-[#999] p-3 text-right">
-                                        <span className="font-bold uppercase">Telefono:</span> {servicio.telefonoCliente} | <span className="font-bold uppercase">Bogotá</span>
+                                        <span className="font-bold uppercase">Telefono:</span> 3058532676 | <span className="font-bold uppercase">BOGOTA</span>
                                     </td>
                                 </tr>
                             </tbody>
@@ -250,13 +256,6 @@ export function CuentaCobro({ servicio }: Props) {
                                     <td className="border border-[#999] p-4 text-right align-top font-bold">
                                         {currencyFormatter.format(servicio.valorServicio || 0)}
                                     </td>
-                                </tr>
-                                {/* Espacio de relleno */}
-                                <tr className="h-24">
-                                    <td className="border border-[#999]"></td>
-                                    <td className="border border-[#999]"></td>
-                                    <td className="border border-[#999]"></td>
-                                    <td className="border border-[#999]"></td>
                                 </tr>
                                 <tr className="bg-[#d6d6d6]">
                                     <td colSpan={3} className="border border-[#999] p-3 text-right font-bold text-sm uppercase">TOTAL</td>
