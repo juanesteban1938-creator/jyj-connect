@@ -54,18 +54,28 @@ export function CuentaCobro({ servicio }: Props) {
                             <style>
                                 @media print {
                                     @page { size: letter; margin: 0; }
-                                    body { -webkit-print-color-adjust: exact; background-color: white !important; }
+                                    body { -webkit-print-color-adjust: exact; background-color: white !important; margin: 0; padding: 0; }
+                                    .page { 
+                                        margin: 0 !important; 
+                                        padding: 72px 80px !important; 
+                                        box-shadow: none !important; 
+                                        width: 100% !important; 
+                                        max-width: none !important; 
+                                        min-height: 0 !important; 
+                                    }
                                     .no-print { display: none !important; }
                                 }
-                                body { font-family: 'Arial', sans-serif; background-color: white; }
+                                body { font-family: 'Arial', sans-serif; background-color: #f3f4f6; margin: 0; padding: 20px 0; }
                             </style>
                         </head>
                         <body>
-                            ${printContent.innerHTML}
+                            <div class="flex justify-center">
+                                ${printContent.outerHTML}
+                            </div>
                              <script>
                                 window.onload = function() {
                                     window.print();
-                                    setTimeout(function() { window.close(); }, 1);
+                                    setTimeout(function() { window.close(); }, 500);
                                 }
                             <\/script>
                         </body>
@@ -157,21 +167,24 @@ export function CuentaCobro({ servicio }: Props) {
     const placaVehiculo = servicio.vehiculo.split('•')[1]?.trim() || servicio.vehiculo;
     
     return (
-        <div className="p-1">
-            <ScrollArea className="h-[75vh] w-full border rounded-md bg-muted/20">
+        <div className="p-1 bg-muted/10">
+            <ScrollArea className="h-[85vh] w-full border rounded-md">
                 <div 
                     ref={printableAreaRef} 
                     id="printable-area" 
-                    className="bg-white text-black text-[12px] font-sans mx-auto min-h-[27.9cm]"
+                    className="page bg-white text-black text-[12px] font-sans mx-auto"
                     style={{ 
-                        width: '21.59cm', 
-                        maxWidth: '794px', 
-                        boxSizing: 'border-box',
-                        padding: '40px 48px'
+                        width: '100%',
+                        maxWidth: '816px', 
+                        minHeight: '1056px',
+                        margin: '32px auto',
+                        padding: '72px 80px',
+                        boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+                        boxSizing: 'border-box'
                     }}
                 >
                     {/* HEADER — dos columnas */}
-                    <div className="flex justify-between items-start mb-2">
+                    <div className="flex justify-between items-start mb-10">
                         <div className="flex items-center gap-4">
                             <Image 
                                 src="https://i.ibb.co/zhzhTrvV/logo-cxc.png" 
@@ -198,14 +211,23 @@ export function CuentaCobro({ servicio }: Props) {
                     </div>
 
                     {/* DATOS DEL CLIENTE — centrado */}
-                    <div className="text-center mb-8">
-                        <h1 className="text-2xl font-bold tracking-[0.2em] uppercase">{servicio.cliente}</h1>
-                        <p className="font-bold text-lg">NIT {servicio.nitCliente}</p>
-                        <p className="text-base">{servicio.emailCliente}</p>
+                    <div className="text-center mb-12">
+                        <h1 
+                            style={{ fontSize: '22px', letterSpacing: '3px', marginBottom: '8px' }} 
+                            className="font-bold uppercase leading-tight"
+                        >
+                            {servicio.cliente}
+                        </h1>
+                        <p style={{ marginTop: '6px', fontSize: '14px' }} className="font-bold">
+                            NIT {servicio.nitCliente}
+                        </p>
+                        <p style={{ marginTop: '4px', fontSize: '14px' }} className="text-gray-700">
+                            {servicio.emailCliente}
+                        </p>
                     </div>
 
                     {/* SECCIÓN PRESTADOR (JUAN ESTEBAN) — tabla con bordes grises */}
-                    <div className="mb-6">
+                    <div className="mb-10">
                         <p className="font-bold mb-1">Prestado a</p>
                         <table className="w-full border-collapse border border-[#999]">
                             <tbody>
@@ -224,7 +246,7 @@ export function CuentaCobro({ servicio }: Props) {
                     </div>
 
                     {/* TABLA DE SERVICIOS */}
-                    <div className="mb-8">
+                    <div className="mb-10">
                         <div className="bg-[#9e9e9e] text-white py-2 px-4 text-center font-bold text-sm tracking-wider">
                             DETALLE DA OPERACIÓN
                         </div>
@@ -238,7 +260,7 @@ export function CuentaCobro({ servicio }: Props) {
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr className="min-h-[120px]">
+                                <tr>
                                     <td className="border border-[#999] p-4 text-center align-top font-bold">1</td>
                                     <td className="border border-[#999] p-4 align-top">
                                         <p className="font-bold uppercase text-sm mb-2 tracking-tight">Transporte especial de pasajeros</p>
@@ -269,7 +291,7 @@ export function CuentaCobro({ servicio }: Props) {
 
                     {/* PAGO — párrafo simple */}
                     <div className="mb-16">
-                        <p className="text-sm">
+                        <p className="text-sm font-medium">
                             Por favor, realize su transferancie a Cuenta-Ahorros 99642554661 de Bancolombia de Bancombia
                         </p>
                     </div>
