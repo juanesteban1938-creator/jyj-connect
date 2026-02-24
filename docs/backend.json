@@ -1,39 +1,40 @@
+
 {
   "entities": {
     "Cliente": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Cliente",
       "type": "object",
-      "description": "Represents a client of Transportes Especiales J&J, storing their contact and identification details.",
+      "description": "Entidad que representa a un cliente de la empresa.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the Cliente entity."
+          "description": "ID único del cliente (usualmente el NIT o CC)."
         },
         "nombre": {
           "type": "string",
-          "description": "The full name or company name of the client."
+          "description": "Nombre completo o razón social."
         },
         "identificacion": {
           "type": "string",
-          "description": "The identification number (e.g., NIT, Cédula de Ciudadanía) of the client."
+          "description": "Número de identificación (NIT, CC)."
         },
         "direccion": {
           "type": "string",
-          "description": "The physical address of the client."
+          "description": "Dirección física del cliente."
         },
         "telefono": {
           "type": "string",
-          "description": "The contact phone number of the client."
+          "description": "Número de teléfono de contacto."
         },
         "ciudad": {
           "type": "string",
-          "description": "The city where the client is located."
+          "description": "Ciudad de ubicación."
         },
         "email": {
           "type": "string",
-          "description": "The email address of the client, used for communication and sending billing accounts.",
-          "format": "email"
+          "format": "email",
+          "description": "Correo electrónico para envío de facturación."
         }
       },
       "required": [
@@ -50,48 +51,68 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "CuentaCobro",
       "type": "object",
-      "description": "Represents a billing account (invoice) issued by Transportes Especiales J&J for services rendered to a client.",
+      "description": "Entidad que representa una cuenta de cobro emitida.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the CuentaCobro entity."
+          "description": "ID único de la cuenta en Firestore."
         },
         "numero": {
           "type": "string",
-          "description": "The unique sequential number of the billing account (e.g., GA-CCT-0001)."
+          "description": "Número correlativo (Ej: GA-CCT-0001)."
         },
         "fecha": {
           "type": "string",
-          "description": "The date when the billing account was issued.",
-          "format": "date-time"
+          "format": "date-time",
+          "description": "Fecha de emisión del documento."
         },
         "clienteId": {
           "type": "string",
-          "description": "Reference to the Cliente who is being billed. (Relationship: Cliente 1:N CuentaCobro)"
+          "description": "Referencia al ID del cliente."
+        },
+        "cliente": {
+          "$ref": "#/backend/entities/Cliente",
+          "description": "Snapshot de la información del cliente al momento de crear la cuenta."
         },
         "servicios": {
           "type": "array",
-          "description": "A list of individual services included in this billing account.",
           "items": {
-            "type": "boolean"
+            "type": "object",
+            "properties": {
+              "descripcion": {
+                "type": "string"
+              },
+              "valorUnitario": {
+                "type": "number"
+              },
+              "total": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "descripcion",
+              "valorUnitario",
+              "total"
+            ]
           }
         },
         "totalGeneral": {
           "type": "number",
-          "description": "The grand total amount for all services in this billing account."
+          "description": "Suma total de todos los servicios incluidos."
         },
         "estado": {
           "type": "string",
-          "description": "The current status of the billing account.",
-          "format": "enum",
-          "items": {
-            "type": "string"
-          }
+          "enum": [
+            "pendiente",
+            "enviada",
+            "pagada"
+          ],
+          "description": "Estado actual de la cuenta de cobro."
         },
         "creadoEn": {
           "type": "string",
-          "description": "The timestamp when the billing account record was created.",
-          "format": "date-time"
+          "format": "date-time",
+          "description": "Timestamp de creación del registro."
         }
       },
       "required": [
@@ -99,6 +120,7 @@
         "numero",
         "fecha",
         "clienteId",
+        "cliente",
         "servicios",
         "totalGeneral",
         "estado",
@@ -121,11 +143,11 @@
           "schema": {
             "$ref": "#/backend/entities/Cliente"
           },
-          "description": "Stores individual client records. Each document represents a unique client with their contact and identification details. This collection is intended for management by authorized administrators.",
+          "description": "Colección que almacena los registros de los clientes.",
           "params": [
             {
               "name": "clienteId",
-              "description": "The unique identifier for a specific client."
+              "description": "ID único del cliente."
             }
           ]
         }
@@ -137,16 +159,16 @@
           "schema": {
             "$ref": "#/backend/entities/CuentaCobro"
           },
-          "description": "Stores billing account records issued to clients. Each document includes a denormalized 'cliente' object snapshot for authorization independence and efficient data retrieval, eliminating the need for 'get()' calls to the 'clientes' collection in security rules. It also contains a detailed array of services and their current status.",
+          "description": "Colección que almacena las cuentas de cobro generadas.",
           "params": [
             {
               "name": "cuentaCobroId",
-              "description": "The unique identifier for a specific billing account."
+              "description": "ID único de la cuenta de cobro."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to support a secure, scalable, and debuggable \"Cuenta de Cobro\" module, adhering strictly to the core design principles and strategy mandates. \n\n**Authorization Independence (CRITICAL) & Denormalization:**\nThe primary strategy for achieving Authorization Independence is the denormalization of client data within the `cuentas_cobro` collection. Each `CuentaCobro` document includes a complete snapshot of the `Cliente` object (`cliente: objeto snapshot del cliente`) at the time of its creation or last update. This is crucial for two main reasons:\n1.  **Elimination of `get()` calls in Security Rules:** When evaluating access to a `CuentaCobro` document, any rule requiring client-specific attributes (e.g., `request.resource.data.cliente.email` for sending, or even just `cliente.id` for validation) can access them directly from the `CuentaCobro` document itself. This removes the need for expensive and potentially complex cross-document `get()` operations in Firestore Security Rules, making rules simpler, more performant, and less prone to errors.\n2.  **Atomic Operations:** The creation or update of a `CuentaCobro` document can be performed atomically without requiring prior reads of the associated `Cliente` document solely for authorization checks. This enhances transactional integrity and simplifies client-side logic.\n\nWhile the current request implies global administrative access to all `clientes` and `cuentas_cobro`, this denormalization strategy future-proofs the system. Should granular, client-specific authorization for billing accounts be introduced (e.g., a client can only view their own billing accounts), the necessary client attributes would already be available directly on the `CuentaCobro` document without `get()` calls.\n\n**QAPs (Rules are not Filters) & Structural Segregation:**\n\n1.  **Homogeneous Security Posture:** The `clientes` and `cuentas_cobro` collections are designed with a homogeneous security posture. All documents within the `clientes` collection are expected to be accessible and manageable by authorized administrative users. Similarly, all documents within the `cuentas_cobro` collection fall under the same access control regime. This segregation simplifies security rules significantly, as there's no need to mix publicly accessible data with private data or data requiring different authorization levels within the same collection.\n2.  **Database-Backed Access Control (DBAC):** For overall application security, an additional collection (e.g., `/roles_admin/{uid}`) would typically be implemented to store administrator UIDs. The existence of a document for `request.auth.uid` in this collection would grant read/write access to the `clientes` and `cuentas_cobro` collections. This approach ensures that `list` operations remain efficient and secure. Instead of attempting to filter results based on client-side rules, the rules simply check if the requesting user is an authorized admin, thus preventing unauthorized data from ever being returned. This maintains QAPs by ensuring security rules are evaluators, not data filters.\n\n**Data Clarity and Predictability:**\n*   **Explicit State Modeling:** The `estado` field in `CuentaCobro` uses a finite state machine (`\"pendiente\" | \"enviada\" | \"pagada\"`), clearly defining the lifecycle of a billing account. This avoids ambiguity and simplifies state management logic.\n*   **Predictable Schema:** The `servicios` array within `CuentaCobro` is an array of objects with static, well-defined keys (`descripcion`, `valorUnitario`, `total`), ensuring a consistent and predictable data structure. Wildcards like `{clienteId}` and `{cuentaCobroId}` are descriptive and adhere to semantic naming conventions."
+    "reasoning": "La estructura utiliza desnormalización mediante un snapshot del objeto cliente dentro de la cuenta de cobro. Esto asegura que el documento impreso mantenga la información correcta del cliente incluso si este cambia sus datos en el futuro, además de optimizar las reglas de seguridad al tener todos los datos necesarios para validación en el mismo documento."
   }
 }
