@@ -1,15 +1,12 @@
-
 'use client';
 
 import {
-  ArrowUp,
   Briefcase,
-  DollarSign,
-  Plus,
   Users,
   TrendingUp,
   AlertTriangle,
   ChevronRight,
+  Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,6 +18,7 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { useEffect, useState, useMemo } from 'react';
 
 const StatCard = ({
   title,
@@ -54,7 +52,7 @@ const StatCard = ({
             <span className={changeType === 'positive' ? 'text-green-600 font-bold' : changeType === 'negative' ? 'text-red-600 font-bold' : 'text-muted-foreground'}>
               {change}
             </span>
-            <span className="text-muted-foreground">vs mes anterior</span>
+            <span className="text-muted-foreground">crecimiento</span>
           </p>
         )}
       </div>
@@ -62,7 +60,35 @@ const StatCard = ({
   </Card>
 );
 
+const currencyFormatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 });
+
 export default function DashboardHomePage() {
+  const [servicios, setServicios] = useState<any[]>([]);
+  const [vehiculos, setVehiculos] = useState<any[]>([]);
+  const [conductores, setConductores] = useState<any[]>([]);
+
+  useEffect(() => {
+    const s = localStorage.getItem('servicios');
+    const v = localStorage.getItem('vehiculos');
+    const c = localStorage.getItem('conductores');
+    if (s) setServicios(JSON.parse(s));
+    if (v) setVehiculos(JSON.parse(v));
+    if (c) setConductores(JSON.parse(c));
+  }, []);
+
+  const stats = useMemo(() => {
+    const totalVenta = servicios.reduce((acc, s) => acc + (s.valorServicio || 0), 0);
+    const totalCartera = servicios.reduce((acc, s) => acc + (s.saldo ?? (s.valorServicio - (s.anticipo || 0))), 0);
+    return {
+      venta: currencyFormatter.format(totalVenta),
+      cartera: currencyFormatter.format(totalCartera),
+      vehiculos: vehiculos.length,
+      conductores: conductores.length,
+    };
+  }, [servicios, vehiculos, conductores]);
+
+  const recientes = useMemo(() => servicios.slice(-3).reverse(), [servicios]);
+
   return (
     <div className="page-container">
       <header className="mb-8">
@@ -74,7 +100,7 @@ export default function DashboardHomePage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
         <StatCard
           title="Total de Vehículos"
-          value="15"
+          value={stats.vehiculos.toString()}
           icon={Briefcase}
           change="+2"
           changeType="positive"
@@ -83,7 +109,7 @@ export default function DashboardHomePage() {
         />
         <StatCard
           title="Conductores Activos"
-          value="12"
+          value={stats.conductores.toString()}
           icon={Users}
           change="+1"
           changeType="positive"
@@ -92,16 +118,15 @@ export default function DashboardHomePage() {
         />
         <StatCard
           title="Cartera Pendiente"
-          value="$1.2M"
+          value={stats.cartera}
           icon={AlertTriangle}
-          change="+$200k"
           changeType="negative"
           iconColor="text-red-600"
           bgColor="bg-red-50"
         />
         <StatCard
           title="Ingresos del Mes"
-          value="$8.7M"
+          value={stats.venta}
           icon={TrendingUp}
           change="+15%"
           changeType="positive"
@@ -150,27 +175,15 @@ export default function DashboardHomePage() {
             <CardDescription>Últimas operaciones realizadas.</CardDescription>
           </CardHeader>
           <CardContent className="px-6 pb-6 space-y-4">
-            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
-              <div>
-                <p className="font-bold text-sm">Servicio #523</p>
-                <p className="text-xs text-muted-foreground truncate max-w-[150px]">Constructora XYZ</p>
+            {recientes.map(s => (
+              <div key={s.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                <div>
+                  <p className="font-bold text-sm">Servicio {s.consecutivo}</p>
+                  <p className="text-xs text-muted-foreground truncate max-w-[150px]">{s.cliente}</p>
+                </div>
+                <Badge variant="outline" className="text-[10px] font-bold uppercase">{s.estado}</Badge>
               </div>
-              <Badge variant="outline" className="text-[10px] font-bold">FINALIZADO</Badge>
-            </div>
-             <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
-              <div>
-                <p className="font-bold text-sm">Servicio #522</p>
-                <p className="text-xs text-muted-foreground truncate max-w-[150px]">Eventos SAS</p>
-              </div>
-              <Badge variant="outline" className="text-[10px] font-bold">FINALIZADO</Badge>
-            </div>
-             <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
-              <div>
-                <p className="font-bold text-sm">Servicio #521</p>
-                <p className="text-xs text-muted-foreground truncate max-w-[150px]">Colegio ABC</p>
-              </div>
-              <Badge className="bg-green-100 text-green-800 text-[10px] font-bold border-none">EN CURSO</Badge>
-            </div>
+            ))}
             <Link href="/dashboard/servicios" className="flex items-center justify-center text-primary text-xs font-bold hover:underline gap-1 pt-2">
                 Ver todos los servicios <ChevronRight className="h-3 w-3" />
             </Link>

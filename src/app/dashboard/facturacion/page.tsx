@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -6,15 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, DollarSign, TrendingUp, AlertTriangle, FileText, MoreHorizontal } from 'lucide-react';
+import { Search, DollarSign, TrendingUp, AlertTriangle, FileText, MoreHorizontal, CheckCircle, Mail, Edit } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { CuentaCobro } from '@/components/dashboard/facturacion/cuenta-cobro';
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import { AbonoForm, type AbonoFormValues } from '@/components/dashboard/facturacion/abono-form';
+import { FacturacionForm, type FacturacionFormValues } from '@/components/dashboard/facturacion/facturacion-form';
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 });
 
@@ -23,6 +23,8 @@ export default function FacturacionPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selected, setSelected] = useState<any | null>(null);
   const [isFacturaOpen, setIsFacturaOpen] = useState(false);
+  const [isAbonoOpen, setIsAbonoOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -34,10 +36,44 @@ export default function FacturacionPage() {
     return servicios.reduce((acc, s) => {
       acc.total += s.valorServicio || 0;
       if (s.estadoPago === 'Pagado') acc.ganancia += (s.valorServicio - (s.costoOperacion || 0));
-      if (s.estadoPago === 'Pendiente') acc.cartera += s.saldo || 0;
+      if (s.estadoPago === 'Pendiente' || s.estadoPago === 'Anticipo') acc.cartera += (s.saldo ?? (s.valorServicio - (s.anticipo || 0)));
       return acc;
     }, { total: 0, ganancia: 0, cartera: 0 });
   }, [servicios]);
+
+  const updateServicio = (id: string, updates: any) => {
+    const updated = servicios.map(s => s.id === id ? { ...s, ...updates } : s);
+    setServicios(updated);
+    localStorage.setItem('servicios', JSON.stringify(updated));
+  };
+
+  const handleMarcarPagada = (servicio: any) => {
+    updateServicio(servicio.id, { estadoPago: 'Pagado', saldo: 0, anticipo: servicio.valorServicio });
+    toast({ title: "Servicio Pagado", description: `El servicio ${servicio.consecutivo} ha sido marcado como pagado.` });
+  };
+
+  const handleSaveAbono = (data: AbonoFormValues) => {
+    if (!selected) return;
+    const nuevoAnticipo = (selected.anticipo || 0) + data.valorAbono;
+    const nuevoSaldo = selected.valorServicio - nuevoAnticipo;
+    updateServicio(selected.id, { 
+      anticipo: nuevoAnticipo, 
+      saldo: nuevoSaldo, 
+      estadoPago: data.nuevoEstadoPago,
+      metodoPago: data.metodoPago,
+      numeroComprobante: data.numeroComprobante,
+      banco: data.banco
+    });
+    setIsAbonoOpen(false);
+    toast({ title: "Abono Registrado", description: `Se ha registrado un abono de ${currencyFormatter.format(data.valorAbono)}` });
+  };
+
+  const handleSaveEdit = (data: FacturacionFormValues) => {
+    if (!selected) return;
+    updateServicio(selected.id, { ...data, saldo: data.valorServicio! - (data.anticipo || 0) });
+    setIsEditOpen(false);
+    toast({ title: "Facturación Actualizada" });
+  };
 
   const filtered = servicios.filter(s => s.cliente.toLowerCase().includes(searchTerm.toLowerCase()));
 
@@ -111,6 +147,13 @@ export default function FacturacionPage() {
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => { setSelected(s); setIsFacturaOpen(true); }}><FileText className="mr-2 h-4 w-4" /> Ver Cuenta de Cobro</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setSelected(s); setIsAbonoOpen(true); }}><DollarSign className="mr-2 h-4 w-4" /> Registrar Pago/Abono</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setSelected(s); setIsEditOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar Facturación</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => { setSelected(s); setIsFacturaOpen(true); }}><Mail className="mr-2 h-4 w-4" /> Enviar por Correo</DropdownMenuItem>
+                        {s.estadoPago !== 'Pagado' && (
+                          <DropdownMenuItem className="text-green-600" onClick={() => handleMarcarPagada(s)}><CheckCircle className="mr-2 h-4 w-4" /> Marcar como Pagada</DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -123,12 +166,22 @@ export default function FacturacionPage() {
 
       <Dialog open={isFacturaOpen} onOpenChange={setIsFacturaOpen}>
         <DialogContent className="max-w-4xl bg-[#f0f0f0] p-0 overflow-hidden border-none">
-          <VisuallyHidden>
-            <DialogHeader>
-              <DialogTitle>Vista Previa de Cuenta de Cobro</DialogTitle>
-            </DialogHeader>
-          </VisuallyHidden>
+          <VisuallyHidden><DialogHeader><DialogTitle>Vista Previa de Cuenta de Cobro</DialogTitle></DialogHeader></VisuallyHidden>
           {selected && <CuentaCobro servicio={selected} />}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isAbonoOpen} onOpenChange={setIsAbonoOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Registrar Pago / Abono</DialogTitle></DialogHeader>
+          {selected && <AbonoForm servicio={selected} onSave={handleSaveAbono} onCancel={() => setIsAbonoOpen(false)} />}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Editar Facturación</DialogTitle></DialogHeader>
+          {selected && <FacturacionForm servicio={selected} onSave={handleSaveEdit} onCancel={() => setIsEditOpen(false)} />}
         </DialogContent>
       </Dialog>
     </div>
