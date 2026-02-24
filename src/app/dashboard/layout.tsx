@@ -46,12 +46,12 @@ export default function DashboardLayout({
     <SidebarProvider>
       <MainNav />
       <SidebarInset>
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-background px-6">
-          <h1 className="text-xl font-semibold">Panel de Inicio</h1>
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-white px-6 shadow-sm">
+          <h1 className="text-xl font-semibold">J&J Connect V2.0</h1>
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" className="rounded-full">
               <Bell className="h-5 w-5" />
-              <span className="sr-only">Toggle notifications</span>
+              <span className="sr-only">Notificaciones</span>
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -59,7 +59,7 @@ export default function DashboardLayout({
                   variant="ghost"
                   className="flex items-center gap-2 rounded-full p-2 hover:bg-muted"
                 >
-                  <div className="text-right">
+                  <div className="text-right hidden sm:block">
                     <p className="text-sm font-semibold">Admin Principal</p>
                     <p className="text-xs text-muted-foreground">
                       Gerente de Operaciones
@@ -79,7 +79,9 @@ export default function DashboardLayout({
             </DropdownMenu>
           </div>
         </header>
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 bg-[#f4f6f8] p-4 sm:p-8 md:p-10 overflow-auto">
+          {children}
+        </main>
       </SidebarInset>
     </SidebarProvider>
   );

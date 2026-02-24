@@ -1,61 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Search,
-  MoreHorizontal,
-  PlusCircle,
-  Eye,
-  Edit,
-  Bus,
-  Calendar as CalendarIcon,
-  CheckCircle,
-  Clock,
-  Circle,
-  MapPin,
-} from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Search, PlusCircle, Eye, Edit, Bus, Calendar as CalendarIcon, CheckCircle, Clock, MapPin } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { format, parseISO, endOfDay, startOfDay, isBefore, isAfter } from 'date-fns';
+import { format, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar } from '@/components/jj-ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
-import { ServicioForm, type ServicioFormValues } from '@/components/dashboard/servicios/servicio-form';
-import type { Conductor } from '@/app/dashboard/conductores/page';
-import type { Vehiculo } from '@/app/dashboard/vehiculos/page';
+import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
-
-
-type ServicioEstado = 'Programado' | 'En Servicio' | 'Finalizado' | 'Cancelado';
-type MetodoPago = 'Efectivo' | 'Transferencia' | 'Facturacion';
-type EstadoPago = 'Pendiente' | 'Anticipo' | 'Pagado' | 'Anulado';
-
 
 export type Servicio = {
   id: string;
@@ -70,576 +29,115 @@ export type Servicio = {
   clienteIniciales: string;
   emailCliente?: string;
   conductor: string;
-  conductorId?: string;
-  conductorTelefono?: string;
   vehiculo: string;
-  estado: ServicioEstado;
+  estado: 'Programado' | 'En Servicio' | 'Finalizado' | 'Cancelado';
   valorServicio?: number;
   anticipo?: number;
   saldo?: number;
-  metodoPago: MetodoPago;
+  metodoPago: 'Efectivo' | 'Transferencia' | 'Facturacion';
   costoOperacion?: number;
-  estadoPago: EstadoPago;
+  estadoPago: 'Pendiente' | 'Anticipo' | 'Pagado' | 'Anulado';
   paradasAdicionales: string[];
-  numeroComprobante?: string;
-  banco?: string;
 };
-
-const StatCard = ({ title, value, icon, iconBgColor }: { title: string; value: string; icon: React.ReactNode; iconBgColor: string; }) => (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <div className={`flex h-10 w-10 items-center justify-center rounded-full text-primary ${iconBgColor}`}>
-          {icon}
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-      </CardContent>
-    </Card>
-);
-
-const OrigenIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="8" cy="8" r="7.5" fill="white" stroke="#22C55E"/>
-        <circle cx="8" cy="8" r="4" fill="#22C55E"/>
-    </svg>
-);
-
-const DestinoIcon = () => (
-     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M7.99992 14.6667C9.23724 13.0933 12.6666 9.42668 12.6666 6.00001C12.6666 3.42468 10.5753 1.33334 7.99992 1.33334C5.42459 1.33334 3.33325 3.42468 3.33325 6.00001C3.33325 9.42668 6.76259 13.0933 7.99992 14.6667Z" fill="#F43F5E"/>
-    </svg>
-);
-
 
 export default function ServiciosPage() {
   const [servicios, setServicios] = useState<Servicio[]>([]);
-  const [conductores, setConductores] = useState<Conductor[]>([]);
-  const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
   const [activeTab, setActiveTab] = useState('activos');
   const [searchTerm, setSearchTerm] = useState('');
-  const [fechaInicio, setFechaInicio] = useState<Date | undefined>();
-  const [fechaFin, setFechaFin] = useState<Date | undefined>();
-  const [estadoFiltro, setEstadoFiltro] = useState<string>('todos');
-  const [currentPage, setCurrentPage] = useState(1);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isResumenOpen, setIsResumenOpen] = useState(false);
-  const [selectedServicio, setSelectedServicio] = useState<Servicio | null>(null);
-  const [consecutiveId, setConsecutiveId] = useState(101);
+  const [selected, setSelected] = useState<Servicio | null>(null);
   const { toast } = useToast();
-  const ITEMS_PER_PAGE = 5;
-  const [isInicioOpen, setIsInicioOpen] = useState(false);
-  const [isFinOpen, setIsFinOpen] = useState(false);
-
 
   useEffect(() => {
-    let storedConductores: Conductor[] = [];
-    try {
-        const storedConductoresRaw = localStorage.getItem('conductores');
-        if (storedConductoresRaw) {
-          storedConductores = JSON.parse(storedConductoresRaw);
-          setConductores(storedConductores);
-        }
-    } catch (e) {
-        console.error(e);
-    }
-    
-    try {
-        const storedVehiculosRaw = localStorage.getItem('vehiculos');
-        if (storedVehiculosRaw) {
-          setVehiculos(JSON.parse(storedVehiculosRaw));
-        }
-    } catch (e) {
-        console.error(e)
-    }
-
-    try {
-        const storedServiciosRaw = localStorage.getItem('servicios');
-        const initialServicios: Servicio[] = storedServiciosRaw ? JSON.parse(storedServiciosRaw) : [
-          {
-            id: '1',
-            consecutivo: 'GA-CCT-100',
-            hora: '14:30',
-            fecha: '2024-10-12',
-            origen: 'Aeropuerto AGP (T3)',
-            destino: 'Hotel Miramar Palace',
-            cliente: 'TechConf 2023',
-            nitCliente: "900.111.222-3",
-            telefonoCliente: "3112223344",
-            clienteIniciales: 'TC',
-            emailCliente: 'test@test.com',
-            conductor: 'Carlos Méndez',
-            conductorId: '1',
-            conductorTelefono: '3104558899',
-            vehiculo: 'Mercedes V-Class • 2390 KLP',
-            estado: 'En Servicio',
-            valorServicio: 250000,
-            costoOperacion: 50000,
-            saldo: 250000,
-            metodoPago: 'Facturacion',
-            estadoPago: 'Pendiente',
-            paradasAdicionales: [],
-          },
-          {
-            id: '2',
-            consecutivo: 'GA-CCT-101',
-            hora: '10:00',
-            fecha: format(new Date(), 'yyyy-MM-dd'),
-            origen: 'Oficina Central',
-            destino: 'Centro de Convenciones',
-            cliente: 'Global Corp',
-            nitCliente: "800.444.555-6",
-            telefonoCliente: "3209998877",
-            clienteIniciales: 'GC',
-            emailCliente: 'test2@test.com',
-            conductor: 'Luisa Pérez',
-            conductorId: '2',
-            conductorTelefono: '3127701234',
-            vehiculo: 'Sprinter • ABC-456',
-            estado: 'Programado',
-            valorServicio: 180000,
-            costoOperacion: 45000,
-            saldo: 180000,
-            metodoPago: 'Facturacion',
-            estadoPago: 'Pendiente',
-            paradasAdicionales: [],
-          },
-           {
-            id: '3',
-            consecutivo: 'GA-CCT-102',
-            hora: '09:00',
-            fecha: '2024-07-28',
-            origen: 'Punto A',
-            destino: 'Punto B',
-            cliente: 'Cliente de Prueba 1',
-            nitCliente: "123.456.789-0",
-            telefonoCliente: "3001234567",
-            clienteIniciales: 'CP',
-            emailCliente: 'test3@test.com',
-            conductor: 'Jorge Ramírez',
-            conductorId: '3',
-            conductorTelefono: '3001105566',
-            vehiculo: 'XYZ-789',
-            estado: 'Finalizado',
-            valorServicio: 120000,
-            costoOperacion: 30000,
-            saldo: 0,
-            metodoPago: 'Efectivo',
-            estadoPago: 'Pagado',
-            paradasAdicionales: [],
-          },
-          {
-            id: '4',
-            consecutivo: 'GA-CCT-103',
-            hora: '15:00',
-            fecha: '2024-07-29',
-            origen: 'Punto C',
-            destino: 'Punto D',
-            cliente: 'Cliente de Prueba 2',
-            nitCliente: "987.654.321-0",
-            telefonoCliente: "3154443322",
-            clienteIniciales: 'C2',
-            emailCliente: 'test4@test.com',
-            conductor: 'Otro Conductor',
-            vehiculo: 'DEF-456',
-            estado: 'Finalizado',
-            valorServicio: 300000,
-            costoOperacion: 60000,
-            saldo: 150000,
-            anticipo: 150000,
-            metodoPago: 'Transferencia',
-            estadoPago: 'Anticipo',
-            paradasAdicionales: [],
-            numeroComprobante: 'TR-12345',
-            banco: 'Bancolombia',
-          },
-        ];
-        
-        const conductorMap = new Map(storedConductores.map(c => [c.id, c]));
-        const processedServicios = initialServicios.map(s => {
-          if (s.conductorId && conductorMap.has(s.conductorId)) {
-            const conductor = conductorMap.get(s.conductorId)!;
-            return { ...s, conductorTelefono: conductor.telefono, conductor: `${conductor.nombres} ${conductor.apellidos}` };
-          }
-          return s;
-        });
-        
-        setServicios(processedServicios);
-        
-        if (!storedServiciosRaw) {
-          localStorage.setItem('servicios', JSON.stringify(processedServicios));
-        }
-
-    } catch(e) {
-        console.error(e);
-    }
-    
-    const storedConsecutive = localStorage.getItem('servicioConsecutivo');
-    if(storedConsecutive) {
-      setConsecutiveId(parseInt(storedConsecutive, 10));
-    }
+    const stored = localStorage.getItem('servicios');
+    if (stored) setServicios(JSON.parse(stored));
   }, []);
 
-  const handleSaveServicio = (data: ServicioFormValues) => {
-    try {
-        const conductorData = data.esConductorNoRegistrado
-          ? { id: undefined, nombres: data.conductorOtro, apellidos: '', telefono: undefined }
-          : conductores.find(c => c.id === data.conductorId);
-        
-        const vehiculoPlaca = data.esVehiculoNoRegistrado
-          ? data.vehiculoOtro
-          : vehiculos.find(v => v.id === data.vehiculoId)?.placa;
-
-        let updatedServicios;
-        const isEditing = selectedServicio;
-
-        if (isEditing) {
-            updatedServicios = servicios.map(s => {
-                if (s.id === selectedServicio.id) {
-                    return {
-                        ...s,
-                        fecha: format(data.fechaRecogida, 'yyyy-MM-dd'),
-                        hora: data.horaRecogida || "00:00",
-                        cliente: data.nombreCliente,
-                        nitCliente: data.nitCliente,
-                        telefonoCliente: data.telefonoCliente,
-                        clienteIniciales: data.nombreCliente.substring(0,2).toUpperCase(),
-                        emailCliente: data.emailCliente,
-                        origen: data.direccionRecogida,
-                        destino: data.direccionDestino,
-                        conductor: `${conductorData?.nombres || ''} ${conductorData?.apellidos || ''}`.trim(),
-                        conductorId: conductorData?.id,
-                        conductorTelefono: conductorData?.telefono,
-                        vehiculo: vehiculoPlaca || 'No asignado',
-                        valorServicio: data.valorServicio,
-                        anticipo: data.estadoPago === 'Anticipo' ? data.anticipo : 0,
-                        saldo: (data.valorServicio || 0) - (data.estadoPago === 'Anticipo' ? (data.anticipo || 0) : 0),
-                        metodoPago: data.metodoPago,
-                        costoOperacion: data.costoOperacion,
-                        estadoPago: data.estadoPago,
-                        paradasAdicionales: data.paradasAdicionales.map(p => p.direccion).filter(Boolean),
-                        numeroComprobante: data.numeroComprobante,
-                        banco: data.banco,
-                    };
-                }
-                return s;
-            });
-             toast({
-                title: '¡Servicio Actualizado!',
-                description: `El servicio ${selectedServicio.consecutivo} ha sido actualizado.`,
-            });
-        } else {
-            const nuevoServicio: Servicio = {
-                id: new Date().toISOString(),
-                consecutivo: `GA-CCT-${consecutiveId}`,
-                fecha: format(data.fechaRecogida, 'yyyy-MM-dd'),
-                hora: data.horaRecogida || "00:00",
-                cliente: data.nombreCliente,
-                nitCliente: data.nitCliente,
-                telefonoCliente: data.telefonoCliente,
-                clienteIniciales: data.nombreCliente.substring(0,2).toUpperCase(),
-                emailCliente: data.emailCliente,
-                origen: data.direccionRecogida,
-                destino: data.direccionDestino,
-                conductor: `${conductorData?.nombres || ''} ${conductorData?.apellidos || ''}`.trim(),
-                conductorId: conductorData?.id,
-                conductorTelefono: conductorData?.telefono,
-                vehiculo: vehiculoPlaca || 'No asignado',
-                estado: 'Programado',
-                valorServicio: data.valorServicio,
-                anticipo: data.estadoPago === 'Anticipo' ? data.anticipo : 0,
-                saldo: (data.valorServicio || 0) - (data.estadoPago === 'Anticipo' ? (data.anticipo || 0) : 0),
-                metodoPago: data.metodoPago,
-                costoOperacion: data.costoOperacion,
-                estadoPago: data.estadoPago,
-                paradasAdicionales: data.paradasAdicionales.map(p => p.direccion).filter(Boolean),
-                numeroComprobante: data.numeroComprobante,
-                banco: data.banco,
-            };
-            updatedServicios = [...servicios, nuevoServicio];
-
-            const nextId = consecutiveId + 1;
-            setConsecutiveId(nextId);
-            localStorage.setItem('servicioConsecutivo', nextId.toString());
-
-            toast({
-                title: '¡Servicio Creado!',
-                description: `El servicio ${nuevoServicio.consecutivo} para ${nuevoServicio.cliente} ha sido programado.`,
-            });
-        }
-
-        localStorage.setItem('servicios', JSON.stringify(updatedServicios));
-        setServicios(updatedServicios);
-
-        setIsFormOpen(false);
-        setSelectedServicio(null);
-
-    } catch (error) {
-        console.error("Error saving service:", error);
-        toast({
-            variant: "destructive",
-            title: "Error al Guardar",
-            description: "Ocurrió un problema al intentar guardar el servicio.",
-        });
+  const handleSave = (data: any) => {
+    let updated;
+    if (selected) {
+      updated = servicios.map(s => s.id === selected.id ? { ...s, ...data } : s);
+    } else {
+      updated = [...servicios, { ...data, id: Date.now().toString(), consecutivo: `GA-CCT-${servicios.length + 100}`, estado: 'Programado' }];
     }
+    setServicios(updated);
+    localStorage.setItem('servicios', JSON.stringify(updated));
+    setIsFormOpen(false);
+    toast({ title: "Servicio guardado" });
   };
 
-  const handleOpenResumen = (servicio: Servicio) => {
-    setSelectedServicio(servicio);
-    setIsResumenOpen(true);
-  }
-
-  const handleOpenEditar = (servicio: Servicio) => {
-    setSelectedServicio(servicio);
-    setIsFormOpen(true);
-  }
-
-  const filteredServicios = servicios
-    .filter(s => {
-        const tabCondition = activeTab === 'activos' 
-            ? s.estado === 'Programado' || s.estado === 'En Servicio' 
-            : s.estado === 'Finalizado' || s.estado === 'Cancelado';
-        return tabCondition;
-    })
-    .filter(s => {
-        const searchLower = searchTerm.toLowerCase();
-        return (
-            s.cliente.toLowerCase().includes(searchLower) ||
-            s.conductor.toLowerCase().includes(searchLower) ||
-            s.origen.toLowerCase().includes(searchLower) ||
-            s.destino.toLowerCase().includes(searchLower)
-        );
-    })
-    .filter(s => {
-        if(estadoFiltro === 'todos') return true;
-        return s.estado === estadoFiltro;
-    })
-     .filter(s => {
-        if (!s.fecha) return true;
-        try {
-            const fechaServicio = new Date(s.fecha);
-            if (fechaInicio && isBefore(fechaServicio, startOfDay(fechaInicio))) return false;
-            if (fechaFin && isAfter(fechaServicio, endOfDay(fechaFin))) return false;
-            return true;
-        } catch (e) {
-            console.error("Error parsing service date:", s.fecha, e);
-            return true;
-        }
-    });
-
-  const totalPages = Math.ceil(filteredServicios.length / ITEMS_PER_PAGE);
-  const paginatedServicios = filteredServicios.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
-
-  const getEstadoBadge = (estado: ServicioEstado) => {
-    switch (estado) {
-      case 'En Servicio':
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200"><Clock className="mr-1 h-3 w-3"/>{estado}</Badge>;
-      case 'Programado':
-        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200"><CalendarIcon className="mr-1 h-3 w-3"/>{estado}</Badge>;
-      case 'Finalizado':
-        return <Badge variant="outline" className="text-green-600 border-green-200"><CheckCircle className="mr-1 h-3 w-3"/>{estado}</Badge>;
-      case 'Cancelado':
-        return <Badge variant="destructive">{estado}</Badge>;
-      default:
-        return <Badge variant="secondary">{estado}</Badge>;
-    }
-  };
-  
-  const formatDateHeader = (dateString: string) => {
-    try {
-        const date = new Date(dateString);
-        const today = startOfDay(new Date());
-        const tomorrow = startOfDay(new Date());
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        
-        let relativeDay;
-        if (startOfDay(date).getTime() === today.getTime()) {
-        relativeDay = 'Hoy';
-        } else if (startOfDay(date).getTime() === tomorrow.getTime()) {
-        relativeDay = 'Mañana';
-        } else {
-        relativeDay = format(date, 'E', { locale: es });
-        }
-
-        return `${relativeDay}, ${format(date, 'dd MMM', {locale: es})}`;
-    } catch (error) {
-        return "Fecha inválida"
-    }
-  }
-  
-  const serviciosEnServicio = servicios.filter(s => s.estado === 'En Servicio').length;
-  const serviciosProgramadosHoy = servicios.filter(s => s.estado === 'Programado' && s.fecha === format(new Date(), 'yyyy-MM-dd')).length;
-  const serviciosFinalizados = servicios.filter(s => s.estado === 'Finalizado').length;
+  const filtered = servicios.filter(s => {
+    const isMatch = s.cliente.toLowerCase().includes(searchTerm.toLowerCase()) || s.conductor.toLowerCase().includes(searchTerm.toLowerCase());
+    const isTabMatch = activeTab === 'activos' ? (s.estado === 'Programado' || s.estado === 'En Servicio') : (s.estado === 'Finalizado' || s.estado === 'Cancelado');
+    return isMatch && isTabMatch;
+  });
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Gestión de Servicios</h1>
-      <p className="text-muted-foreground">
-        Administra y supervisa los traslados en tiempo real.
-      </p>
+    <div className="page-container">
+      <header>
+        <h1 className="page-title">Gestión de Servicios</h1>
+        <p className="page-subtitle">Administra y supervisa los traslados en tiempo real.</p>
+      </header>
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-         <div className="grid gap-4 sm:grid-cols-3 flex-1">
-            <StatCard title="En Servicio" value={serviciosEnServicio.toString()} icon={<Bus className="h-5 w-5"/>} iconBgColor="bg-yellow-100" />
-            <StatCard title="Programados Hoy" value={serviciosProgramadosHoy.toString()} icon={<CalendarIcon className="h-5 w-5"/>} iconBgColor="bg-blue-100" />
-            <StatCard title="Finalizados" value={serviciosFinalizados.toString()} icon={<CheckCircle className="h-5 w-5"/>} iconBgColor="bg-green-100" />
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
+        <div className="relative w-full max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Buscar por cliente o conductor..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
-        <Dialog open={isFormOpen} onOpenChange={(isOpen) => { setIsFormOpen(isOpen); if (!isOpen) setSelectedServicio(null); }}>
-            <DialogTrigger asChild>
-                <Button size="lg" className="w-full sm:w-auto" onClick={() => setSelectedServicio(null)}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Nuevo Servicio
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-3xl">
-                <DialogHeader>
-                    <DialogTitle>
-                        {selectedServicio ? 'Editar Servicio' : 'Programar Nuevo Servicio'}
-                        <Badge variant="outline" className="ml-2">{selectedServicio ? selectedServicio.consecutivo : `GA-CCT-${consecutiveId}`}</Badge>
-                    </DialogTitle>
-                    <CardDescription>Diligencie la información para {selectedServicio ? 'actualizar la' : 'crear una'} orden de servicio.</CardDescription>
-                </DialogHeader>
-                <ServicioForm 
-                    servicio={selectedServicio}
-                    onSave={handleSaveServicio} 
-                    onCancel={() => setIsFormOpen(false)} 
-                    conductores={conductores} 
-                    vehiculos={vehiculos} 
-                />
-            </DialogContent>
+        <Dialog open={isFormOpen} onOpenChange={(o) => { setIsFormOpen(o); if(!o) setSelected(null); }}>
+          <DialogTrigger asChild>
+            <Button className="btn-action"><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Servicio</Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-3xl">
+            <DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader>
+            <ServicioForm servicio={selected} onSave={handleSave} onCancel={() => setIsFormOpen(false)} conductores={[]} vehiculos={[]} />
+          </DialogContent>
         </Dialog>
       </div>
 
-      <Dialog open={isResumenOpen} onOpenChange={(isOpen) => { setIsResumenOpen(isOpen); if (!isOpen) setSelectedServicio(null); }}>
-          <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                  <DialogTitle>Resumen Detallado del Servicio</DialogTitle>
-                  <DialogDescription>
-                      ¡Gracias por elegirnos! Aquí tienes todos los detalles de tu experiencia con el servicio {selectedServicio?.consecutivo}.
-                  </DialogDescription>
-              </DialogHeader>
-              {selectedServicio && (
-                  <ResumenServicio servicio={selectedServicio} />
-              )}
-          </DialogContent>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="bg-white p-1 shadow-sm border">
+          <TabsTrigger value="activos" className="px-6">Activos / Programados</TabsTrigger>
+          <TabsTrigger value="historial" className="px-6">Historial</TabsTrigger>
+        </TabsList>
+        <TabsContent value={activeTab} className="space-y-4">
+          {filtered.map(s => (
+            <Card key={s.id} className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none p-0 overflow-hidden">
+              <div className="grid grid-cols-12 items-center gap-4 p-6 hover:bg-muted/10 transition-colors">
+                <div className="col-span-12 sm:col-span-2 text-center border-r pr-4">
+                  <p className="text-xl font-bold text-primary">{s.hora}</p>
+                  <p className="text-[10px] uppercase text-muted-foreground font-semibold">{format(new Date(s.fecha), 'dd MMM', { locale: es })}</p>
+                </div>
+                <div className="col-span-12 sm:col-span-4 space-y-1">
+                  <div className="flex items-center gap-2 text-sm font-semibold"><div className="h-2 w-2 rounded-full bg-green-500" /> {s.origen}</div>
+                  <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-3 w-3 text-red-500" /> {s.destino}</div>
+                </div>
+                <div className="col-span-6 sm:col-span-3 flex items-center gap-3">
+                  <Avatar className="h-8 w-8 bg-primary/10"><AvatarFallback className="text-[10px] font-bold">{s.clienteIniciales}</AvatarFallback></Avatar>
+                  <div>
+                    <p className="text-sm font-bold">{s.cliente}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase">{s.conductor}</p>
+                  </div>
+                </div>
+                <div className="col-span-6 sm:col-span-3 flex justify-end gap-2">
+                  <Badge variant="secondary" className="text-[10px] uppercase font-bold">{s.estado}</Badge>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelected(s); setIsResumenOpen(true); }}><Eye className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelected(s); setIsFormOpen(true); }}><Edit className="h-4 w-4" /></Button>
+                </div>
+              </div>
+            </Card>
+          ))}
+          {filtered.length === 0 && <p className="text-center py-12 text-muted-foreground">No se encontraron servicios.</p>}
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={isResumenOpen} onOpenChange={setIsResumenOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Resumen del Servicio</DialogTitle></DialogHeader>
+          {selected && <ResumenServicio servicio={selected} />}
+        </DialogContent>
       </Dialog>
-
-      <Card>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <CardHeader>
-            <TabsList>
-              <TabsTrigger value="activos">Servicios Activos / Programados</TabsTrigger>
-              <TabsTrigger value="historial">Historial de Servicios</TabsTrigger>
-            </TabsList>
-            <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center">
-                 <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Buscar por cliente, conductor o ruta..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/>
-                </div>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                    <Popover open={isInicioOpen} onOpenChange={setIsInicioOpen}>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal md:w-[150px]", !fechaInicio && "text-muted-foreground")}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {fechaInicio ? format(fechaInicio, 'dd MMM yyyy') : <span>Fecha Inicio</span>}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" onInteractOutside={(e) => e.preventDefault()}>
-                          <Calendar mode="single" selected={fechaInicio} onSelect={(date) => { setFechaInicio(date); setIsInicioOpen(false); }} initialFocus />
-                        </PopoverContent>
-                    </Popover>
-                    <Popover open={isFinOpen} onOpenChange={setIsFinOpen}>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal md:w-[150px]", !fechaFin && "text-muted-foreground")}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {fechaFin ? format(fechaFin, 'dd MMM yyyy') : <span>Fecha Fin</span>}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" onInteractOutside={(e) => e.preventDefault()}>
-                          <Calendar mode="single" selected={fechaFin} onSelect={(date) => { setFechaFin(date); setIsFinOpen(false); }} initialFocus />
-                        </PopoverContent>
-                    </Popover>
-                     <Select value={estadoFiltro} onValueChange={setEstadoFiltro}>
-                        <SelectTrigger className="w-full md:w-[180px]">
-                            <SelectValue placeholder="Todos los estados" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="todos">Todos los Estados</SelectItem>
-                            {activeTab === 'activos' && <SelectItem value="Programado">Programado</SelectItem>}
-                            {activeTab === 'activos' && <SelectItem value="En Servicio">En Servicio</SelectItem>}
-                            {activeTab === 'historial' && <SelectItem value="Finalizado">Finalizado</SelectItem>}
-                            {activeTab === 'historial' && <SelectItem value="Cancelado">Cancelado</SelectItem>}
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
-          </CardHeader>
-          <TabsContent value={activeTab}>
-            <CardContent className="space-y-4">
-                {paginatedServicios.map(servicio => (
-                    <div key={servicio.id} className="grid grid-cols-12 items-center gap-4 rounded-lg border p-4 hover:bg-muted/50">
-                        <div className="col-span-12 sm:col-span-2 md:col-span-1 text-center sm:text-left">
-                            <p className="text-lg font-bold">{servicio.hora}</p>
-                            <p className="text-xs text-muted-foreground">{formatDateHeader(servicio.fecha)}</p>
-                        </div>
-
-                        <div className="col-span-12 sm:col-span-4 md:col-span-3">
-                            <div className="flex items-start gap-3">
-                                <div className="flex flex-col items-center">
-                                    <OrigenIcon />
-                                    <div className="w-px h-6 bg-border my-1"></div>
-                                    <DestinoIcon />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <p className="font-medium">{servicio.origen}</p>
-                                    <p className="font-medium">{servicio.destino}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="col-span-6 sm:col-span-3 md:col-span-2 flex items-center gap-2">
-                            <Avatar className="h-8 w-8">
-                                <AvatarFallback>{servicio.clienteIniciales}</AvatarFallback>
-                            </Avatar>
-                            <p className="font-medium text-sm">{servicio.cliente}</p>
-                        </div>
-                        
-                        <div className="col-span-6 sm:col-span-3 md:col-span-3">
-                             <p className="font-medium text-sm">{servicio.conductor}</p>
-                             <p className="text-xs text-muted-foreground">{servicio.vehiculo}</p>
-                        </div>
-
-                        <div className="col-span-6 sm:col-span-3 md:col-span-2">
-                            {getEstadoBadge(servicio.estado)}
-                        </div>
-
-                        <div className="col-span-6 sm:col-span-1 flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => handleOpenResumen(servicio)}><Eye className="h-4 w-4"/></Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleOpenEditar(servicio)}><Edit className="h-4 w-4"/></Button>
-                        </div>
-                    </div>
-                ))}
-                {paginatedServicios.length === 0 && (
-                    <div className="text-center py-10 text-muted-foreground">No se encontraron servicios.</div>
-                )}
-            </CardContent>
-          </TabsContent>
-        </Tabs>
-
-        <div className="flex flex-col items-center justify-between gap-4 p-4 border-t md:flex-row">
-            <div className="text-sm text-muted-foreground">
-                Mostrando {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filteredServicios.length)} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredServicios.length)} de {filteredServicios.length} servicios.
-            </div>
-            <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}>Anterior</Button>
-                <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage >= totalPages}>Siguiente</Button>
-            </div>
-        </div>
-      </Card>
     </div>
   );
 }

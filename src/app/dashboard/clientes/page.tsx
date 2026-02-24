@@ -16,7 +16,6 @@ import {
   FileDown,
   Edit,
   Trash2,
-  Home,
   Mail,
   Phone,
   PlusCircle,
@@ -45,7 +44,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 
 export type Cliente = {
-  id: string; // nitCliente can serve as a unique ID
+  id: string; 
   razonSocial: string;
   nit: string;
   telefono: string;
@@ -70,16 +69,13 @@ export default function ClientesPage() {
       const storedServicios = localStorage.getItem('servicios');
       const clientesMap = new Map<string, Cliente>();
 
-      // Load from clientes storage first
       if (storedClientes) {
         const parsedClientes: Cliente[] = JSON.parse(storedClientes);
         parsedClientes.forEach(c => clientesMap.set(c.id, c));
       }
 
-      // Then, augment with data from servicios if not present
       if (storedServicios) {
         const servicios: Servicio[] = JSON.parse(storedServicios);
-
         const tipoClienteMap = new Map<string, Cliente['tipo']>([
             ['Colegio San Pedro', 'Institucional'],
             ['Tecnologías del Sur S.A.S', 'Corporativo'],
@@ -116,106 +112,46 @@ export default function ClientesPage() {
       const allClientes = Array.from(clientesMap.values());
       setClientes(allClientes);
       localStorage.setItem('clientes', JSON.stringify(allClientes));
-
-
     } catch (error) {
-      console.error("Failed to process clients from localStorage", error);
-      toast({
-        variant: "destructive",
-        title: "Error al cargar datos",
-        description: "No se pudieron cargar los datos de los clientes. Intente recargar la página.",
-      });
+      console.error("Failed to process clients", error);
     }
-  }, [toast]);
+  }, []);
   
   const handleSave = (clienteData: Omit<Cliente, 'id'>) => {
-    try {
-        let updatedClientes;
-        const isEditing = selectedCliente && clientes.some(c => c.id === selectedCliente.id);
-  
-        if (isEditing && selectedCliente) {
-          updatedClientes = clientes.map((c) =>
-            c.id === selectedCliente.id ? { ...selectedCliente, ...clienteData } : c
-          );
-        } else {
-          const newCliente = { ...clienteData, id: clienteData.nit }; // Use NIT as ID for new clients
-          updatedClientes = [...clientes, newCliente];
-        }
-        localStorage.setItem('clientes', JSON.stringify(updatedClientes));
-        setClientes(updatedClientes);
-        
-        toast({
-          title: "¡Éxito!",
-          description: `El cliente ${clienteData.razonSocial} ha sido ${isEditing ? 'actualizado' : 'creado'} correctamente.`,
-        });
-  
-        setIsFormOpen(false);
-        setSelectedCliente(null);
-    } catch (error) {
-         console.error("Error saving cliente:", error);
-          toast({
-              variant: "destructive",
-              title: "Error al guardar",
-              description: "Ocurrió un problema al intentar guardar el cliente.",
-          });
+    let updatedClientes;
+    const isEditing = selectedCliente && clientes.some(c => c.id === selectedCliente.id);
+
+    if (isEditing && selectedCliente) {
+      updatedClientes = clientes.map((c) =>
+        c.id === selectedCliente.id ? { ...selectedCliente, ...clienteData } : c
+      );
+    } else {
+      const newCliente = { ...clienteData, id: clienteData.nit };
+      updatedClientes = [...clientes, newCliente];
     }
-  };
-
-  const handleDelete = (id: string) => {
-    const clienteToDelete = clientes.find((c) => c.id === id);
-    if (!clienteToDelete) return;
-
-    const updatedClientes = clientes.filter((c) => c.id !== id);
-    localStorage.setItem('clientes', JSON.stringify(updatedClientes));
-    setClientes(updatedClientes);
-
-    toast({
-      title: "Cliente Eliminado",
-      description: `El cliente ${clienteToDelete.razonSocial} ha sido eliminado.`,
-      variant: "destructive",
-    });
-  };
-
-  const handleDeleteSelected = () => {
-    if (selectedRows.length === 0) return;
-    const updatedClientes = clientes.filter((v) => !selectedRows.includes(v.id));
     localStorage.setItem('clientes', JSON.stringify(updatedClientes));
     setClientes(updatedClientes);
     
     toast({
-      title: `${selectedRows.length} Cliente(s) Eliminado(s)`,
-      description: "Los clientes seleccionados han sido eliminados.",
-      variant: "destructive",
+      title: "¡Éxito!",
+      description: `El cliente ha sido ${isEditing ? 'actualizado' : 'creado'} correctamente.`,
     });
 
-    setSelectedRows([]);
-  };
-  
-  const handleSelectRow = (id: string) => {
-    setSelectedRows((prev) =>
-      prev.includes(id) ? prev.filter((rowId) => rowId !== id) : [...prev, id]
-    );
+    setIsFormOpen(false);
+    setSelectedCliente(null);
   };
 
-  const handleSelectAll = (checked: boolean | string) => {
-    const currentIds = paginatedClientes.map(c => c.id);
-    if (checked) {
-      setSelectedRows(prev => [...new Set([...prev, ...currentIds])]);
-    } else {
-      setSelectedRows(prev => prev.filter(id => !currentIds.includes(id)));
-    }
-  };
-  
-  const openEditForm = (cliente: Cliente) => {
-    setSelectedCliente(cliente);
-    setIsFormOpen(true);
+  const handleDelete = (id: string) => {
+    const updatedClientes = clientes.filter((c) => c.id !== id);
+    localStorage.setItem('clientes', JSON.stringify(updatedClientes));
+    setClientes(updatedClientes);
+    toast({ title: "Cliente Eliminado", variant: "destructive" });
   };
 
   const filteredClientes = clientes.filter(
     (c) =>
       c.razonSocial.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.nit.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.telefono.toLowerCase().includes(searchTerm.toLowerCase())
+      c.nit.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalPages = Math.ceil(filteredClientes.length / ITEMS_PER_PAGE);
@@ -223,68 +159,19 @@ export default function ClientesPage() {
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
-  
-  const isAllOnPageSelected = paginatedClientes.length > 0 && paginatedClientes.every(v => selectedRows.includes(v.id));
-  
-  const getBadgeVariant = (tipo: Cliente['tipo']) => {
-    switch (tipo) {
-      case 'Institucional': return 'bg-blue-100 text-blue-800';
-      case 'Corporativo': return 'bg-purple-100 text-purple-800';
-      case 'ONG': return 'bg-green-100 text-green-800';
-      case 'Turismo': return 'bg-yellow-100 text-yellow-800';
-      case 'Particular': return 'bg-gray-100 text-gray-800';
-      default: return 'secondary';
-    }
-  };
-
-  const downloadExcel = () => {
-    if (filteredClientes.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "No hay datos para exportar",
-        description: "Filtre los clientes que desea descargar.",
-      });
-      return;
-    }
-    try {
-        const dataToExport = filteredClientes.map(({ id, ...rest }) => rest);
-        const csvContent = "data:text/csv;charset=utf-8," 
-          + [Object.keys(dataToExport[0]), ...dataToExport.map(item => Object.values(item))].map(e => e.join(",")).join("\n");
-        
-        const link = document.createElement("a");
-        link.setAttribute("href", encodeURI(csvContent));
-        link.setAttribute("download", `clientes_${format(new Date(), 'yyyyMMdd')}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    } catch(error) {
-        toast({
-            variant: "destructive",
-            title: "Error al descargar",
-            description: "No se pudo generar el archivo Excel.",
-        });
-    }
-  };
 
   return (
-    <div className="space-y-6">
-       <header className="flex items-center space-x-2">
-        <Home className="h-5 w-5 text-muted-foreground" />
-        <span className="text-muted-foreground">/</span>
-        <p className="font-medium text-foreground">Clientes</p>
+    <div className="page-container">
+      <header>
+        <h1 className="page-title">Cartera de Clientes</h1>
+        <p className="page-subtitle">Gestione de forma centralizada la información de sus clientes.</p>
       </header>
-      <div>
-        <h1 className="text-3xl font-bold">Cartera de Clientes</h1>
-        <p className="text-muted-foreground">
-          Gestione de forma centralizada la información de sus clientes.
-        </p>
-      </div>
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por Nombre, NIT o Teléfono..."
+            placeholder="Buscar por nombre o NIT..."
             className="pl-9"
             value={searchTerm}
             onChange={(e) => {
@@ -293,29 +180,17 @@ export default function ClientesPage() {
             }}
           />
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-           <Button variant="outline" onClick={downloadExcel}>
-            <FileDown className="mr-2 h-4 w-4" />
-            Exportar
-          </Button>
-           <Dialog
-            open={isFormOpen}
-            onOpenChange={(isOpen) => {
-              setIsFormOpen(isOpen);
-              if (!isOpen) setSelectedCliente(null);
-            }}
-          >
+        <div className="flex gap-2">
+           <Dialog open={isFormOpen} onOpenChange={(isOpen) => { setIsFormOpen(isOpen); if (!isOpen) setSelectedCliente(null); }}>
             <DialogTrigger asChild>
-              <Button className="w-full sm:w-auto">
+              <Button className="btn-action">
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Añadir Cliente
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-xl">
               <DialogHeader>
-                <DialogTitle>
-                  {selectedCliente ? 'Editar Cliente' : 'Nuevo Cliente'}
-                </DialogTitle>
+                <DialogTitle>{selectedCliente ? 'Editar Cliente' : 'Nuevo Cliente'}</DialogTitle>
               </DialogHeader>
               <ClienteForm
                 cliente={selectedCliente}
@@ -326,108 +201,84 @@ export default function ClientesPage() {
           </Dialog>
         </div>
       </div>
-      
-       {selectedRows.length > 0 && (
-         <div className="flex items-center justify-start gap-2 rounded-md bg-muted p-2">
-            <Badge variant="secondary" className="px-2 py-1">{selectedRows.length} Seleccionado(s)</Badge>
-             <Button variant="ghost" size="sm" onClick={() => {
-                 const clienteToEdit = clientes.find(c => c.id === selectedRows[0]);
-                 if(clienteToEdit && selectedRows.length === 1) {
-                     openEditForm(clienteToEdit);
-                 }
-             }} disabled={selectedRows.length !== 1}>
-                <Edit className="mr-2 h-4 w-4"/>
-                Editar
-            </Button>
-             <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600" onClick={handleDeleteSelected}>
-                <Trash2 className="mr-2 h-4 w-4"/>
-                Eliminar
-            </Button>
-        </div>
-      )}
 
-      <Card>
+      <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none">
         <div className="overflow-x-auto">
             <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/50">
                 <TableRow>
-                <TableHead className="w-[50px]">
+                <TableHead className="w-[50px] p-4 text-center">
                     <Checkbox
-                    onCheckedChange={handleSelectAll}
-                    checked={isAllOnPageSelected}
-                    aria-label="Seleccionar todas las filas de la página actual"
+                      checked={paginatedClientes.length > 0 && paginatedClientes.every(c => selectedRows.includes(c.id))}
+                      onCheckedChange={(checked) => {
+                        const currentIds = paginatedClientes.map(c => c.id);
+                        if (checked) {
+                          setSelectedRows(prev => [...new Set([...prev, ...currentIds])]);
+                        } else {
+                          setSelectedRows(prev => prev.filter(id => !currentIds.includes(id)));
+                        }
+                      }}
                     />
                 </TableHead>
-                <TableHead className="text-foreground">CLIENTE / RAZÓN SOCIAL</TableHead>
-                <TableHead className="text-foreground">NIT / DOCUMENTO</TableHead>
-                <TableHead className="text-foreground">CONTACTO</TableHead>
-                <TableHead className="w-[100px] text-center text-foreground">ACCIONES</TableHead>
+                <TableHead className="p-4">CLIENTE / RAZÓN SOCIAL</TableHead>
+                <TableHead className="p-4">NIT / DOCUMENTO</TableHead>
+                <TableHead className="p-4">CONTACTO</TableHead>
+                <TableHead className="w-[100px] text-center p-4">ACCIONES</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
                 {paginatedClientes.map((cliente) => (
-                <TableRow key={cliente.id} data-state={selectedRows.includes(cliente.id) ? 'selected' : ''}>
-                    <TableCell>
+                <TableRow key={cliente.id} className="hover:bg-muted/30">
+                    <TableCell className="p-4 text-center">
                         <Checkbox
                             checked={selectedRows.includes(cliente.id)}
-                            onCheckedChange={() => handleSelectRow(cliente.id)}
-                            aria-label={`Seleccionar fila para ${cliente.razonSocial}`}
+                            onCheckedChange={() => {
+                              setSelectedRows(prev => 
+                                prev.includes(cliente.id) ? prev.filter(id => id !== cliente.id) : [...prev, cliente.id]
+                              );
+                            }}
                         />
                     </TableCell>
-                    <TableCell>
-                        <div className="font-medium">{cliente.razonSocial}</div>
-                        <Badge variant="outline" className={cn("font-normal", getBadgeVariant(cliente.tipo))}>{cliente.tipo}</Badge>
+                    <TableCell className="p-4">
+                        <div className="font-semibold text-sm">{cliente.razonSocial}</div>
+                        <Badge variant="outline" className="text-[10px] mt-1 uppercase">{cliente.tipo}</Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{cliente.nit}</TableCell>
-                    <TableCell>
-                         <div className="flex items-center gap-2 text-muted-foreground">
-                            <Phone className="h-4 w-4" />
+                    <TableCell className="p-4 text-muted-foreground text-sm">{cliente.nit}</TableCell>
+                    <TableCell className="p-4">
+                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Phone className="h-3 w-3" />
                             <span>{cliente.telefono}</span>
                         </div>
                         {cliente.email && (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                            <Mail className="h-4 w-4" />
-                            <a href={`mailto:${cliente.email}`} className="hover:underline">{cliente.email}</a>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Mail className="h-3 w-3" />
+                            <span>{cliente.email}</span>
                         </div>
                         )}
                     </TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="p-4 text-center">
                        <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                        </Button>
+                        <Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEditForm(cliente)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Editar
+                        <DropdownMenuItem onClick={() => { setSelectedCliente(cliente); setIsFormOpen(true); }}>
+                            <Edit className="mr-2 h-4 w-4" /> Editar
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                            className="text-red-500"
-                            onClick={() => handleDelete(cliente.id)}
-                        >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Eliminar
+                        <DropdownMenuItem className="text-red-500" onClick={() => handleDelete(cliente.id)}>
+                            <Trash2 className="mr-2 h-4 w-4" /> Eliminar
                         </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                     </TableCell>
                 </TableRow>
                 ))}
-                 {paginatedClientes.length === 0 && (
-                    <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center">
-                            No se encontraron clientes.
-                        </TableCell>
-                    </TableRow>
-                )}
             </TableBody>
             </Table>
         </div>
-         <div className="flex flex-col items-center justify-between gap-4 p-4 border-t md:flex-row">
+         <div className="flex flex-col items-center justify-between gap-4 p-4 border-t md:flex-row bg-muted/10">
           <div className="text-sm text-muted-foreground">
-            Mostrando <strong>{filteredClientes.length > 0 ? Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filteredClientes.length) : 0}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredClientes.length)}</strong> de <strong>{filteredClientes.length}</strong> clientes
+            Mostrando <strong>{filteredClientes.length > 0 ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredClientes.length)}</strong> de <strong>{filteredClientes.length}</strong> clientes
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -438,29 +289,12 @@ export default function ClientesPage() {
             >
               Anterior
             </Button>
-             <div className="flex items-center gap-1">
-                {Array.from({ length: totalPages > 4 ? 4 : totalPages }, (_, i) => {
-                    if(totalPages > 4 && i === 2) return <span key="ellipsis" className="px-2">...</span>
-                    if(totalPages > 4 && i === 3) return (
-                        <Button key={totalPages} variant={currentPage === totalPages ? 'default' : 'outline'} size="sm" className="h-8 w-8 p-0" onClick={() => setCurrentPage(totalPages)}>
-                            {totalPages}
-                        </Button>
-                    )
-                    const pageNum = i + 1;
-                    return (
-                        <Button key={pageNum} variant={currentPage === pageNum ? 'default' : 'outline'} size="sm" className="h-8 w-8 p-0" onClick={() => setCurrentPage(pageNum)}>
-                            {pageNum}
-                        </Button>
-                    )
-                })}
-             </div>
+            <div className="text-sm font-medium">Pág. {currentPage} de {totalPages || 1}</div>
             <Button
               variant="outline"
               size="sm"
-              onClick={() =>
-                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-              }
-              disabled={currentPage === totalPages || totalPages === 0}
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={currentPage >= totalPages || totalPages === 0}
             >
               Siguiente
             </Button>

@@ -91,90 +91,32 @@ export function CuentaCobro({ servicio }: Props) {
 
     const handleSendEmail = async () => {
         if (!servicio.emailCliente) {
-            toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: 'El cliente no tiene un correo electrónico registrado.',
-            });
+            toast({ variant: 'destructive', title: 'Error', description: 'El cliente no tiene correo registrado.' });
             return;
         }
-
-        const input = printableAreaRef.current;
-        if (!input) {
-             toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: 'No se pudo generar el contenido de la factura.',
-            });
-            return;
-        }
-        
         setIsSending(true);
-
         try {
-            const canvas = await html2canvas(input, { scale: 2 });
+            const canvas = await html2canvas(printableAreaRef.current!, { scale: 2 });
             const pdf = new jsPDF('p', 'mm', 'letter');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-            const imgWidth = canvas.width;
-            const imgHeight = canvas.height;
-            const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-            const imgX = (pdfWidth - imgWidth * ratio) / 2;
-            const imgY = 0;
-            pdf.addImage(canvas, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
-            
-            const pdfBlob = pdf.output('blob');
-            
-            const formData = new FormData();
-            formData.append('to', servicio.emailCliente);
-            formData.append('nroFactura', servicio.consecutivo);
-            formData.append('pdf', pdfBlob, 'Cuenta_de_Cobro_JJ.pdf');
-
+            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 215.9, 279.4);
             const response = await fetch('/api/send-invoice', {
                 method: 'POST',
-                body: formData,
+                body: JSON.stringify({ to: servicio.emailCliente, nroFactura: servicio.consecutivo, pdfBase64: pdf.output('datauristring').split(',')[1] }),
+                headers: { 'Content-Type': 'application/json' }
             });
-
-            if (response.ok) {
-                toast({
-                    title: '¡Correo Enviado!',
-                    description: `La cuenta de cobro ha sido enviada a ${servicio.emailCliente}.`,
-                });
-            } else {
-                 const result = await response.json();
-                 toast({
-                    variant: 'destructive',
-                    title: 'Error al Enviar',
-                    description: result.message || 'Ocurrió un error en el servidor.',
-                });
-            }
-        } catch (error: any) {
-            console.error("Error generating or sending PDF:", error);
-            toast({
-                variant: 'destructive',
-                title: 'Error Inesperado',
-                description: error.message || 'Ocurrió un problema al generar o enviar el PDF.',
-            });
+            if (response.ok) toast({ title: '¡Correo Enviado!' });
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Error al enviar' });
         } finally {
             setIsSending(false);
         }
     }
     
-    let fecha;
-    try {
-        fecha = new Date(servicio.fecha);
-    } catch(e) {
-        fecha = new Date();
-    }
-
-    const placaVehiculo = servicio.vehiculo.split('•')[1]?.trim() || servicio.vehiculo;
-    
     return (
-        <div className="p-4 bg-[#f0f0f0] rounded-lg">
-            <ScrollArea className="h-[85vh] w-full border rounded-md">
+        <div className="bg-[#f0f0f0] p-0">
+            <ScrollArea className="h-[85vh] w-full">
                 <div 
                     ref={printableAreaRef} 
-                    id="printable-area" 
                     className="page bg-white text-black text-[12px] font-sans mx-auto"
                     style={{ 
                         width: '100%',
@@ -186,51 +128,27 @@ export function CuentaCobro({ servicio }: Props) {
                         boxSizing: 'border-box'
                     }}
                 >
-                    {/* HEADER — dos columnas */}
-                    <section className="flex justify-between items-start mb-5" style={{ pageBreakInside: 'avoid' }}>
+                    {/* CABECERA */}
+                    <section className="flex justify-between items-start mb-6" style={{ pageBreakInside: 'avoid' }}>
                         <div className="flex items-center gap-4">
-                            <Image 
-                                src="https://i.ibb.co/zhzhTrvV/logo-cxc.png" 
-                                alt="Logo Vianova" 
-                                width={120} 
-                                height={68} 
-                                className="object-contain"
-                                style={{ height: '68px', width: 'auto' }}
-                            />
-                            {qrCodeUrl && (
-                                <Image 
-                                    src={qrCodeUrl} 
-                                    alt="QR Empresa" 
-                                    width={68} 
-                                    height={68} 
-                                    className="object-contain border border-gray-200"
-                                />
-                            )}
+                            <Image src="https://i.ibb.co/zhzhTrvV/logo-cxc.png" alt="Logo" width={120} height={68} className="object-contain" style={{ height: '68px', width: 'auto' }} />
+                            {qrCodeUrl && <Image src={qrCodeUrl} alt="QR" width={68} height={68} className="border border-gray-200" />}
                         </div>
                         <div className="text-right">
                             <p className="font-bold text-lg">CUENTA DE COBRO No: {servicio.consecutivo}</p>
-                            <p className="font-medium text-base">{format(fecha, 'dd/MM/yyyy')}</p>
+                            <p className="font-medium text-base">{format(new Date(servicio.fecha), 'dd/MM/yyyy')}</p>
                         </div>
                     </section>
 
-                    {/* DATOS DEL CLIENTE — centrado */}
-                    <section className="text-center mb-6" style={{ pageBreakInside: 'avoid' }}>
-                        <h1 
-                            style={{ fontSize: '18px', letterSpacing: '3px', marginBottom: '4px' }} 
-                            className="font-bold uppercase leading-tight"
-                        >
-                            {servicio.cliente}
-                        </h1>
-                        <p style={{ marginTop: '3px', fontSize: '14px' }} className="font-bold">
-                            NIT {servicio.nitCliente}
-                        </p>
-                        <p style={{ marginTop: '2px', fontSize: '14px' }} className="text-gray-700">
-                            {servicio.emailCliente}
-                        </p>
+                    {/* CLIENTE DINÁMICO */}
+                    <section className="text-center mb-8" style={{ pageBreakInside: 'avoid' }}>
+                        <h1 className="font-bold uppercase text-[18px]" style={{ letterSpacing: '3px', marginBottom: '8px' }}>{servicio.cliente}</h1>
+                        <p className="font-bold text-[14px] mt-[6px]">NIT {servicio.nitCliente}</p>
+                        <p className="text-gray-700 text-[14px] mt-[4px]">{servicio.emailCliente}</p>
                     </section>
 
-                    {/* SECCIÓN PRESTADOR (JUAN ESTEBAN) — tabla con bordes grises */}
-                    <section className="mb-5" style={{ pageBreakInside: 'avoid' }}>
+                    {/* PRESTADOR FIJO */}
+                    <section className="mb-6" style={{ pageBreakInside: 'avoid' }}>
                         <p className="font-bold mb-1">Prestado a</p>
                         <table className="w-full border-collapse border border-[#999]">
                             <tbody>
@@ -240,19 +158,15 @@ export function CuentaCobro({ servicio }: Props) {
                                 </tr>
                                 <tr>
                                     <td className="border border-[#999] p-3">DIRECCION: CALLE 34 B SUR # 3A-16</td>
-                                    <td className="border border-[#999] p-3 text-right">
-                                        <span className="font-bold uppercase">Telefono:</span> 3058532676 | <span className="font-bold uppercase">BOGOTA</span>
-                                    </td>
+                                    <td className="border border-[#999] p-3 text-right font-bold uppercase text-[10px]">Telefono: 3058532676 | BOGOTA</td>
                                 </tr>
                             </tbody>
                         </table>
                     </section>
 
-                    {/* TABLA DE SERVICIOS */}
-                    <section className="mb-5" style={{ pageBreakInside: 'avoid' }}>
-                        <div className="bg-[#9e9e9e] text-white py-2 px-4 text-center font-bold text-sm tracking-wider">
-                            DETALLE DA OPERACIÓN
-                        </div>
+                    {/* TABLA DE OPERACIÓN */}
+                    <section className="mb-6" style={{ pageBreakInside: 'avoid' }}>
+                        <div className="bg-[#9e9e9e] text-white py-2 text-center font-bold text-sm tracking-wider uppercase">Detalle da operación</div>
                         <table className="w-full border-collapse border border-[#999]">
                             <thead>
                                 <tr className="bg-[#1a5fa8] text-white">
@@ -264,68 +178,46 @@ export function CuentaCobro({ servicio }: Props) {
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td className="border border-[#999] p-4 text-center align-top font-bold">1</td>
+                                    <td className="border border-[#999] p-4 text-center align-top font-bold text-sm">1</td>
                                     <td className="border border-[#999] p-4 align-top">
-                                        <p className="font-bold uppercase text-sm mb-2 tracking-tight">Transporte especial de pasajeros</p>
-                                        <div className="space-y-1 text-gray-700">
-                                            <p><span className="font-bold">Vehículo:</span> {placaVehiculo}</p>
-                                            <p><span className="font-bold">Trayecto:</span> {servicio.origen} ➔ {servicio.destino}</p>
-                                            {servicio.paradasAdicionales.length > 0 && (
-                                                <p className="text-[10px] italic mt-2"><span className="font-bold">Incluye:</span> {servicio.paradasAdicionales.join(', ')}</p>
-                                            )}
+                                        <p className="font-bold uppercase text-sm mb-2">Transporte especial de pasajeros</p>
+                                        <div className="text-gray-700 space-y-1">
+                                            <p><span className="font-bold uppercase text-[10px]">Vehículo:</span> {servicio.vehiculo.split('•')[1]?.trim() || servicio.vehiculo}</p>
+                                            <p><span className="font-bold uppercase text-[10px]">Trayecto:</span> {servicio.origen} ➔ {servicio.destino}</p>
                                         </div>
                                     </td>
-                                    <td className="border border-[#999] p-4 text-right align-top font-bold">
-                                        {currencyFormatter.format(servicio.valorServicio || 0)}
-                                    </td>
-                                    <td className="border border-[#999] p-4 text-right align-top font-bold">
-                                        {currencyFormatter.format(servicio.valorServicio || 0)}
-                                    </td>
+                                    <td className="border border-[#999] p-4 text-right align-top font-bold">{currencyFormatter.format(servicio.valorServicio || 0)}</td>
+                                    <td className="border border-[#999] p-4 text-right align-top font-bold">{currencyFormatter.format(servicio.valorServicio || 0)}</td>
                                 </tr>
                                 <tr className="bg-[#d6d6d6]">
-                                    <td colSpan={3} className="border border-[#999] p-3 text-right font-bold text-sm uppercase">TOTAL</td>
-                                    <td className="border border-[#999] p-3 text-right font-bold text-sm">
-                                        {currencyFormatter.format(servicio.valorServicio || 0)}
-                                    </td>
+                                    <td colSpan={3} className="border border-[#999] p-3 text-right font-bold text-sm uppercase">Total a Pagar</td>
+                                    <td className="border border-[#999] p-3 text-right font-bold text-sm">{currencyFormatter.format(servicio.valorServicio || 0)}</td>
                                 </tr>
                             </tbody>
                         </table>
                     </section>
 
-                    {/* PAGO — párrafo simple */}
-                    <section className="mb-8" style={{ pageBreakInside: 'avoid' }}>
-                        <p className="text-sm font-medium">
-                            Por favor, realize su transferancie a Cuenta-Ahorros 99642554661 de Bancolombia de Bancombia
-                        </p>
+                    {/* PAGO */}
+                    <section className="mb-10" style={{ pageBreakInside: 'avoid' }}>
+                        <p className="text-sm font-medium">Por favor, realize su transferancie a Cuenta-Ahorros 99642554661 de Bancolombia de Bancombia</p>
                     </section>
 
                     {/* FIRMA */}
-                    <section className="mt-auto flex flex-col items-start pt-5" style={{ pageBreakInside: 'avoid' }}>
-                        <div className="mb-2">
-                            <Image 
-                                src="https://i.ibb.co/qYMKZWVt/firma-cxc.png" 
-                                alt="Firma Juan Esteban Ovalle Pineda" 
-                                width={150} 
-                                height={44} 
-                                className="object-contain"
-                                style={{ height: '44px', width: 'auto' }}
-                            />
-                        </div>
-                        <div className="w-72 border-t border-gray-800 pt-2">
-                            <p className="font-bold text-base uppercase">Juan Esteban Ovalle Pineda</p>
+                    <section className="mt-auto flex flex-col items-start pt-6 border-t" style={{ pageBreakInside: 'avoid' }}>
+                        <Image src="https://i.ibb.co/qYMKZWVt/firma-cxc.png" alt="Firma" width={150} height={44} className="object-contain mb-2" style={{ height: '44px', width: 'auto' }} />
+                        <div className="w-72 border-t border-black pt-2">
+                            <p className="font-bold text-sm uppercase">Juan Esteban Ovalle Pineda</p>
                         </div>
                     </section>
                 </div>
             </ScrollArea>
 
-            <div className="flex justify-end gap-3 p-6 bg-white border-t no-print">
-                 <Button onClick={handleSendEmail} disabled={isSending || !servicio.emailCliente} variant="outline" className="h-12 px-6 border-blue-600 text-blue-600 hover:bg-blue-50 font-bold">
-                    <Mail className="mr-2 h-5 w-5" />
-                    {isSending ? 'Enviando Documento...' : 'Enviar por Correo'}
+            <div className="action-group p-6 bg-white border-t no-print">
+                <Button onClick={handleSendEmail} disabled={isSending} variant="outline" className="btn-action border-blue-600 text-blue-600 hover:bg-blue-50 font-bold">
+                    <Mail className="mr-2 h-5 w-5" /> {isSending ? 'Enviando...' : 'Enviar por Correo'}
                 </Button>
-                <Button onClick={handlePrint} className="h-12 px-8 bg-[#1a5fa8] hover:bg-[#154d85] text-white font-bold uppercase tracking-widest">
-                    <Printer className="mr-2 h-5 w-5" />
-                    Imprimir Documento
+                <Button onClick={handlePrint} className="btn-action bg-[#1a5fa8] hover:bg-[#154d85] text-white font-bold uppercase tracking-widest">
+                    <Printer className="mr-2 h-5 w-5" /> Imprimir Documento
                 </Button>
             </div>
         </div>
