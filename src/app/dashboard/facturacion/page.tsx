@@ -112,7 +112,10 @@ export default function FacturacionPage() {
       </Card>
 
       <Dialog open={isFacturaOpen} onOpenChange={setIsFacturaOpen}>
-        <DialogContent className="max-w-4xl bg-[#f0f0f0]">
+        <DialogContent className="max-w-4xl bg-[#f0f0f0] p-0 overflow-hidden border-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Vista Previa de Cuenta de Cobro</DialogTitle>
+          </DialogHeader>
           {selected && <CuentaCobro servicio={selected} />}
         </DialogContent>
       </Dialog>
