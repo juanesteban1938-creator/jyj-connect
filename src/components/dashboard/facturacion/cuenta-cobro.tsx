@@ -57,15 +57,18 @@ export function CuentaCobro({ servicio }: Props) {
                                     body { -webkit-print-color-adjust: exact; background-color: white !important; margin: 0; padding: 0; }
                                     .page { 
                                         margin: 0 !important; 
-                                        padding: 72px 80px !important; 
+                                        padding: 48px 64px !important; 
                                         box-shadow: none !important; 
                                         width: 100% !important; 
                                         max-width: none !important; 
                                         min-height: 0 !important; 
+                                        transform: scale(0.95);
+                                        transform-origin: top center;
                                     }
                                     .no-print { display: none !important; }
+                                    section { page-break-inside: avoid; }
                                 }
-                                body { font-family: 'Arial', sans-serif; background-color: #f3f4f6; margin: 0; padding: 20px 0; }
+                                body { font-family: 'Arial', sans-serif; background-color: #f0f0f0; margin: 0; padding: 20px 0; }
                             </style>
                         </head>
                         <body>
@@ -167,7 +170,7 @@ export function CuentaCobro({ servicio }: Props) {
     const placaVehiculo = servicio.vehiculo.split('•')[1]?.trim() || servicio.vehiculo;
     
     return (
-        <div className="p-1 bg-muted/10">
+        <div className="p-4 bg-[#f0f0f0] rounded-lg">
             <ScrollArea className="h-[85vh] w-full border rounded-md">
                 <div 
                     ref={printableAreaRef} 
@@ -178,13 +181,13 @@ export function CuentaCobro({ servicio }: Props) {
                         maxWidth: '816px', 
                         minHeight: '1056px',
                         margin: '32px auto',
-                        padding: '72px 80px',
+                        padding: '48px 64px',
                         boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
                         boxSizing: 'border-box'
                     }}
                 >
                     {/* HEADER — dos columnas */}
-                    <div className="flex justify-between items-start mb-10">
+                    <section className="flex justify-between items-start mb-5" style={{ pageBreakInside: 'avoid' }}>
                         <div className="flex items-center gap-4">
                             <Image 
                                 src="https://i.ibb.co/zhzhTrvV/logo-cxc.png" 
@@ -208,26 +211,26 @@ export function CuentaCobro({ servicio }: Props) {
                             <p className="font-bold text-lg">CUENTA DE COBRO No: {servicio.consecutivo}</p>
                             <p className="font-medium text-base">{format(fecha, 'dd/MM/yyyy')}</p>
                         </div>
-                    </div>
+                    </section>
 
                     {/* DATOS DEL CLIENTE — centrado */}
-                    <div className="text-center mb-12">
+                    <section className="text-center mb-6" style={{ pageBreakInside: 'avoid' }}>
                         <h1 
-                            style={{ fontSize: '22px', letterSpacing: '3px', marginBottom: '8px' }} 
+                            style={{ fontSize: '18px', letterSpacing: '3px', marginBottom: '4px' }} 
                             className="font-bold uppercase leading-tight"
                         >
                             {servicio.cliente}
                         </h1>
-                        <p style={{ marginTop: '6px', fontSize: '14px' }} className="font-bold">
+                        <p style={{ marginTop: '3px', fontSize: '14px' }} className="font-bold">
                             NIT {servicio.nitCliente}
                         </p>
-                        <p style={{ marginTop: '4px', fontSize: '14px' }} className="text-gray-700">
+                        <p style={{ marginTop: '2px', fontSize: '14px' }} className="text-gray-700">
                             {servicio.emailCliente}
                         </p>
-                    </div>
+                    </section>
 
                     {/* SECCIÓN PRESTADOR (JUAN ESTEBAN) — tabla con bordes grises */}
-                    <div className="mb-10">
+                    <section className="mb-5" style={{ pageBreakInside: 'avoid' }}>
                         <p className="font-bold mb-1">Prestado a</p>
                         <table className="w-full border-collapse border border-[#999]">
                             <tbody>
@@ -243,10 +246,10 @@ export function CuentaCobro({ servicio }: Props) {
                                 </tr>
                             </tbody>
                         </table>
-                    </div>
+                    </section>
 
                     {/* TABLA DE SERVICIOS */}
-                    <div className="mb-10">
+                    <section className="mb-5" style={{ pageBreakInside: 'avoid' }}>
                         <div className="bg-[#9e9e9e] text-white py-2 px-4 text-center font-bold text-sm tracking-wider">
                             DETALLE DA OPERACIÓN
                         </div>
@@ -287,31 +290,31 @@ export function CuentaCobro({ servicio }: Props) {
                                 </tr>
                             </tbody>
                         </table>
-                    </div>
+                    </section>
 
                     {/* PAGO — párrafo simple */}
-                    <div className="mb-16">
+                    <section className="mb-8" style={{ pageBreakInside: 'avoid' }}>
                         <p className="text-sm font-medium">
                             Por favor, realize su transferancie a Cuenta-Ahorros 99642554661 de Bancolombia de Bancombia
                         </p>
-                    </div>
+                    </section>
 
                     {/* FIRMA */}
-                    <div className="mt-auto flex flex-col items-start pt-10">
+                    <section className="mt-auto flex flex-col items-start pt-5" style={{ pageBreakInside: 'avoid' }}>
                         <div className="mb-2">
                             <Image 
                                 src="https://i.ibb.co/qYMKZWVt/firma-cxc.png" 
                                 alt="Firma Juan Esteban Ovalle Pineda" 
                                 width={150} 
-                                height={56} 
+                                height={44} 
                                 className="object-contain"
-                                style={{ height: '56px', width: 'auto' }}
+                                style={{ height: '44px', width: 'auto' }}
                             />
                         </div>
                         <div className="w-72 border-t border-gray-800 pt-2">
                             <p className="font-bold text-base uppercase">Juan Esteban Ovalle Pineda</p>
                         </div>
-                    </div>
+                    </section>
                 </div>
             </ScrollArea>
 
