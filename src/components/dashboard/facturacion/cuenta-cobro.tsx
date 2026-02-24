@@ -30,7 +30,7 @@ export function CuentaCobro({ servicio }: Props) {
 
     useEffect(() => {
         if (servicio && servicio.consecutivo) {
-            QRCode.toDataURL(`Servicio: ${servicio.consecutivo}`, { errorCorrectionLevel: 'H', width: 80, margin: 1 }, function (err, url) {
+            QRCode.toDataURL(`Validación J&J: ${servicio.consecutivo}`, { errorCorrectionLevel: 'H', width: 100, margin: 1 }, function (err, url) {
                 if (err) console.error(err)
                 setQrCodeUrl(url);
             })
@@ -162,104 +162,143 @@ export function CuentaCobro({ servicio }: Props) {
     
     return (
         <div className="p-1">
-            <ScrollArea className="h-[70vh] w-full">
-            <div ref={printableAreaRef} id="printable-area" className="p-8 bg-white text-gray-800 text-sm font-sans w-[21cm] mx-auto min-h-[29.7cm]">
+            <ScrollArea className="h-[75vh] w-full border rounded-md bg-muted/20">
+            <div ref={printableAreaRef} id="printable-area" className="p-10 bg-white text-gray-800 text-sm font-sans w-[21.59cm] mx-auto min-h-[27.94cm] shadow-sm">
                 
-                {/* Header */}
-                <div className="flex justify-between items-start mb-4">
+                {/* Header Section */}
+                <div className="flex justify-between items-start mb-6">
                     <div className="flex items-center gap-4">
-                        <Image src="https://i.ibb.co/3sS5257/logo-placeholder.png" alt="Logo J&J" width={60} height={60} />
+                        <Image src="https://i.ibb.co/3sS5257/logo-placeholder.png" alt="Logo J&J" width={100} height={100} className="object-contain" />
                     </div>
                     <div className="text-right">
-                        <div className="bg-gray-100 p-2 rounded-md inline-block">
-                            <p className="font-bold text-sm">CUENTA DE COBRO No: {servicio.consecutivo}</p>
-                            <p className="font-bold text-sm">FECHA: {format(fecha, 'dd/MM/yyyy')}</p>
+                        <div className="border-2 border-gray-800 p-3 rounded-none inline-block min-w-[200px]">
+                            <p className="font-bold text-base text-center border-b-2 border-gray-800 pb-1 mb-1">CUENTA DE COBRO</p>
+                            <p className="font-bold text-lg text-center">No: {servicio.consecutivo}</p>
+                            <p className="text-sm text-center font-medium mt-1">FECHA: {format(fecha, 'dd/MM/yyyy')}</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="text-center mb-6">
-                    <h1 className="text-xl font-bold tracking-wider text-gray-800">TRANSPORTE ESPECIALES J&J</h1>
-                    <p className="text-xs">Laura Sthefania Galeano Velasquez | NIT: 1001060945</p>
+                <div className="text-center mb-8">
+                    <h1 className="text-2xl font-black tracking-tighter text-gray-900 mb-1">TRANSPORTE ESPECIALES J&J</h1>
+                    <p className="text-sm font-bold text-gray-700">Laura Sthefania Galeano Velasquez | NIT: 1001060945</p>
+                    <p className="text-xs text-gray-500">Transportes.especialesjyj@gmail.com | Cel: +57 314 2889955</p>
                 </div>
                 
-                <div className="border-t border-b border-gray-300 py-4 mb-6">
-                     <p className="text-xs font-bold text-gray-500 mb-1">PARA:</p>
-                    <p className="font-bold text-base">{servicio.cliente}</p>
-                    <p className="text-sm">ID: {servicio.nitCliente}</p>
-                    <div className="flex items-center gap-6 text-sm">
-                        <div className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3 text-gray-500"/>
-                            <span>UBICACIÓN: {servicio.origen}</span>
+                {/* Client Section - Bordered Box */}
+                <div className="border-2 border-gray-800 p-4 mb-8">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <p className="text-xs font-black text-gray-900 mb-1">DATOS DEL CLIENTE:</p>
+                            <p className="font-black text-lg leading-tight uppercase">{servicio.cliente}</p>
+                            <p className="text-sm font-medium mt-1">NIT / C.C: {servicio.nitCliente}</p>
                         </div>
-                        <div className="flex items-center gap-1">
-                            <Phone className="h-3 w-3 text-gray-500"/>
-                            <span>Tel: {servicio.telefonoCliente}</span>
+                        <div className="flex flex-col justify-end text-right">
+                            <div className="flex items-center justify-end gap-2 text-sm">
+                                <MapPin className="h-4 w-4 text-gray-600"/>
+                                <span className="font-medium">ORIGEN: {servicio.origen}</span>
+                            </div>
+                            <div className="flex items-center justify-end gap-2 text-sm mt-1">
+                                <Phone className="h-4 w-4 text-gray-600"/>
+                                <span className="font-medium">TELÉFONO: {servicio.telefonoCliente}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
                  
-                <table className="w-full text-left mb-4">
-                    <thead className="bg-gray-800 text-white">
-                        <tr>
-                            <th className="p-2 w-1/12 text-center">Cant.</th>
-                            <th className="p-2 w-8/12">Descripción del Servicio</th>
-                            <th className="p-2 w-3/12 text-right">Valor</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr className="border-b border-gray-200">
-                            <td className="p-2 text-center">1</td>
-                            <td className="p-2">
-                                <p className="font-medium">Transporte especial de pasajeros (Vehículo {placaVehiculo}).</p>
-                                <p className="text-xs text-gray-600">Ruta: {servicio.origen} hasta {servicio.destino}.</p>
-                            </td>
-                            <td className="p-2 text-right font-semibold">{currencyFormatter.format(servicio.valorServicio || 0)}</td>
-                        </tr>
-                    </tbody>
-                </table>
+                {/* Items Table */}
+                <div className="border-2 border-gray-800 mb-6">
+                    <table className="w-full text-left">
+                        <thead className="bg-gray-800 text-white">
+                            <tr>
+                                <th className="p-3 w-16 text-center border-r border-white">CANT.</th>
+                                <th className="p-3 border-r border-white font-bold">DESCRIPCIÓN DEL SERVICIO</th>
+                                <th className="p-3 w-40 text-right font-bold">VALOR UNIT.</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr className="min-h-[150px]">
+                                <td className="p-4 text-center align-top border-r border-gray-800 font-bold">1</td>
+                                <td className="p-4 align-top border-r border-gray-800">
+                                    <p className="font-black text-base uppercase mb-2">Transporte especial de pasajeros</p>
+                                    <div className="space-y-1 text-gray-700">
+                                        <p className="flex items-center gap-2"><span className="font-bold">Vehículo:</span> {placaVehiculo}</p>
+                                        <p className="flex items-center gap-2"><span className="font-bold">Trayecto:</span> {servicio.origen} <span className="text-gray-400">➔</span> {servicio.destino}</p>
+                                        {servicio.paradasAdicionales.length > 0 && (
+                                            <p className="text-xs italic mt-2"><span className="font-bold">Incluye:</span> {servicio.paradasAdicionales.join(', ')}</p>
+                                        )}
+                                    </div>
+                                </td>
+                                <td className="p-4 text-right align-top font-black text-lg">
+                                    {currencyFormatter.format(servicio.valorServicio || 0)}
+                                </td>
+                            </tr>
+                            {/* Empty space filler */}
+                            <tr className="h-20">
+                                <td className="border-r border-gray-800"></td>
+                                <td className="border-r border-gray-800"></td>
+                                <td></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
                 
-                <div className="flex justify-end mb-6">
-                     <div className="w-1/3">
-                        <div className="bg-gray-800 text-white p-2 rounded-md flex justify-between items-center">
-                            <span className="font-bold">TOTAL A PAGAR:</span>
-                            <span className="font-bold text-lg">{currencyFormatter.format(servicio.valorServicio || 0)}</span>
+                {/* Total Section */}
+                <div className="flex justify-end mb-8">
+                     <div className="w-full max-w-[300px]">
+                        <div className="bg-gray-800 text-white p-4 flex justify-between items-center shadow-md">
+                            <span className="font-black text-sm">TOTAL A PAGAR:</span>
+                            <span className="font-black text-2xl">{currencyFormatter.format(servicio.valorServicio || 0)}</span>
                         </div>
                     </div>
                 </div>
                 
-                <div className="mb-8">
-                     <p className="font-bold mb-1 text-xs">INFORMACIÓN DE PAGO:</p>
-                     <p>Transferir a Ahorros Bancolombia No: 032-053855-69 a nombre de Laura Galeano.</p>
+                {/* Payment Info - Bordered Box */}
+                <div className="border-2 border-dashed border-gray-400 p-4 mb-12 bg-gray-50">
+                     <p className="font-black mb-2 text-xs text-gray-900 tracking-widest uppercase">MÉTODOS DE PAGO DISPONIBLES:</p>
+                     <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 flex items-center justify-center bg-blue-600 text-white font-bold rounded-full">B</div>
+                        <div>
+                            <p className="font-black text-base">TRANSFERENCIA BANCARIA (BANCOLOMBIA)</p>
+                            <p className="text-sm font-medium">Cuenta de Ahorros No: <span className="bg-yellow-200 px-1">032-053855-69</span></p>
+                            <p className="text-xs text-gray-600">A nombre de: LAURA STHEFANIA GALEANO VELASQUEZ</p>
+                        </div>
+                     </div>
                 </div>
                 
-                 <div className="border-t border-gray-300 pt-6 flex justify-between items-end" style={{marginTop: '10rem'}}>
+                {/* Footer Section: Signature & QR */}
+                <div className="mt-auto flex justify-between items-end border-t-2 border-gray-100 pt-8">
                     <div className="w-1/2">
-                        <div className="relative h-12 mb-1" style={{width: '200px'}}>
-                            <Image src="https://i.ibb.co/b3h3YmX/firma-transparente.png" alt="Firma Laura Galeano" layout="fill" objectFit="contain" />
+                        <div className="relative h-20 mb-2 w-48">
+                            <Image src="https://i.ibb.co/b3h3YmX/firma-transparente.png" alt="Firma Laura Galeano" fill className="object-contain object-left" />
                         </div>
-                        <div className="border-t-2 border-black pt-1" style={{width: '200px'}}>
-                            <p className="font-semibold">Atentamente,</p>
-                            <p>Laura Sthefania Galeano Velasquez</p>
+                        <div className="border-t-2 border-gray-900 pt-2 w-64">
+                            <p className="font-black text-sm uppercase">Atentamente,</p>
+                            <p className="font-bold text-gray-700">LAURA STHEFANIA GALEANO VELASQUEZ</p>
+                            <p className="text-xs text-gray-500">C.C. 1.001.060.945</p>
                         </div>
                     </div>
-                    <div className="text-center">
-                       {qrCodeUrl && <Image src={qrCodeUrl} alt="Código QR" width={80} height={80} />}
-                       <p className="text-[10px] mt-1 text-gray-500">Verifica autenticidad</p>
+                    
+                    <div className="text-right flex flex-col items-end">
+                       <div className="bg-gray-50 p-2 border border-gray-200 rounded-lg">
+                            {qrCodeUrl && <Image src={qrCodeUrl} alt="Código QR Validación" width={100} height={100} className="mix-blend-multiply" />}
+                       </div>
+                       <p className="text-[9px] mt-2 font-black text-gray-400 uppercase tracking-widest">Código de Verificación Electrónica</p>
+                       <p className="text-[10px] text-gray-400 font-mono">{servicio.id.slice(0,18).toUpperCase()}</p>
                     </div>
                 </div>
 
             </div>
             </ScrollArea>
 
-            <div className="flex justify-end gap-2 p-4 pt-0 no-print">
-                 <Button onClick={handleSendEmail} disabled={isSending || !servicio.emailCliente} className="bg-blue-600 hover:bg-blue-700">
-                    <Mail className="mr-2 h-4 w-4" />
-                    {isSending ? 'Enviando...' : 'Enviar por Correo'}
+            <div className="flex justify-end gap-3 p-6 bg-white border-t no-print">
+                 <Button onClick={handleSendEmail} disabled={isSending || !servicio.emailCliente} variant="outline" className="h-12 px-6 border-blue-600 text-blue-600 hover:bg-blue-50 font-bold">
+                    <Mail className="mr-2 h-5 w-5" />
+                    {isSending ? 'Enviando Documento...' : 'Enviar por Correo'}
                 </Button>
-                <Button onClick={handlePrint}>
-                    <Printer className="mr-2 h-4 w-4" />
-                    Imprimir / Guardar PDF
+                <Button onClick={handlePrint} className="h-12 px-8 bg-gray-900 hover:bg-gray-800 text-white font-bold">
+                    <Printer className="mr-2 h-5 w-5" />
+                    Imprimir / Exportar PDF
                 </Button>
             </div>
         </div>
