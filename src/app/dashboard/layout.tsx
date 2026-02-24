@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useAuth } from '@/context/auth-context';
@@ -47,7 +48,10 @@ export default function DashboardLayout({
       <MainNav />
       <SidebarInset>
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-white px-6 shadow-sm">
-          <h1 className="text-xl font-semibold">J&J Connect V2.0</h1>
+          <div className="flex flex-col">
+              <h1 className="text-lg font-bold text-gray-800 leading-none">J&J Connect V2.0</h1>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-primary mt-1">Admin Panel</span>
+          </div>
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" className="rounded-full">
               <Bell className="h-5 w-5" />
@@ -61,11 +65,11 @@ export default function DashboardLayout({
                 >
                   <div className="text-right hidden sm:block">
                     <p className="text-sm font-semibold">Admin Principal</p>
-                    <p className="text-xs text-muted-foreground">
-                      Gerente de Operaciones
+                    <p className="text-xs text-muted-foreground leading-none">
+                      Gerente
                     </p>
                   </div>
-                  <UserCircle className="h-8 w-8" />
+                  <UserCircle className="h-8 w-8 text-primary" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -79,7 +83,7 @@ export default function DashboardLayout({
             </DropdownMenu>
           </div>
         </header>
-        <main className="flex-1 bg-[#f4f6f8] p-4 sm:p-8 md:p-10 overflow-auto">
+        <main className="flex-1 bg-background p-4 sm:p-8 md:p-10 overflow-x-hidden overflow-y-auto">
           {children}
         </main>
       </SidebarInset>

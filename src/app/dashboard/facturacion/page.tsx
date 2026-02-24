@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -13,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { CuentaCobro } from '@/components/dashboard/facturacion/cuenta-cobro';
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 });
 
@@ -47,26 +49,32 @@ export default function FacturacionPage() {
       </header>
 
       <div className="grid gap-6 md:grid-cols-3 mb-8">
-        <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none p-6">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Facturación Total</span>
-            <div className="bg-blue-50 p-2 rounded-full"><DollarSign className="h-4 w-4 text-blue-600" /></div>
-          </div>
-          <p className="text-2xl font-bold">{currencyFormatter.format(stats.total)}</p>
+        <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Facturación Total</span>
+              <div className="bg-blue-50 p-2 rounded-full"><DollarSign className="h-4 w-4 text-blue-600" /></div>
+            </div>
+            <p className="text-2xl font-bold">{currencyFormatter.format(stats.total)}</p>
+          </CardContent>
         </Card>
-        <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none p-6">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Ganancia Neta</span>
-            <div className="bg-green-50 p-2 rounded-full"><TrendingUp className="h-4 w-4 text-green-600" /></div>
-          </div>
-          <p className="text-2xl font-bold">{currencyFormatter.format(stats.ganancia)}</p>
+        <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Ganancia Neta</span>
+              <div className="bg-green-50 p-2 rounded-full"><TrendingUp className="h-4 w-4 text-green-600" /></div>
+            </div>
+            <p className="text-2xl font-bold">{currencyFormatter.format(stats.ganancia)}</p>
+          </CardContent>
         </Card>
-        <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none p-6">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Cartera Pendiente</span>
-            <div className="bg-red-50 p-2 rounded-full"><AlertTriangle className="h-4 w-4 text-red-600" /></div>
-          </div>
-          <p className="text-2xl font-bold text-red-600">{currencyFormatter.format(stats.cartera)}</p>
+        <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Cartera Pendiente</span>
+              <div className="bg-red-50 p-2 rounded-full"><AlertTriangle className="h-4 w-4 text-red-600" /></div>
+            </div>
+            <p className="text-2xl font-bold text-red-600">{currencyFormatter.format(stats.cartera)}</p>
+          </CardContent>
         </Card>
       </div>
 
@@ -78,44 +86,48 @@ export default function FacturacionPage() {
       </div>
 
       <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none overflow-hidden">
-        <Table>
-          <TableHeader className="bg-muted/50">
-            <TableRow>
-              <TableHead className="p-4">FECHA</TableHead>
-              <TableHead className="p-4">CLIENTE</TableHead>
-              <TableHead className="p-4 text-right">VALOR</TableHead>
-              <TableHead className="p-4 text-center">ESTADO</TableHead>
-              <TableHead className="text-center p-4">ACCIONES</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map((s) => (
-              <TableRow key={s.id} className="hover:bg-muted/30">
-                <TableCell className="p-4 text-sm font-medium">{format(new Date(s.fecha), 'dd/MM/yyyy')}</TableCell>
-                <TableCell className="p-4 text-sm font-bold">{s.cliente}</TableCell>
-                <TableCell className="p-4 text-sm text-right font-semibold">{currencyFormatter.format(s.valorServicio)}</TableCell>
-                <TableCell className="p-4 text-center">
-                  <Badge variant={s.estadoPago === 'Pagado' ? 'default' : 'outline'} className="text-[10px] font-bold uppercase">{s.estadoPago}</Badge>
-                </TableCell>
-                <TableCell className="p-4 text-center">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => { setSelected(s); setIsFacturaOpen(true); }}><FileText className="mr-2 h-4 w-4" /> Ver Cuenta de Cobro</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead className="p-4">FECHA</TableHead>
+                <TableHead className="p-4">CLIENTE</TableHead>
+                <TableHead className="p-4 text-right">VALOR</TableHead>
+                <TableHead className="p-4 text-center">ESTADO</TableHead>
+                <TableHead className="text-center p-4">ACCIONES</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((s) => (
+                <TableRow key={s.id} className="hover:bg-muted/30">
+                  <TableCell className="p-4 text-sm font-medium">{format(new Date(s.fecha), 'dd/MM/yyyy')}</TableCell>
+                  <TableCell className="p-4 text-sm font-bold">{s.cliente}</TableCell>
+                  <TableCell className="p-4 text-sm text-right font-semibold">{currencyFormatter.format(s.valorServicio)}</TableCell>
+                  <TableCell className="p-4 text-center">
+                    <Badge variant={s.estadoPago === 'Pagado' ? 'default' : 'outline'} className="text-[10px] font-bold uppercase">{s.estadoPago}</Badge>
+                  </TableCell>
+                  <TableCell className="p-4 text-center">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => { setSelected(s); setIsFacturaOpen(true); }}><FileText className="mr-2 h-4 w-4" /> Ver Cuenta de Cobro</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </Card>
 
       <Dialog open={isFacturaOpen} onOpenChange={setIsFacturaOpen}>
         <DialogContent className="max-w-4xl bg-[#f0f0f0] p-0 overflow-hidden border-none">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Vista Previa de Cuenta de Cobro</DialogTitle>
-          </DialogHeader>
+          <VisuallyHidden>
+            <DialogHeader>
+              <DialogTitle>Vista Previa de Cuenta de Cobro</DialogTitle>
+            </DialogHeader>
+          </VisuallyHidden>
           {selected && <CuentaCobro servicio={selected} />}
         </DialogContent>
       </Dialog>
