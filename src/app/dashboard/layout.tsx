@@ -83,7 +83,7 @@ export default function DashboardLayout({
             </DropdownMenu>
           </div>
         </header>
-        <main className="flex-1 bg-background p-4 sm:p-8 md:p-10 overflow-x-hidden overflow-y-auto">
+        <main className="flex-1 bg-background px-[20px] py-[16px] sm:px-[40px] sm:py-[32px] overflow-x-hidden overflow-y-auto">
           {children}
         </main>
       </SidebarInset>

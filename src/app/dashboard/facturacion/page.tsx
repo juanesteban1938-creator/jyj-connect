@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -167,14 +168,22 @@ export default function FacturacionPage() {
 
       <Dialog open={isFacturaOpen} onOpenChange={setIsFacturaOpen}>
         <DialogContent className="max-w-4xl bg-[#f0f0f0] p-0 overflow-hidden border-none">
-          <VisuallyHidden><DialogHeader><DialogTitle>Vista Previa de Cuenta de Cobro</DialogTitle></DialogHeader></VisuallyHidden>
+          <VisuallyHidden>
+            <DialogHeader>
+              <DialogTitle>Vista Previa de Cuenta de Cobro</DialogTitle>
+            </DialogHeader>
+          </VisuallyHidden>
           {selected && <CuentaCobro servicio={selected} />}
         </DialogContent>
       </Dialog>
 
       <Dialog open={isAbonoOpen} onOpenChange={setIsAbonoOpen}>
         <DialogContent className="sm:max-w-md">
-          <VisuallyHidden><DialogHeader><DialogTitle>Registrar Pago / Abono</DialogTitle></DialogHeader></VisuallyHidden>
+          <VisuallyHidden>
+            <DialogHeader>
+              <DialogTitle>Registrar Pago / Abono</DialogTitle>
+            </DialogHeader>
+          </VisuallyHidden>
           <DialogHeader><DialogTitle>Registrar Pago / Abono</DialogTitle></DialogHeader>
           {selected && <AbonoForm servicio={selected} onSave={handleSaveAbono} onCancel={() => setIsAbonoOpen(false)} />}
         </DialogContent>
@@ -182,7 +191,11 @@ export default function FacturacionPage() {
 
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="sm:max-w-lg">
-          <VisuallyHidden><DialogHeader><DialogTitle>Editar Facturación</DialogTitle></DialogHeader></VisuallyHidden>
+          <VisuallyHidden>
+            <DialogHeader>
+              <DialogTitle>Editar Facturación</DialogTitle>
+            </DialogHeader>
+          </VisuallyHidden>
           <DialogHeader><DialogTitle>Editar Facturación</DialogTitle></DialogHeader>
           {selected && <FacturacionForm servicio={selected} onSave={handleSaveEdit} onCancel={() => setIsEditOpen(false)} />}
         </DialogContent>
