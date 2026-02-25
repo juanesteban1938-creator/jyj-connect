@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6,14 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { Search, PlusCircle, Eye, Edit, Bus, Calendar as CalendarIcon, CheckCircle, Clock, MapPin, MessageSquare, Send } from 'lucide-react';
+import { Search, PlusCircle, Eye, Edit, MessageSquare } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { format, startOfDay } from 'date-fns';
+import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
@@ -64,14 +64,23 @@ export default function ServiciosPage() {
     if (c) setConductores(JSON.parse(c));
   }, []);
 
+  const sanitizePhone = (phone: string) => {
+    let cleaned = phone.replace(/\D/g, ''); 
+    if (cleaned.length === 10) cleaned = '57' + cleaned;
+    return cleaned;
+  };
+
   const handleManualNotification = async (s: Servicio) => {
     const valorStr = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(s.valorServicio || 0);
     const fechaStr = format(new Date(s.fecha), 'dd/MM/yyyy', { locale: es });
+    const phone = sanitizePhone(s.telefonoCliente);
+
+    console.log('Iniciando notificación manual para:', phone);
 
     try {
       await enviarNotificacionServicio({
         clienteNombre: s.cliente,
-        clienteTelefono: s.telefonoCliente,
+        clienteTelefono: phone,
         fecha: fechaStr,
         hora: s.hora,
         origen: s.origen,
@@ -83,13 +92,14 @@ export default function ServiciosPage() {
       });
       toast({ title: "Nova ha enviado la notificación", description: `Se notificó a ${s.cliente} exitosamente.` });
     } catch (err) {
+      console.error('Error en handleManualNotification:', err);
       toast({ variant: "destructive", title: "Error de notificación", description: "No se pudo conectar con Nova." });
     }
   };
 
   const handleSave = async (data: any) => {
     let updated;
-    let isNew = !selected;
+    const isNew = !selected;
     const newId = Date.now().toString();
     const newConsecutivo = `GA-CCT-${servicios.length + 100}`;
     
@@ -131,11 +141,14 @@ export default function ServiciosPage() {
     if (isNew) {
       const valorStr = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(data.valorServicio || 0);
       const fechaStr = format(data.fechaRecogida, 'dd/MM/yyyy', { locale: es });
+      const phone = sanitizePhone(data.telefonoCliente);
+
+      console.log('Iniciando notificación automática para nuevo servicio:', phone);
       
       try {
         await enviarNotificacionServicio({
           clienteNombre: data.nombreCliente,
-          clienteTelefono: data.telefonoCliente,
+          clienteTelefono: phone,
           fecha: fechaStr,
           hora: data.horaRecogida,
           origen: data.direccionRecogida,
@@ -147,7 +160,7 @@ export default function ServiciosPage() {
         });
         toast({ title: "Nova ha notificado al cliente", description: "Se envió el resumen y el mensaje de confirmación." });
       } catch (err) {
-        console.error("Error al notificar por WhatsApp", err);
+        console.error("Error al notificar por WhatsApp automáticamente:", err);
       }
     }
     
@@ -173,9 +186,8 @@ export default function ServiciosPage() {
           <Input placeholder="Buscar por cliente o conductor..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
         <Dialog open={isFormOpen} onOpenChange={(o) => { setIsFormOpen(o); if(!o) setSelected(null); }}>
-          <DialogTrigger asChild>
-            <Button className="btn-action"><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Servicio</Button>
-          </DialogTrigger>
+            <VisuallyHidden><DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader></VisuallyHidden>
+          <Button onClick={() => setIsFormOpen(true)} className="btn-action"><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Servicio</Button>
           <DialogContent className="sm:max-w-3xl">
             <DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader>
             <ServicioForm servicio={selected} onSave={handleSave} onCancel={() => setIsFormOpen(false)} conductores={conductores} vehiculos={vehiculos} />
@@ -200,7 +212,7 @@ export default function ServiciosPage() {
                 </div>
                 <div className="col-span-12 sm:col-span-4 space-y-1">
                   <div className="flex items-center gap-2 text-sm font-semibold"><div className="h-2 w-2 rounded-full bg-green-500" /> {s.origen}</div>
-                  <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-3 w-3 text-red-500" /> {s.destino}</div>
+                  <div className="flex items-center gap-2 text-sm font-semibold"><MessageSquare className="h-3 w-3 text-red-500" /> {s.destino}</div>
                 </div>
                 <div className="col-span-6 sm:col-span-3 flex items-center gap-3">
                   <Avatar className="h-8 w-8 bg-primary/10"><AvatarFallback className="text-[10px] font-bold">{s.clienteIniciales}</AvatarFallback></Avatar>
@@ -233,6 +245,7 @@ export default function ServiciosPage() {
       </Tabs>
 
       <Dialog open={isResumenOpen} onOpenChange={setIsResumenOpen}>
+        <VisuallyHidden><DialogHeader><DialogTitle>Resumen del Servicio</DialogTitle></DialogHeader></VisuallyHidden>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader><DialogTitle>Resumen del Servicio</DialogTitle></DialogHeader>
           {selected && <ResumenServicio servicio={selected} />}
