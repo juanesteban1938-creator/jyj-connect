@@ -43,7 +43,7 @@ client.on('qr', (qr) => {
 });
 
 client.on('ready', () => {
-    console.log('Bot Nova listo.');
+    console.log('Bot Nova listo y conectado.');
     isReady = true;
     qrCodeBase64 = '';
 });
@@ -75,9 +75,15 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
     if (!data.clienteTelefono) return res.status(400).json({ error: 'Teléfono requerido' });
     if (!isReady) return res.status(503).json({ error: 'Bot no conectado' });
 
-    const chatId = data.clienteTelefono.includes('@c.us') ? data.clienteTelefono : `${data.clienteTelefono}@c.us`;
+    try {
+        // Resolver el ID correcto del número (Esto soluciona el error "No LID for user")
+        const numberId = await client.getNumberId(data.clienteTelefono);
+        if (!numberId) {
+            return res.status(404).json({ error: 'El número proporcionado no está registrado en WhatsApp.' });
+        }
+        const chatId = numberId._serialized;
 
-    const textMessage = `¡Hola, ${data.clienteNombre}! 👋
+        const textMessage = `¡Hola, ${data.clienteNombre}! 👋
 
 Soy *Nova*, asistente virtual de *Transportes Especiales J&J* 🚐
 
@@ -100,7 +106,6 @@ Si tienes alguna pregunta o necesitas hacer algún cambio, no dudes en contactar
 ¡Gracias por confiar en nosotros! 🌟
 *Transportes Especiales J&J*`;
 
-    try {
         // 1. Enviar mensaje de texto
         await client.sendMessage(chatId, textMessage);
 
@@ -110,7 +115,7 @@ Si tienes alguna pregunta o necesitas hacer algún cambio, no dudes en contactar
             args: ['--no-sandbox', '--disable-setuid-sandbox']
         });
         const page = await browser.newPage();
-        await page.setViewport({ width: 600, height: 700, deviceScaleFactor: 2 });
+        await page.setViewport({ width: 600, height: 750, deviceScaleFactor: 2 });
         
         const htmlContent = `
         <html>
@@ -176,7 +181,7 @@ Si tienes alguna pregunta o necesitas hacer algún cambio, no dudes en contactar
                             <div class="value">${data.conductor}</div>
                         </div>
                         <div class="info-box" style="grid-column: span 2;">
-                            <div class="label">Contacto de Emergencia / Conductor</div>
+                            <div class="label">Contacto del Conductor</div>
                             <div class="value">${data.telefonoConductor}</div>
                         </div>
                     </div>
