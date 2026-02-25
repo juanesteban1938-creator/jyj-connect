@@ -7,12 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Banknote, Landmark, Hash, CheckCircle, Clock, AlertCircle, MessageSquare, Send } from "lucide-react";
+import { Banknote, Landmark, Hash, CheckCircle, Clock, AlertCircle, MessageSquare } from "lucide-react";
 import { InfoServicioCard } from "@/components/dashboard/servicios/info-servicio-card";
 import { enviarNotificacionServicio } from "@/lib/whatsapp";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { useFirestore } from "@/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 type Props = {
     servicio: Servicio;
@@ -36,9 +38,9 @@ const InfoRow = ({ label, value, icon: Icon }: { label: string, value: string | 
 
 export function ResumenServicio({ servicio }: Props) {
     const { toast } = useToast();
+    const db = useFirestore();
 
     const handleSendWhatsApp = async () => {
-        const valorStr = currencyFormatter.format(servicio.valorServicio || 0);
         const fechaStr = format(new Date(servicio.fecha), 'dd/MM/yyyy', { locale: es });
 
         try {
@@ -51,11 +53,29 @@ export function ResumenServicio({ servicio }: Props) {
                 destino: servicio.destino,
                 placa: servicio.vehiculoPlaca || servicio.vehiculo,
                 conductor: servicio.conductor,
-                telefonoConductor: servicio.conductorTelefono || 'N/A',
-                valor: valorStr
+                telefonoConductor: servicio.conductorTelefono || 'N/A'
             });
+
+            await addDoc(collection(db, 'notificaciones_whatsapp'), {
+                fecha: serverTimestamp(),
+                clienteNombre: servicio.cliente,
+                clienteTelefono: servicio.telefonoCliente,
+                origen: servicio.origen,
+                destino: servicio.destino,
+                estado: 'enviado'
+            });
+
             toast({ title: "Notificación enviada", description: "Nova ha enviado el resumen por WhatsApp." });
-        } catch (err) {
+        } catch (err: any) {
+            await addDoc(collection(db, 'notificaciones_whatsapp'), {
+                fecha: serverTimestamp(),
+                clienteNombre: servicio.cliente,
+                clienteTelefono: servicio.telefonoCliente,
+                origen: servicio.origen,
+                destino: servicio.destino,
+                estado: 'error',
+                error: err.message
+            });
             toast({ variant: "destructive", title: "Error", description: "No se pudo conectar con el bot." });
         }
     };

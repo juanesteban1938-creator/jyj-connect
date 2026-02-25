@@ -2,173 +2,62 @@
 {
   "entities": {
     "Cliente": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Cliente",
-      "type": "object",
       "description": "Entidad que representa a un cliente de la empresa.",
+      "type": "object",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "ID único del cliente (usualmente el NIT o CC)."
-        },
-        "nombre": {
-          "type": "string",
-          "description": "Nombre completo o razón social."
-        },
-        "identificacion": {
-          "type": "string",
-          "description": "Número de identificación (NIT, CC)."
-        },
-        "direccion": {
-          "type": "string",
-          "description": "Dirección física del cliente."
-        },
-        "telefono": {
-          "type": "string",
-          "description": "Número de teléfono de contacto."
-        },
-        "ciudad": {
-          "type": "string",
-          "description": "Ciudad de ubicación."
-        },
-        "email": {
-          "type": "string",
-          "format": "email",
-          "description": "Correo electrónico para envío de facturación."
-        }
-      },
-      "required": [
-        "id",
-        "nombre",
-        "identificacion",
-        "direccion",
-        "telefono",
-        "ciudad",
-        "email"
-      ]
+        "id": { "type": "string" },
+        "nombre": { "type": "string" },
+        "nit": { "type": "string" },
+        "direccion": { "type": "string" },
+        "telefono": { "type": "string" },
+        "ciudad": { "type": "string" },
+        "email": { "type": "string", "format": "email" }
+      }
     },
     "CuentaCobro": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "CuentaCobro",
-      "type": "object",
       "description": "Entidad que representa una cuenta de cobro emitida.",
+      "type": "object",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "ID único de la cuenta en Firestore."
-        },
-        "numero": {
-          "type": "string",
-          "description": "Número correlativo (Ej: GA-CCT-0001)."
-        },
-        "fecha": {
-          "type": "string",
-          "format": "date-time",
-          "description": "Fecha de emisión del documento."
-        },
-        "clienteId": {
-          "type": "string",
-          "description": "Referencia al ID del cliente."
-        },
-        "cliente": {
-          "$ref": "#/backend/entities/Cliente",
-          "description": "Snapshot de la información del cliente al momento de crear la cuenta."
-        },
-        "servicios": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "descripcion": {
-                "type": "string"
-              },
-              "valorUnitario": {
-                "type": "number"
-              },
-              "total": {
-                "type": "number"
-              }
-            },
-            "required": [
-              "descripcion",
-              "valorUnitario",
-              "total"
-            ]
-          }
-        },
-        "totalGeneral": {
-          "type": "number",
-          "description": "Suma total de todos los servicios incluidos."
-        },
-        "estado": {
-          "type": "string",
-          "enum": [
-            "pendiente",
-            "enviada",
-            "pagada"
-          ],
-          "description": "Estado actual de la cuenta de cobro."
-        },
-        "creadoEn": {
-          "type": "string",
-          "format": "date-time",
-          "description": "Timestamp de creación del registro."
-        }
-      },
-      "required": [
-        "id",
-        "numero",
-        "fecha",
-        "clienteId",
-        "cliente",
-        "servicios",
-        "totalGeneral",
-        "estado",
-        "creadoEn"
-      ]
+        "id": { "type": "string" },
+        "numero": { "type": "string" },
+        "fecha": { "type": "string", "format": "date-time" },
+        "clienteId": { "type": "string" },
+        "totalGeneral": { "type": "number" },
+        "estado": { "type": "string", "enum": ["pendiente", "enviada", "pagada"] }
+      }
+    },
+    "NotificacionWhatsapp": {
+      "title": "NotificacionWhatsapp",
+      "description": "Registro de intentos de envío de notificaciones vía WhatsApp.",
+      "type": "object",
+      "properties": {
+        "fecha": { "type": "string", "format": "date-time" },
+        "clienteNombre": { "type": "string" },
+        "clienteTelefono": { "type": "string" },
+        "origen": { "type": "string" },
+        "destino": { "type": "string" },
+        "estado": { "type": "string", "enum": ["enviado", "error"] },
+        "error": { "type": "string" }
+      }
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/clientes/{clienteId}",
-        "definition": {
-          "entityName": "Cliente",
-          "schema": {
-            "$ref": "#/backend/entities/Cliente"
-          },
-          "description": "Colección que almacena los registros de los clientes.",
-          "params": [
-            {
-              "name": "clienteId",
-              "description": "ID único del cliente."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/cuentas_cobro/{cuentaCobroId}",
-        "definition": {
-          "entityName": "CuentaCobro",
-          "schema": {
-            "$ref": "#/backend/entities/CuentaCobro"
-          },
-          "description": "Colección que almacena las cuentas de cobro generadas.",
-          "params": [
-            {
-              "name": "cuentaCobroId",
-              "description": "ID único de la cuenta de cobro."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "La estructura utiliza desnormalización mediante un snapshot del objeto cliente dentro de la cuenta de cobro. Esto asegura que el documento impreso mantenga la información correcta del cliente incluso si este cambia sus datos en el futuro, además de optimizar las reglas de seguridad al tener todos los datos necesarios para validación en el mismo documento."
+    "/clientes/{clienteId}": {
+      "schema": { "$ref": "#/entities/Cliente" },
+      "description": "Colección de clientes."
+    },
+    "/cuentas_cobro/{cuentaCobroId}": {
+      "schema": { "$ref": "#/entities/CuentaCobro" },
+      "description": "Colección de cuentas de cobro."
+    },
+    "/notificaciones_whatsapp/{notificacionId}": {
+      "schema": { "$ref": "#/entities/NotificacionWhatsapp" },
+      "description": "Historial de notificaciones de WhatsApp."
+    }
   }
 }

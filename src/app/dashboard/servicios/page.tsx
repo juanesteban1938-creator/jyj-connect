@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -17,6 +18,8 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
+import { useFirestore } from '@/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export type Servicio = {
   id: string;
@@ -54,6 +57,7 @@ export default function ServiciosPage() {
   const [isResumenOpen, setIsResumenOpen] = useState(false);
   const [selected, setSelected] = useState<Servicio | null>(null);
   const { toast } = useToast();
+  const db = useFirestore();
 
   useEffect(() => {
     const s = localStorage.getItem('servicios');
@@ -71,11 +75,8 @@ export default function ServiciosPage() {
   };
 
   const handleManualNotification = async (s: Servicio) => {
-    const valorStr = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(s.valorServicio || 0);
-    const fechaStr = format(new Date(s.fecha), 'dd/MM/yyyy', { locale: es });
     const phone = sanitizePhone(s.telefonoCliente);
-
-    console.log('Iniciando notificación manual para:', phone);
+    const fechaStr = format(new Date(s.fecha), 'dd/MM/yyyy', { locale: es });
 
     try {
       await enviarNotificacionServicio({
@@ -87,12 +88,30 @@ export default function ServiciosPage() {
         destino: s.destino,
         placa: s.vehiculoPlaca || s.vehiculo,
         conductor: s.conductor,
-        telefonoConductor: s.conductorTelefono || 'N/A',
-        valor: valorStr
+        telefonoConductor: s.conductorTelefono || 'N/A'
       });
+      
+      await addDoc(collection(db, 'notificaciones_whatsapp'), {
+        fecha: serverTimestamp(),
+        clienteNombre: s.cliente,
+        clienteTelefono: phone,
+        origen: s.origen,
+        destino: s.destino,
+        estado: 'enviado'
+      });
+
       toast({ title: "Nova ha enviado la notificación", description: `Se notificó a ${s.cliente} exitosamente.` });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error en handleManualNotification:', err);
+      await addDoc(collection(db, 'notificaciones_whatsapp'), {
+        fecha: serverTimestamp(),
+        clienteNombre: s.cliente,
+        clienteTelefono: phone,
+        origen: s.origen,
+        destino: s.destino,
+        estado: 'error',
+        error: err.message
+      });
       toast({ variant: "destructive", title: "Error de notificación", description: "No se pudo conectar con Nova." });
     }
   };
@@ -103,34 +122,35 @@ export default function ServiciosPage() {
     const newId = Date.now().toString();
     const newConsecutivo = `GA-CCT-${servicios.length + 100}`;
     
-    const placa = data.esVehiculoNoRegistrado ? data.vehiculoOtro : (vehiculos.find(v => v.id === data.vehiculoId)?.placa || data.vehiculoId);
+    const vehiculoObj = data.esVehiculoNoRegistrado ? null : vehiculos.find(v => v.id === data.vehiculoId);
+    const placa = vehiculoObj ? vehiculoObj.placa : (data.vehiculoOtro || 'N/A');
+    
     const conductorObj = data.esConductorNoRegistrado ? null : conductores.find(c => c.id === data.conductorId);
     const conductorName = conductorObj ? `${conductorObj.nombres} ${conductorObj.apellidos}` : (data.conductorOtro || 'No asignado');
     const conductorPhone = conductorObj?.telefono || 'N/A';
 
-    const nuevoServicioData = { 
+    const nuevoServicioData: Servicio = { 
       ...data, 
+      id: selected?.id || newId,
+      consecutivo: selected?.consecutivo || newConsecutivo,
       cliente: data.nombreCliente,
       clienteIniciales: data.nombreCliente.substring(0, 2).toUpperCase(),
       origen: data.direccionRecogida,
       destino: data.direccionDestino,
       fecha: data.fechaRecogida.toISOString(),
       hora: data.horaRecogida,
-      vehiculo: data.esVehiculoNoRegistrado ? data.vehiculoOtro : data.vehiculoId,
+      vehiculo: data.esVehiculoNoRegistrado ? data.vehiculoOtro : (vehiculoObj ? `${vehiculoObj.marca} ${vehiculoObj.linea}` : 'N/A'),
       vehiculoPlaca: placa,
       conductor: conductorName,
       conductorTelefono: conductorPhone,
+      estado: selected?.estado || 'Programado',
+      paradasAdicionales: data.paradasAdicionales.map((p: any) => p.direccion)
     };
 
     if (selected) {
-      updated = servicios.map(s => s.id === selected.id ? { ...s, ...nuevoServicioData } : s);
+      updated = servicios.map(s => s.id === selected.id ? nuevoServicioData : s);
     } else {
-      updated = [...servicios, { 
-        ...nuevoServicioData, 
-        id: newId, 
-        consecutivo: newConsecutivo, 
-        estado: 'Programado',
-      }];
+      updated = [...servicios, nuevoServicioData];
     }
     
     setServicios(updated);
@@ -139,12 +159,9 @@ export default function ServiciosPage() {
     toast({ title: "Servicio guardado" });
 
     if (isNew) {
-      const valorStr = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(data.valorServicio || 0);
-      const fechaStr = format(data.fechaRecogida, 'dd/MM/yyyy', { locale: es });
       const phone = sanitizePhone(data.telefonoCliente);
+      const fechaStr = format(data.fechaRecogida, 'dd/MM/yyyy', { locale: es });
 
-      console.log('Iniciando notificación automática para nuevo servicio:', phone);
-      
       try {
         await enviarNotificacionServicio({
           clienteNombre: data.nombreCliente,
@@ -155,12 +172,30 @@ export default function ServiciosPage() {
           destino: data.direccionDestino,
           placa: placa,
           conductor: conductorName,
-          telefonoConductor: conductorPhone,
-          valor: valorStr
+          telefonoConductor: conductorPhone
         });
-        toast({ title: "Nova ha notificado al cliente", description: "Se envió el resumen y el mensaje de confirmación." });
-      } catch (err) {
+        
+        await addDoc(collection(db, 'notificaciones_whatsapp'), {
+          fecha: serverTimestamp(),
+          clienteNombre: data.nombreCliente,
+          clienteTelefono: phone,
+          origen: data.direccionRecogida,
+          destino: data.direccionDestino,
+          estado: 'enviado'
+        });
+
+        toast({ title: "Nova ha notificado al cliente", description: "Se envió el resumen de confirmación." });
+      } catch (err: any) {
         console.error("Error al notificar por WhatsApp automáticamente:", err);
+        await addDoc(collection(db, 'notificaciones_whatsapp'), {
+          fecha: serverTimestamp(),
+          clienteNombre: data.nombreCliente,
+          clienteTelefono: phone,
+          origen: data.direccionRecogida,
+          destino: data.direccionDestino,
+          estado: 'error',
+          error: err.message
+        });
       }
     }
     
@@ -186,9 +221,9 @@ export default function ServiciosPage() {
           <Input placeholder="Buscar por cliente o conductor..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
         <Dialog open={isFormOpen} onOpenChange={(o) => { setIsFormOpen(o); if(!o) setSelected(null); }}>
-            <VisuallyHidden><DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader></VisuallyHidden>
           <Button onClick={() => setIsFormOpen(true)} className="btn-action"><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Servicio</Button>
           <DialogContent className="sm:max-w-3xl">
+            <VisuallyHidden><DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader></VisuallyHidden>
             <DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader>
             <ServicioForm servicio={selected} onSave={handleSave} onCancel={() => setIsFormOpen(false)} conductores={conductores} vehiculos={vehiculos} />
           </DialogContent>
@@ -245,8 +280,8 @@ export default function ServiciosPage() {
       </Tabs>
 
       <Dialog open={isResumenOpen} onOpenChange={setIsResumenOpen}>
-        <VisuallyHidden><DialogHeader><DialogTitle>Resumen del Servicio</DialogTitle></DialogHeader></VisuallyHidden>
         <DialogContent className="sm:max-w-lg">
+          <VisuallyHidden><DialogHeader><DialogTitle>Resumen del Servicio</DialogTitle></DialogHeader></VisuallyHidden>
           <DialogHeader><DialogTitle>Resumen del Servicio</DialogTitle></DialogHeader>
           {selected && <ResumenServicio servicio={selected} />}
         </DialogContent>

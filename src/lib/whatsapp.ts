@@ -1,25 +1,6 @@
+
 const WHATSAPP_BOT_URL = process.env.NEXT_PUBLIC_WHATSAPP_BOT_URL || 'https://focused-harmony-production.up.railway.app';
 const API_KEY = process.env.NEXT_PUBLIC_WHATSAPP_API_KEY || 'jj-connect-2026';
-
-export async function enviarMensajeWhatsApp(phone: string, message: string) {
-  console.log('Enviando mensaje simple a:', phone);
-  try {
-    const response = await fetch(`${WHATSAPP_BOT_URL}/send-message`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': API_KEY
-      },
-      body: JSON.stringify({ phone, message })
-    });
-    const data = await response.json();
-    console.log('Respuesta bot (mensaje):', data);
-    return data;
-  } catch (error) {
-    console.error('Error enviando mensaje de WhatsApp:', error);
-    return { success: false, error: 'No se pudo conectar con el servidor del bot' };
-  }
-}
 
 export async function enviarNotificacionServicio(servicio: {
   clienteNombre: string
@@ -31,7 +12,6 @@ export async function enviarNotificacionServicio(servicio: {
   placa: string
   conductor: string
   telefonoConductor: string
-  valor: string
 }) {
   console.log('Nova intentando enviar notificación avanzada a:', servicio.clienteTelefono);
   try {
@@ -46,13 +26,10 @@ export async function enviarNotificacionServicio(servicio: {
     
     if (!response.ok) {
         const errorText = await response.text();
-        console.error('Error HTTP del bot:', response.status, errorText);
-        throw new Error(`Bot respondió con error: ${response.status}`);
+        throw new Error(`Bot respondió con error: ${response.status} - ${errorText}`);
     }
 
-    const data = await response.json();
-    console.log('Respuesta bot (notificación):', data);
-    return data;
+    return await response.json();
   } catch (error) {
     console.error('Error enviando notificación avanzada:', error);
     throw error;
