@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -12,6 +13,7 @@ import {
   BookText,
   LogOut,
   Users2,
+  MessageSquare,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -37,6 +39,10 @@ const menuItems = [
 const finanzasItems = [
     { href: '/dashboard/rentabilidad', label: 'Rentabilidad', icon: PieChart },
     { href: '/dashboard/facturacion', label: 'Facturación', icon: BookText },
+]
+
+const sistemaItems = [
+    { href: '/dashboard/whatsapp-status', label: 'Estado WhatsApp', icon: MessageSquare },
 ]
 
 export function MainNav() {
@@ -72,6 +78,25 @@ export function MainNav() {
             <SidebarGroupLabel>FINANZAS</SidebarGroupLabel>
             <SidebarMenu>
                  {finanzasItems.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                    <Link href={item.href}>
+                        <SidebarMenuButton
+                        isActive={pathname === item.href}
+                        tooltip={item.label}
+                        className="justify-start"
+                        >
+                        <item.icon />
+                        <span>{item.label}</span>
+                        </SidebarMenuButton>
+                    </Link>
+                    </SidebarMenuItem>
+                ))}
+            </SidebarMenu>
+        </SidebarGroup>
+        <SidebarGroup>
+            <SidebarGroupLabel>SISTEMA</SidebarGroupLabel>
+            <SidebarMenu>
+                 {sistemaItems.map((item) => (
                     <SidebarMenuItem key={item.href}>
                     <Link href={item.href}>
                         <SidebarMenuButton

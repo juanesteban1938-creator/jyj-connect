@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -15,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
+import { enviarMensajeWhatsApp } from '@/lib/whatsapp';
 
 export type Servicio = {
   id: string;
@@ -54,21 +56,57 @@ export default function ServiciosPage() {
     if (stored) setServicios(JSON.parse(stored));
   }, []);
 
-  const handleSave = (data: any) => {
+  const handleSave = async (data: any) => {
     let updated;
+    let isNew = !selected;
+    const newId = Date.now().toString();
+    const newConsecutivo = `GA-CCT-${servicios.length + 100}`;
+    
     if (selected) {
       updated = servicios.map(s => s.id === selected.id ? { ...s, ...data } : s);
     } else {
-      updated = [...servicios, { ...data, id: Date.now().toString(), consecutivo: `GA-CCT-${servicios.length + 100}`, estado: 'Programado' }];
+      updated = [...servicios, { 
+        ...data, 
+        id: newId, 
+        consecutivo: newConsecutivo, 
+        estado: 'Programado',
+        cliente: data.nombreCliente,
+        clienteIniciales: data.nombreCliente.substring(0, 2).toUpperCase(),
+        origen: data.direccionRecogida,
+        destino: data.direccionDestino,
+        fecha: data.fechaRecogida.toISOString(),
+        hora: data.horaRecogida,
+        vehiculo: data.esVehiculoNoRegistrado ? data.vehiculoOtro : data.vehiculoId,
+        conductor: data.esConductorNoRegistrado ? data.conductorOtro : data.conductorId,
+      }];
     }
+    
     setServicios(updated);
     localStorage.setItem('servicios', JSON.stringify(updated));
     setIsFormOpen(false);
     toast({ title: "Servicio guardado" });
+
+    // Notificación por WhatsApp para nuevos servicios
+    if (isNew) {
+      const placa = data.esVehiculoNoRegistrado ? data.vehiculoOtro : data.vehiculoId;
+      const valorStr = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(data.valorServicio || 0);
+      const fechaStr = format(data.fechaRecogida, 'dd/MM/yyyy', { locale: es });
+      
+      const message = `Hola ${data.nombreCliente} 👋\n\nTu servicio de transporte ha sido programado:\n\n📅 Fecha: ${fechaStr}\n🚗 Vehículo: ${placa}\n📍 Origen: ${data.direccionRecogida}\n📍 Destino: ${data.direccionDestino}\n💰 Valor: ${valorStr}\n\nPara más información contáctanos.\nJ&J Connect - Transportes Especiales`;
+      
+      try {
+        await enviarMensajeWhatsApp(data.telefonoCliente, message);
+        toast({ title: "WhatsApp Enviado", description: "El cliente ha sido notificado." });
+      } catch (err) {
+        console.error("Error al notificar por WhatsApp", err);
+      }
+    }
+    
+    setSelected(null);
   };
 
   const filtered = servicios.filter(s => {
-    const isMatch = s.cliente.toLowerCase().includes(searchTerm.toLowerCase()) || s.conductor.toLowerCase().includes(searchTerm.toLowerCase());
+    const isMatch = s.cliente?.toLowerCase().includes(searchTerm.toLowerCase()) || s.conductor?.toLowerCase().includes(searchTerm.toLowerCase());
     const isTabMatch = activeTab === 'activos' ? (s.estado === 'Programado' || s.estado === 'En Servicio') : (s.estado === 'Finalizado' || s.estado === 'Cancelado');
     return isMatch && isTabMatch;
   });
@@ -107,7 +145,9 @@ export default function ServiciosPage() {
               <div className="grid grid-cols-12 items-center gap-4 p-6 hover:bg-muted/10 transition-colors">
                 <div className="col-span-12 sm:col-span-2 text-center border-r pr-4">
                   <p className="text-xl font-bold text-primary">{s.hora}</p>
-                  <p className="text-[10px] uppercase text-muted-foreground font-semibold">{format(new Date(s.fecha), 'dd MMM', { locale: es })}</p>
+                  <p className="text-[10px] uppercase text-muted-foreground font-semibold">
+                    {s.fecha ? format(new Date(s.fecha), 'dd MMM', { locale: es }) : 'N/A'}
+                  </p>
                 </div>
                 <div className="col-span-12 sm:col-span-4 space-y-1">
                   <div className="flex items-center gap-2 text-sm font-semibold"><div className="h-2 w-2 rounded-full bg-green-500" /> {s.origen}</div>
