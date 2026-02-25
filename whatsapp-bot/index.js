@@ -64,7 +64,7 @@ client.on('auth_failure', msg => {
 client.on('disconnected', (reason) => {
     console.log('Cliente desconectado:', reason);
     isReady = false;
-    client.initialize(); // Reintento de conexión
+    client.initialize().catch(err => console.error('Error re-inicializando cliente:', err));
 });
 
 // Middleware de Seguridad
