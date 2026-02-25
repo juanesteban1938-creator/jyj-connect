@@ -8,7 +8,7 @@ import {
   useEffect,
   ReactNode,
 } from 'react';
-import { getAuth, signInAnonymously } from 'firebase/auth';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 
 type AuthContextType = {
   isAuthenticated: boolean;
@@ -18,34 +18,48 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const correctEmail = 'transportes.especialesjyj@gmail.com';
-const correctPass = 'Kamus1938*';
+const CORRECT_EMAIL = 'transportes.especialesjyj@gmail.com';
+const CORRECT_PASS = 'Kamus1938*';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
+    const auth = getAuth();
+    
+    // 1. Sincronizar estado local con localStorage
     const storedAuth = localStorage.getItem('isAuthenticated');
     if (storedAuth === 'true') {
       setIsAuthenticated(true);
-      // Asegurar sesión de Firebase Auth al recargar
-      const auth = getAuth();
+      
+      // 2. Asegurar sesión en Firebase si no existe
       if (!auth.currentUser) {
-        signInAnonymously(auth).catch(console.error);
+        signInAnonymously(auth).catch((err) => {
+          console.error("Error al iniciar sesión anónima en Firebase:", err);
+        });
       }
     }
+
+    // 3. Listener de estado de autenticación para debugging
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log("Firebase Auth sincronizado (UID):", user.uid);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const login = (email: string, pass: string) => {
-    if (email === correctEmail && pass === correctPass) {
+    if (email === CORRECT_EMAIL && pass === CORRECT_PASS) {
       localStorage.setItem('isAuthenticated', 'true');
       setIsAuthenticated(true);
       
-      // Iniciar sesión anónima en Firebase para habilitar Security Rules
+      // Iniciar sesión en Firebase para habilitar Security Rules
       const auth = getAuth();
       signInAnonymously(auth).catch((err) => {
-        console.error("Error al sincronizar con Firebase Auth:", err);
+        console.error("Error al sincronizar con Firebase Auth durante login:", err);
       });
 
       router.push('/dashboard');
@@ -58,9 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('isAuthenticated');
     setIsAuthenticated(false);
     
-    // Opcionalmente cerrar sesión en Firebase
     const auth = getAuth();
-    auth.signOut();
+    auth.signOut().catch(console.error);
 
     router.push('/login');
   };

@@ -28,7 +28,7 @@ export default function WhatsAppStatusPage() {
     );
   }, [firestore]);
 
-  const { data: logs, isLoading: logsLoading } = useCollection(logsQuery);
+  const { data: logs, isLoading: logsLoading, error: logsError } = useCollection(logsQuery);
 
   const checkStatus = async () => {
     setIsLoading(true);
@@ -55,8 +55,7 @@ export default function WhatsAppStatusPage() {
 
   useEffect(() => {
     checkStatus();
-    // Verificación periódica cada 20 segundos
-    const interval = setInterval(checkStatus, 20000);
+    const interval = setInterval(checkStatus, 30000); // Check cada 30 segundos
     return () => clearInterval(interval);
   }, []);
 
@@ -141,7 +140,14 @@ export default function WhatsAppStatusPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {logs?.map((log: any) => (
+            {logsError ? (
+              <TableRow>
+                <TableCell colSpan={4} className="p-8 text-center text-red-500">
+                  <AlertCircle className="h-5 w-5 mx-auto mb-2" />
+                  Error al cargar el historial: Los permisos se están actualizando.
+                </TableCell>
+              </TableRow>
+            ) : logs?.map((log: any) => (
               <TableRow key={log.id} className="hover:bg-muted/30">
                 <TableCell className="p-4 text-xs font-medium">
                     {log.fecha ? format(log.fecha.toDate(), 'dd/MM/yy HH:mm') : 'Pendiente'}
@@ -166,9 +172,14 @@ export default function WhatsAppStatusPage() {
                 </TableCell>
               </TableRow>
             ))}
-            {logs?.length === 0 && !logsLoading && (
+            {(!logs || logs.length === 0) && !logsLoading && !logsError && (
               <TableRow>
                 <TableCell colSpan={4} className="p-8 text-center text-muted-foreground">No hay registros de notificaciones.</TableCell>
+              </TableRow>
+            )}
+            {logsLoading && (
+              <TableRow>
+                <TableCell colSpan={4} className="p-8 text-center text-muted-foreground animate-pulse">Cargando historial...</TableCell>
               </TableRow>
             )}
           </TableBody>
