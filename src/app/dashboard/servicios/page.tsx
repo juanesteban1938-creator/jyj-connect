@@ -45,6 +45,8 @@ export type Servicio = {
   costoOperacion?: number;
   estadoPago: 'Pendiente' | 'Anticipo' | 'Pagado' | 'Anulado';
   paradasAdicionales: string[];
+  numeroComprobante?: string;
+  banco?: string;
 };
 
 export default function ServiciosPage() {
@@ -78,6 +80,8 @@ export default function ServiciosPage() {
     const phone = sanitizePhone(s.telefonoCliente);
     const fechaStr = format(new Date(s.fecha), 'dd/MM/yyyy', { locale: es });
 
+    console.log('Enviando notificación manual para placa:', s.vehiculoPlaca);
+
     try {
       await enviarNotificacionServicio({
         clienteNombre: s.cliente,
@@ -86,7 +90,7 @@ export default function ServiciosPage() {
         hora: s.hora,
         origen: s.origen,
         destino: s.destino,
-        placa: s.vehiculoPlaca || s.vehiculo,
+        placa: s.vehiculoPlaca || 'N/A',
         conductor: s.conductor,
         telefonoConductor: s.conductorTelefono || 'N/A'
       });
@@ -122,12 +126,16 @@ export default function ServiciosPage() {
     const newId = Date.now().toString();
     const newConsecutivo = `GA-CCT-${servicios.length + 100}`;
     
+    // Obtener datos reales del vehículo de la lista cargada
     const vehiculoObj = data.esVehiculoNoRegistrado ? null : vehiculos.find(v => v.id === data.vehiculoId);
-    const placa = vehiculoObj ? vehiculoObj.placa : (data.vehiculoOtro || 'N/A');
+    const placaReal = vehiculoObj ? vehiculoObj.placa : (data.vehiculoOtro || 'N/A');
     
+    // Obtener datos reales del conductor
     const conductorObj = data.esConductorNoRegistrado ? null : conductores.find(c => c.id === data.conductorId);
     const conductorName = conductorObj ? `${conductorObj.nombres} ${conductorObj.apellidos}` : (data.conductorOtro || 'No asignado');
     const conductorPhone = conductorObj?.telefono || 'N/A';
+
+    console.log('Guardando servicio. Datos para Nova:', { placaReal, conductorName, conductorPhone });
 
     const nuevoServicioData: Servicio = { 
       ...data, 
@@ -140,7 +148,7 @@ export default function ServiciosPage() {
       fecha: data.fechaRecogida.toISOString(),
       hora: data.horaRecogida,
       vehiculo: data.esVehiculoNoRegistrado ? data.vehiculoOtro : (vehiculoObj ? `${vehiculoObj.marca} ${vehiculoObj.linea}` : 'N/A'),
-      vehiculoPlaca: placa,
+      vehiculoPlaca: placaReal,
       conductor: conductorName,
       conductorTelefono: conductorPhone,
       estado: selected?.estado || 'Programado',
@@ -170,7 +178,7 @@ export default function ServiciosPage() {
           hora: data.horaRecogida,
           origen: data.direccionRecogida,
           destino: data.direccionDestino,
-          placa: placa,
+          placa: placaReal,
           conductor: conductorName,
           telefonoConductor: conductorPhone
         });
