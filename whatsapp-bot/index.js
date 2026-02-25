@@ -101,55 +101,60 @@ Si tienes alguna pregunta o necesitas hacer algún cambio, no dudes en contactar
 *Transportes Especiales J&J*`;
 
     try {
+        // 1. Enviar mensaje de texto
         await client.sendMessage(chatId, textMessage);
 
+        // 2. Generar imagen del resumen con Puppeteer
         const browser = await puppeteer.launch({
             headless: true,
             args: ['--no-sandbox', '--disable-setuid-sandbox']
         });
         const page = await browser.newPage();
-        await page.setViewport({ width: 600, height: 750, deviceScaleFactor: 2 });
+        await page.setViewport({ width: 600, height: 700, deviceScaleFactor: 2 });
         
         const htmlContent = `
         <html>
         <head>
             <style>
-                body { margin: 0; padding: 20px; background: #f4f6f8; font-family: 'Helvetica', sans-serif; }
+                body { margin: 0; padding: 20px; background: #f4f6f8; font-family: 'Helvetica', 'Arial', sans-serif; }
                 .card { width: 560px; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border: 1px solid #e1e4e8; }
                 .header { background: #1a5fa8; padding: 24px; display: flex; align-items: center; justify-content: space-between; color: white; }
-                .header-title { font-size: 20px; font-weight: bold; }
+                .header-title { font-size: 20px; font-weight: bold; letter-spacing: 1px; }
+                .logo-simulado { background: white; border-radius: 8px; padding: 6px 12px; display: flex; align-items: center; gap: 6px; }
+                .logo-jj { background: #1a5fa8; color: white; font-weight: 900; font-size: 14px; padding: 4px 8px; border-radius: 4px; }
+                .logo-text { color: #1a5fa8; font-weight: 700; font-size: 13px; }
                 .content { padding: 30px; }
                 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-                .info-box { margin-bottom: 12px; }
+                .info-box { margin-bottom: 5px; }
                 .label { font-size: 10px; color: #888; text-transform: uppercase; font-weight: bold; margin-bottom: 2px; }
                 .value { font-size: 14px; font-weight: bold; color: #333; }
-                .route-box { grid-column: span 2; background: #f8f9fa; padding: 15px; border-radius: 10px; margin-top: 5px; }
-                .route-item { display: flex; align-items: center; margin-bottom: 5px; font-size: 13px; }
-                .dot { width: 8px; height: 8px; border-radius: 50%; margin-right: 10px; }
-                .footer { background: #f8f9fa; padding: 12px; text-align: center; color: #666; font-size: 10px; border-top: 1px solid #eee; }
+                .route-box { grid-column: span 2; background: #f8f9fa; padding: 15px; border-radius: 10px; margin-top: 10px; border-left: 4px solid #1a5fa8; }
+                .route-item { display: flex; align-items: center; margin-bottom: 8px; font-size: 13px; }
+                .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 12px; }
+                .footer { background: #f8f9fa; padding: 12px; text-align: center; color: #666; font-size: 10px; border-top: 1px solid #eee; font-style: italic; }
             </style>
         </head>
         <body>
             <div class="card" id="card">
                 <div class="header">
                     <div class="header-title">RESUMEN DEL SERVICIO</div>
-                    <div style="background:white; border-radius:8px; padding:6px 12px; display:flex; align-items:center; gap:6px;">
-                        <div style="background:#1a5fa8; color:white; font-weight:900; font-size:14px; padding:4px 8px; border-radius:4px;">J&J</div>
-                        <span style="color:#1a5fa8; font-weight:700; font-size:13px;">Connect</span>
+                    <div class="logo-simulado">
+                        <div class="logo-jj">J&J</div>
+                        <span class="logo-text">Connect</span>
                     </div>
                 </div>
                 <div class="content">
                     <div class="grid">
                         <div class="info-box" style="grid-column: span 2;">
-                            <div class="label">Cliente</div>
+                            <div class="label">Cliente / Pasajero</div>
                             <div class="value" style="font-size: 18px; color: #1a5fa8;">${data.clienteNombre}</div>
                         </div>
                         <div class="info-box">
-                            <div class="label">Fecha</div>
+                            <div class="label">Fecha del Servicio</div>
                             <div class="value">${data.fecha}</div>
                         </div>
                         <div class="info-box">
-                            <div class="label">Hora Recogida</div>
+                            <div class="label">Hora de Recogida</div>
                             <div class="value">${data.hora}</div>
                         </div>
                         <div class="route-box">
@@ -171,7 +176,7 @@ Si tienes alguna pregunta o necesitas hacer algún cambio, no dudes en contactar
                             <div class="value">${data.conductor}</div>
                         </div>
                         <div class="info-box" style="grid-column: span 2;">
-                            <div class="label">Teléfono Conductor</div>
+                            <div class="label">Contacto de Emergencia / Conductor</div>
                             <div class="value">${data.telefonoConductor}</div>
                         </div>
                     </div>
@@ -188,11 +193,13 @@ Si tienes alguna pregunta o necesitas hacer algún cambio, no dudes en contactar
         const screenshot = await cardElement.screenshot({ encoding: 'base64' });
         await browser.close();
 
-        const media = new MessageMedia('image/png', screenshot, 'resumen.png');
+        // 3. Enviar imagen del resumen
+        const media = new MessageMedia('image/png', screenshot, 'resumen_servicio.png');
         await client.sendMessage(chatId, media);
 
         res.json({ success: true });
     } catch (error) {
+        console.error('Error enviando notificación avanzada:', error);
         res.status(500).json({ error: error.message });
     }
 });
