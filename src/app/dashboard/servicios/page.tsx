@@ -1,11 +1,12 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Search, PlusCircle, Eye, Edit, Bus, Calendar as CalendarIcon, CheckCircle, Clock, MapPin } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Search, PlusCircle, Eye, Edit, Bus, Calendar as CalendarIcon, CheckCircle, Clock, MapPin, MessageSquare, Send } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -30,7 +31,9 @@ export type Servicio = {
   clienteIniciales: string;
   emailCliente?: string;
   conductor: string;
+  conductorTelefono?: string;
   vehiculo: string;
+  vehiculoPlaca?: string;
   estado: 'Programado' | 'En Servicio' | 'Finalizado' | 'Cancelado';
   valorServicio?: number;
   anticipo?: number;
@@ -61,28 +64,62 @@ export default function ServiciosPage() {
     if (c) setConductores(JSON.parse(c));
   }, []);
 
+  const handleManualNotification = async (s: Servicio) => {
+    const valorStr = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(s.valorServicio || 0);
+    const fechaStr = format(new Date(s.fecha), 'dd/MM/yyyy', { locale: es });
+
+    try {
+      await enviarNotificacionServicio({
+        clienteNombre: s.cliente,
+        clienteTelefono: s.telefonoCliente,
+        fecha: fechaStr,
+        hora: s.hora,
+        origen: s.origen,
+        destino: s.destino,
+        placa: s.vehiculoPlaca || s.vehiculo,
+        conductor: s.conductor,
+        telefonoConductor: s.conductorTelefono || 'N/A',
+        valor: valorStr
+      });
+      toast({ title: "Nova ha enviado la notificación", description: `Se notificó a ${s.cliente} exitosamente.` });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Error de notificación", description: "No se pudo conectar con Nova." });
+    }
+  };
+
   const handleSave = async (data: any) => {
     let updated;
     let isNew = !selected;
     const newId = Date.now().toString();
     const newConsecutivo = `GA-CCT-${servicios.length + 100}`;
     
+    const placa = data.esVehiculoNoRegistrado ? data.vehiculoOtro : (vehiculos.find(v => v.id === data.vehiculoId)?.placa || data.vehiculoId);
+    const conductorObj = data.esConductorNoRegistrado ? null : conductores.find(c => c.id === data.conductorId);
+    const conductorName = conductorObj ? `${conductorObj.nombres} ${conductorObj.apellidos}` : (data.conductorOtro || 'No asignado');
+    const conductorPhone = conductorObj?.telefono || 'N/A';
+
+    const nuevoServicioData = { 
+      ...data, 
+      cliente: data.nombreCliente,
+      clienteIniciales: data.nombreCliente.substring(0, 2).toUpperCase(),
+      origen: data.direccionRecogida,
+      destino: data.direccionDestino,
+      fecha: data.fechaRecogida.toISOString(),
+      hora: data.horaRecogida,
+      vehiculo: data.esVehiculoNoRegistrado ? data.vehiculoOtro : data.vehiculoId,
+      vehiculoPlaca: placa,
+      conductor: conductorName,
+      conductorTelefono: conductorPhone,
+    };
+
     if (selected) {
-      updated = servicios.map(s => s.id === selected.id ? { ...s, ...data } : s);
+      updated = servicios.map(s => s.id === selected.id ? { ...s, ...nuevoServicioData } : s);
     } else {
       updated = [...servicios, { 
-        ...data, 
+        ...nuevoServicioData, 
         id: newId, 
         consecutivo: newConsecutivo, 
         estado: 'Programado',
-        cliente: data.nombreCliente,
-        clienteIniciales: data.nombreCliente.substring(0, 2).toUpperCase(),
-        origen: data.direccionRecogida,
-        destino: data.direccionDestino,
-        fecha: data.fechaRecogida.toISOString(),
-        hora: data.horaRecogida,
-        vehiculo: data.esVehiculoNoRegistrado ? data.vehiculoOtro : data.vehiculoId,
-        conductor: data.esConductorNoRegistrado ? data.conductorOtro : data.conductorId,
       }];
     }
     
@@ -91,13 +128,7 @@ export default function ServiciosPage() {
     setIsFormOpen(false);
     toast({ title: "Servicio guardado" });
 
-    // Notificación avanzada por WhatsApp para nuevos servicios con Nova
     if (isNew) {
-      const placa = data.esVehiculoNoRegistrado ? data.vehiculoOtro : (vehiculos.find(v => v.id === data.vehiculoId)?.placa || data.vehiculoId);
-      const conductorObj = data.esConductorNoRegistrado ? null : conductores.find(c => c.id === data.conductorId);
-      const conductorName = conductorObj ? `${conductorObj.nombres} ${conductorObj.apellidos}` : (data.conductorOtro || 'No asignado');
-      const conductorPhone = conductorObj?.telefono || 'N/A';
-      
       const valorStr = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(data.valorServicio || 0);
       const fechaStr = format(data.fechaRecogida, 'dd/MM/yyyy', { locale: es });
       
@@ -180,8 +211,19 @@ export default function ServiciosPage() {
                 </div>
                 <div className="col-span-6 sm:col-span-3 flex justify-end gap-2">
                   <Badge variant="secondary" className="text-[10px] uppercase font-bold">{s.estado}</Badge>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelected(s); setIsResumenOpen(true); }}><Eye className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelected(s); setIsFormOpen(true); }}><Edit className="h-4 w-4" /></Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8"><PlusCircle className="h-4 w-4" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => { setSelected(s); setIsResumenOpen(true); }}><Eye className="mr-2 h-4 w-4" /> Ver Detalles</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setSelected(s); setIsFormOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-green-600 font-bold" onClick={() => handleManualNotification(s)}>
+                        <MessageSquare className="mr-2 h-4 w-4" /> Notificar WhatsApp
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </Card>

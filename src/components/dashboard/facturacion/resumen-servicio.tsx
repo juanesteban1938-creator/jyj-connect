@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Servicio } from "@/app/dashboard/servicios/page";
@@ -5,8 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Banknote, Landmark, Hash, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Banknote, Landmark, Hash, CheckCircle, Clock, AlertCircle, MessageSquare, Send } from "lucide-react";
 import { InfoServicioCard } from "@/components/dashboard/servicios/info-servicio-card";
+import { enviarNotificacionServicio } from "@/lib/whatsapp";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 type Props = {
     servicio: Servicio;
@@ -29,6 +35,30 @@ const InfoRow = ({ label, value, icon: Icon }: { label: string, value: string | 
 );
 
 export function ResumenServicio({ servicio }: Props) {
+    const { toast } = useToast();
+
+    const handleSendWhatsApp = async () => {
+        const valorStr = currencyFormatter.format(servicio.valorServicio || 0);
+        const fechaStr = format(new Date(servicio.fecha), 'dd/MM/yyyy', { locale: es });
+
+        try {
+            await enviarNotificacionServicio({
+                clienteNombre: servicio.cliente,
+                clienteTelefono: servicio.telefonoCliente,
+                fecha: fechaStr,
+                hora: servicio.hora,
+                origen: servicio.origen,
+                destino: servicio.destino,
+                placa: servicio.vehiculoPlaca || servicio.vehiculo,
+                conductor: servicio.conductor,
+                telefonoConductor: servicio.conductorTelefono || 'N/A',
+                valor: valorStr
+            });
+            toast({ title: "Notificación enviada", description: "Nova ha enviado el resumen por WhatsApp." });
+        } catch (err) {
+            toast({ variant: "destructive", title: "Error", description: "No se pudo conectar con el bot." });
+        }
+    };
 
     const venta = servicio.valorServicio || 0;
     const costo = servicio.costoOperacion || 0;
@@ -54,6 +84,12 @@ export function ResumenServicio({ servicio }: Props) {
     return (
         <ScrollArea className="h-[70vh] w-full">
             <div className="space-y-4 p-1">
+                <div className="flex gap-2">
+                    <Button onClick={handleSendWhatsApp} className="w-full bg-green-600 hover:bg-green-700">
+                        <MessageSquare className="mr-2 h-4 w-4" /> Notificar por WhatsApp
+                    </Button>
+                </div>
+
                 <InfoServicioCard servicio={servicio} />
 
                 <Card>
