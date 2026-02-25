@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { RefreshCw, CheckCircle2, AlertCircle, QrCode, Mail, Clock, XCircle } from 'lucide-react';
+import { RefreshCw, CheckCircle2, AlertCircle, QrCode, XCircle } from 'lucide-react';
 import { obtenerEstadoWhatsApp, obtenerQR } from '@/lib/whatsapp';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
@@ -19,9 +18,14 @@ export default function WhatsAppStatusPage() {
   const [isLoading, setIsLoading] = useState(false);
   const firestore = useFirestore();
 
+  // Consulta memorizada para el historial de notificaciones
   const logsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'notificaciones_whatsapp'), orderBy('fecha', 'desc'), limit(10));
+    return query(
+      collection(firestore, 'notificaciones_whatsapp'), 
+      orderBy('fecha', 'desc'), 
+      limit(10)
+    );
   }, [firestore]);
 
   const { data: logs, isLoading: logsLoading } = useCollection(logsQuery);
@@ -51,6 +55,7 @@ export default function WhatsAppStatusPage() {
 
   useEffect(() => {
     checkStatus();
+    // Verificación periódica cada 20 segundos
     const interval = setInterval(checkStatus, 20000);
     return () => clearInterval(interval);
   }, []);
