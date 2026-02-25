@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Search, PlusCircle, Eye, Edit, Bus, Calendar as CalendarIcon, CheckCircle, Clock, MapPin } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { format, startOfDay } from 'date-fns';
@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
-import { enviarMensajeWhatsApp } from '@/lib/whatsapp';
+import { enviarNotificacionServicio } from '@/lib/whatsapp';
 
 export type Servicio = {
   id: string;
@@ -44,6 +44,8 @@ export type Servicio = {
 
 export default function ServiciosPage() {
   const [servicios, setServicios] = useState<Servicio[]>([]);
+  const [conductores, setConductores] = useState<any[]>([]);
+  const [vehiculos, setVehiculos] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('activos');
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -52,8 +54,12 @@ export default function ServiciosPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const stored = localStorage.getItem('servicios');
-    if (stored) setServicios(JSON.parse(stored));
+    const s = localStorage.getItem('servicios');
+    const v = localStorage.getItem('vehiculos');
+    const c = localStorage.getItem('conductores');
+    if (s) setServicios(JSON.parse(s));
+    if (v) setVehiculos(JSON.parse(v));
+    if (c) setConductores(JSON.parse(c));
   }, []);
 
   const handleSave = async (data: any) => {
@@ -86,17 +92,30 @@ export default function ServiciosPage() {
     setIsFormOpen(false);
     toast({ title: "Servicio guardado" });
 
-    // Notificación por WhatsApp para nuevos servicios
+    // Notificación avanzada por WhatsApp para nuevos servicios con Nova
     if (isNew) {
-      const placa = data.esVehiculoNoRegistrado ? data.vehiculoOtro : data.vehiculoId;
+      const placa = data.esVehiculoNoRegistrado ? data.vehiculoOtro : (vehiculos.find(v => v.id === data.vehiculoId)?.placa || data.vehiculoId);
+      const conductorObj = data.esConductorNoRegistrado ? null : conductores.find(c => c.id === data.conductorId);
+      const conductorName = conductorObj ? `${conductorObj.nombres} ${conductorObj.apellidos}` : (data.conductorOtro || 'No asignado');
+      const conductorPhone = conductorObj?.telefono || 'N/A';
+      
       const valorStr = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(data.valorServicio || 0);
       const fechaStr = format(data.fechaRecogida, 'dd/MM/yyyy', { locale: es });
       
-      const message = `Hola ${data.nombreCliente} 👋\n\nTu servicio de transporte ha sido programado:\n\n📅 Fecha: ${fechaStr}\n🚗 Vehículo: ${placa}\n📍 Origen: ${data.direccionRecogida}\n📍 Destino: ${data.direccionDestino}\n💰 Valor: ${valorStr}\n\nPara más información contáctanos.\nJ&J Connect - Transportes Especiales`;
-      
       try {
-        await enviarMensajeWhatsApp(data.telefonoCliente, message);
-        toast({ title: "WhatsApp Enviado", description: "El cliente ha sido notificado." });
+        await enviarNotificacionServicio({
+          clienteNombre: data.nombreCliente,
+          clienteTelefono: data.telefonoCliente,
+          fecha: fechaStr,
+          hora: data.horaRecogida,
+          origen: data.direccionRecogida,
+          destino: data.direccionDestino,
+          placa: placa,
+          conductor: conductorName,
+          telefonoConductor: conductorPhone,
+          valor: valorStr
+        });
+        toast({ title: "Nova ha notificado al cliente", description: "Se envió el resumen y el mensaje de confirmación." });
       } catch (err) {
         console.error("Error al notificar por WhatsApp", err);
       }
@@ -129,7 +148,7 @@ export default function ServiciosPage() {
           </DialogTrigger>
           <DialogContent className="sm:max-w-3xl">
             <DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader>
-            <ServicioForm servicio={selected} onSave={handleSave} onCancel={() => setIsFormOpen(false)} conductores={[]} vehiculos={[]} />
+            <ServicioForm servicio={selected} onSave={handleSave} onCancel={() => setIsFormOpen(false)} conductores={conductores} vehiculos={vehiculos} />
           </DialogContent>
         </Dialog>
       </div>

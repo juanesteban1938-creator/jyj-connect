@@ -19,6 +19,34 @@ export async function enviarMensajeWhatsApp(phone: string, message: string) {
   }
 }
 
+export async function enviarNotificacionServicio(servicio: {
+  clienteNombre: string
+  clienteTelefono: string
+  fecha: string
+  hora: string
+  origen: string
+  destino: string
+  placa: string
+  conductor: string
+  telefonoConductor: string
+  valor: string
+}) {
+  try {
+    const response = await fetch(`${WHATSAPP_BOT_URL}/send-service-notification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': API_KEY
+      },
+      body: JSON.stringify(servicio)
+    });
+    return response.json();
+  } catch (error) {
+    console.error('Error enviando notificación avanzada:', error);
+    return { success: false, error: 'No se pudo conectar con el servidor del bot' };
+  }
+}
+
 export async function obtenerEstadoWhatsApp() {
   try {
     const response = await fetch(`${WHATSAPP_BOT_URL}/status`);
