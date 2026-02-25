@@ -8,6 +8,7 @@ import {
   useEffect,
   ReactNode,
 } from 'react';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 
 type AuthContextType = {
   isAuthenticated: boolean;
@@ -28,6 +29,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const storedAuth = localStorage.getItem('isAuthenticated');
     if (storedAuth === 'true') {
       setIsAuthenticated(true);
+      // Asegurar sesión de Firebase Auth al recargar
+      const auth = getAuth();
+      if (!auth.currentUser) {
+        signInAnonymously(auth).catch(console.error);
+      }
     }
   }, []);
 
@@ -35,6 +41,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (email === correctEmail && pass === correctPass) {
       localStorage.setItem('isAuthenticated', 'true');
       setIsAuthenticated(true);
+      
+      // Iniciar sesión anónima en Firebase para habilitar Security Rules
+      const auth = getAuth();
+      signInAnonymously(auth).catch((err) => {
+        console.error("Error al sincronizar con Firebase Auth:", err);
+      });
+
       router.push('/dashboard');
       return true;
     }
@@ -44,6 +57,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     localStorage.removeItem('isAuthenticated');
     setIsAuthenticated(false);
+    
+    // Opcionalmente cerrar sesión en Firebase
+    const auth = getAuth();
+    auth.signOut();
+
     router.push('/login');
   };
 
