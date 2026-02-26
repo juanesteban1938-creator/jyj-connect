@@ -74,34 +74,48 @@ const authMiddleware = (req, res, next) => {
 };
 
 /**
- * Resuelve el ID de WhatsApp correcto para un número.
- * Implementa lógica de validación oficial y fallback.
+ * Resuelve el ID de WhatsApp para Colombia con soporte para el dígito "9" interno.
  */
 async function resolveWAId(phone) {
     let clean = (phone || '').toString().replace(/\D/g, '');
     
-    // Normalización para Colombia
+    // Normalización básica
     if (clean.length === 10) {
         clean = '57' + clean;
     }
 
-    console.log(`[Nova] Intentando resolver ID para: ${clean}`);
+    console.log(`[Nova] Resolviendo ID para: ${clean}`);
 
+    // 1. Intentar con getNumberId (el método más seguro)
     try {
-        // 1. Intentar validación oficial con el servidor de WhatsApp
-        const info = await client.getNumberId(clean);
-        if (info && info._serialized) {
-            console.log(`[Nova] ID oficial resuelto: ${info._serialized}`);
-            return info._serialized;
+        const id = await client.getNumberId(clean);
+        if (id && id._serialized) {
+            console.log(`[Nova] ID oficial resuelto: ${id._serialized}`);
+            return id._serialized;
         }
     } catch (e) {
-        console.warn(`[Nova] Fallo en getNumberId para ${clean}:`, e.message);
+        console.warn(`[Nova] Fallo en validación 1 para ${clean}`);
     }
 
-    // 2. Fallback: Formato manual si la validación falla
-    const manualId = clean.includes('@c.us') ? clean : `${clean}@c.us`;
-    console.log(`[Nova] Usando formato manual de respaldo: ${manualId}`);
-    return manualId;
+    // 2. Si es Colombia, intentar con el formato 579... (común para móviles)
+    if (clean.startsWith('57') && clean.length === 12) {
+        const colFormat = '579' + clean.substring(2);
+        try {
+            console.log(`[Nova] Probando formato Colombia: ${colFormat}`);
+            const id = await client.getNumberId(colFormat);
+            if (id && id._serialized) {
+                console.log(`[Nova] ID oficial resuelto (formato 9): ${id._serialized}`);
+                return id._serialized;
+            }
+        } catch (e) {
+            console.warn(`[Nova] Fallo en validación 2 para ${colFormat}`);
+        }
+    }
+
+    // 3. Fallback manual (última opción si todo falla)
+    const fallback = clean.includes('@c.us') ? clean : `${clean}@c.us`;
+    console.log(`[Nova] Usando fallback manual: ${fallback}`);
+    return fallback;
 }
 
 app.get('/status', (req, res) => res.json({ connected: isReady }));
@@ -120,7 +134,7 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
     try {
         const targetId = await resolveWAId(data.clienteTelefono);
         
-        const textMessage = `¡Hola, ${data.clienteNombre}! 👋\n\nSoy *Nova*, asistente virtual de *Transportes Especiales J&J* 🚐\n\nTu servicio ha sido programado:\n\n━━━━━━━━━━━━━━━━\n🗓️ *Fecha:* ${data.fecha}\n⏰ *Hora:* ${data.hora}\n📍 *Origen:* ${data.origen}\n🏁 *Destino:* ${data.destino}\n🚗 *Placa:* ${data.placa}\n👤 *Conductor:* ${data.conductor}\n📞 *Contacto:* ${data.telefonoConductor}\n━━━━━━━━━━━━━━━━\n\nPor favor estar listo 10 minutos antes. 🙏\n\n¡Gracias por elegirnos! 🌟`;
+        const textMessage = `¡Hola, ${data.clienteNombre}! 👋\n\nSoy *Nova*, asistente virtual de *Transportes Especiales J&J* 🚐\n\nTu servicio ha sido programado:\n\n━━━━━━━━━━━━━━━━\n🗓️ *Fecha:* ${data.fecha}\n⏰ *Hora:* ${data.hora}\n📍 *Origen:* ${data.origen}\n🏁 *Destino:* ${data.destino}\n🚗 *Placa:* ${data.placa}\n👤 *Conductor:* ${data.conductor}\n━━━━━━━━━━━━━━━━\n\nPor favor estar listo 10 minutos antes. 🙏\n\n¡Gracias por elegirnos! 🌟`;
 
         // 1. Enviar mensaje de texto
         console.log(`[Nova] Enviando texto a ${targetId}...`);
@@ -255,7 +269,7 @@ app.post('/send-departure-notification', authMiddleware, async (req, res) => {
         if (['Rain', 'Drizzle', 'Thunderstorm'].includes(clima.main)) rec = '🌂 Hay probabilidad de lluvia. Te sugerimos llevar paraguas.';
         else if (clima.temp < 14) rec = '🧥 Hace frío en el destino. Te sugerimos llevar abrigo.';
 
-        const text = `🚐 *¡Es hora de tu servicio!*\n\nHola ${data.clienteNombre}, soy *Nova* 👋\n\nTu conductor ya está en camino:\n\n━━━━━━━━━━━━━━━━\n🗺️ *Distancia:* ${distancia}\n⏱️ *Tiempo estimado:* ${duracion}\n━━━━━━━━━━━━━━━━\n\n🌤️ *Clima en destino:*\n🌡️ ${clima.temp}°C - ${clima.desc}\n\n${rec}\n\n¡Buen viaje! 🌟`;
+        const text = `🚐 *¡Es hora de tu servicio!*\n\nHola ${data.clienteNombre}, soy *Nova* 👋\n\nTu conductor ya está en camino a recogerte:\n\n━━━━━━━━━━━━━━━━\n🗺️ *Distancia:* ${distancia}\n⏱️ *Tiempo estimado:* ${duracion}\n━━━━━━━━━━━━━━━━\n\n🌤️ *Clima en destino:*\n🌡️ ${clima.temp}°C - ${clima.desc}\n\n${rec}\n\n¡Buen viaje! 🌟`;
 
         await client.sendMessage(targetId, text);
         res.json({ success: true });
@@ -279,7 +293,7 @@ cron.schedule('* * * * *', async () => {
                 const hora = s.horaRecogidaTimestamp.toDate();
                 const diff = Math.abs(now - hora) / 60000;
                 if (diff <= 1.5) {
-                    console.log(`[Nova Cron] Disparando notificación de salida para ${s.cliente}...`);
+                    console.log(`[Nova Cron] Notificación de salida para ${s.cliente}...`);
                     await fetch(`http://localhost:${port}/send-departure-notification`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },

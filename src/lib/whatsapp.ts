@@ -4,13 +4,15 @@ const API_KEY = 'jj-connect-2026';
 
 /**
  * Limpia y normaliza un número de teléfono para WhatsApp.
+ * Solo extrae dígitos para que el bot haga la resolución final.
  */
 function sanitizePhoneNumber(phone: string): string {
   if (!phone) return '';
-  // Solo dígitos
+  // Extraer solo dígitos
   let cleaned = phone.toString().replace(/\D/g, '');
   // Eliminar ceros iniciales
   cleaned = cleaned.replace(/^0+/, '');
+  
   // Si tiene 10 dígitos (Colombia), asegurar el prefijo 57
   if (cleaned.length === 10 && !cleaned.startsWith('57')) {
     cleaned = '57' + cleaned;
@@ -31,7 +33,7 @@ export async function enviarNotificacionServicio(servicio: {
 }) {
   const phone = sanitizePhoneNumber(servicio.clienteTelefono);
   
-  console.log('Solicitando a Nova enviar notificación a:', phone);
+  console.log('[Nova Client] Enviando petición para:', phone);
 
   try {
     const response = await fetch(`${WHATSAPP_BOT_URL}/send-service-notification`, {
@@ -46,21 +48,15 @@ export async function enviarNotificacionServicio(servicio: {
       })
     });
     
+    const result = await response.json();
+
     if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage = `Error de Nova (${response.status})`;
-        try {
-            const errorJson = JSON.parse(errorText);
-            errorMessage = errorJson.error || errorMessage;
-        } catch (e) {
-            errorMessage = errorText || errorMessage;
-        }
-        throw new Error(errorMessage);
+        throw new Error(result.error || `Error del bot (${response.status})`);
     }
 
-    return await response.json();
+    return result;
   } catch (error: any) {
-    console.warn('Fallo en la comunicación con Nova:', error.message);
+    console.warn('[Nova Client] Fallo:', error.message);
     throw error;
   }
 }
