@@ -143,6 +143,10 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
         const [h, m] = (servicio.hora || '00:00').split(':');
         setHora(h);
         setMinutos(m);
+        
+        const conductorMatched = conductores.find(c => `${c.nombres} ${c.apellidos}` === servicio.conductor);
+        const vehiculoMatched = vehiculos.find(v => v.placa === servicio.vehiculoPlaca);
+
         form.reset({
             nombreCliente: servicio.cliente,
             nitCliente: servicio.nitCliente || '',
@@ -160,10 +164,12 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
             anticipo: servicio.anticipo,
             numeroComprobante: servicio.numeroComprobante,
             banco: servicio.banco,
-            esConductorNoRegistrado: !conductores.some(c => `${c.nombres} ${c.apellidos}` === servicio.conductor),
+            esConductorNoRegistrado: !conductorMatched,
+            conductorId: conductorMatched?.id || '',
             conductorOtro: servicio.conductor,
             conductorTelefonoOtro: servicio.conductorTelefono,
-            esVehiculoNoRegistrado: !vehiculos.some(v => v.placa === servicio.vehiculoPlaca),
+            esVehiculoNoRegistrado: !vehiculoMatched,
+            vehiculoId: vehiculoMatched?.id || '',
             vehiculoOtro: servicio.vehiculoPlaca
         });
     }

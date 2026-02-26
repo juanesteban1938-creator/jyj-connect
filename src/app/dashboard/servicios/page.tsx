@@ -80,8 +80,6 @@ export default function ServiciosPage() {
     const phone = sanitizePhone(s.telefonoCliente);
     const fechaStr = format(new Date(s.fecha), 'dd/MM/yyyy', { locale: es });
 
-    console.log('Nova: Enviando notificación manual para placa:', s.vehiculoPlaca);
-
     try {
       await enviarNotificacionServicio({
         clienteNombre: s.cliente,
@@ -106,7 +104,6 @@ export default function ServiciosPage() {
 
       toast({ title: "Nova ha enviado la notificación", description: `Se notificó a ${s.cliente} exitosamente.` });
     } catch (err: any) {
-      console.error('Error en handleManualNotification:', err);
       addDoc(collection(db, 'notificaciones_whatsapp'), {
         fecha: serverTimestamp(),
         clienteNombre: s.cliente,
@@ -135,7 +132,23 @@ export default function ServiciosPage() {
     const conductorName = conductorObj ? `${conductorObj.nombres} ${conductorObj.apellidos}` : (data.conductorOtro || 'No asignado');
     const conductorPhone = conductorObj ? conductorObj.telefono : (data.conductorTelefonoOtro || 'N/A');
 
-    console.log('Guardando servicio. Datos resueltos:', { placaReal, conductorName, conductorPhone });
+    // PERSISTIR CLIENTE SI ES NUEVO
+    const storedClientes = localStorage.getItem('clientes');
+    const currentClientes = storedClientes ? JSON.parse(storedClientes) : [];
+    const clientExists = currentClientes.some((c: any) => c.nit === data.nitCliente);
+    
+    if (!clientExists) {
+      const newCliente = {
+        id: data.nitCliente,
+        razonSocial: data.nombreCliente,
+        nit: data.nitCliente,
+        telefono: data.telefonoCliente,
+        email: data.emailCliente,
+        tipo: 'Particular'
+      };
+      const updatedClientes = [...currentClientes, newCliente];
+      localStorage.setItem('clientes', JSON.stringify(updatedClientes));
+    }
 
     const nuevoServicioData: Servicio = { 
       ...data, 
@@ -171,8 +184,6 @@ export default function ServiciosPage() {
       const phone = sanitizePhone(data.telefonoCliente);
       const fechaStr = format(data.fechaRecogida, 'dd/MM/yyyy', { locale: es });
 
-      console.log('Iniciando envío automático de Nova con datos:', { conductorName, conductorPhone, placaReal });
-
       try {
         await enviarNotificacionServicio({
           clienteNombre: data.nombreCliente,
@@ -197,7 +208,6 @@ export default function ServiciosPage() {
 
         toast({ title: "Nova ha notificado al cliente", description: "Confirmación enviada automáticamente por WhatsApp." });
       } catch (err: any) {
-        console.error("Error al notificar automáticamente:", err);
         addDoc(collection(db, 'notificaciones_whatsapp'), {
           fecha: serverTimestamp(),
           clienteNombre: data.nombreCliente,
