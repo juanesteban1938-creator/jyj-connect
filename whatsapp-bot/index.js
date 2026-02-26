@@ -9,8 +9,6 @@ const fetch = require('node-fetch');
 const admin = require('firebase-admin');
 
 // Inicialización de Firebase Admin
-// Nota: En Railway, asegúrate de configurar las variables de entorno necesarias
-// o subir el archivo de credenciales si no usas Application Default Credentials.
 if (!admin.apps.length) {
     admin.initializeApp({
         projectId: process.env.FIREBASE_PROJECT_ID || 'studio-6997056255-a0ecc'
@@ -81,7 +79,7 @@ app.get('/qr', (req, res) => {
     res.json({ qr: qrCodeBase64 });
 });
 
-// Endpoint 1: Notificación inicial de programación
+// Endpoint 1: Notificación inicial de programación (con Imagen de Resumen)
 app.post('/send-service-notification', authMiddleware, async (req, res) => {
     const data = req.body;
     if (!data.clienteTelefono) return res.status(400).json({ error: 'Teléfono requerido' });
@@ -90,11 +88,11 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
     try {
         const numberId = await client.getNumberId(data.clienteTelefono);
         if (!numberId) {
-            return res.status(404).json({ error: 'El número proporcionado no está registrado en WhatsApp.' });
+            return res.status(404).json({ error: 'El número no está en WhatsApp.' });
         }
         const chatId = numberId._serialized;
 
-        const textMessage = `¡Hola, ${data.clienteNombre}! 👋\n\nSoy *Nova*, asistente virtual de *Transportes Especiales J&J* 🚐\n\nMe complace confirmarte que tu servicio de transporte ha sido programado exitosamente. Aquí tienes todos los detalles:\n\n━━━━━━━━━━━━━━━━\n🗓️ *Fecha:* ${data.fecha}\n⏰ *Hora de recogida:* ${data.hora}\n📍 *Origen:* ${data.origen}\n🏁 *Destino:* ${data.destino}\n🚗 *Vehículo / Placa:* ${data.placa}\n👤 *Conductor:* ${data.conductor}\n📞 *Contacto conductor:* ${data.telefonoConductor}\n━━━━━━━━━━━━━━━━\n\nPor favor, estar listo 10 minutos antes de la hora de recogida. 🙏\n\nSi tienes alguna pregunta o necesitas hacer algún cambio, no dudes en contactarnos.\n\n¡Gracias por confiar en nosotros! 🌟\n*Transportes Especiales J&J*\n\n_Nova | Asistente Virtual_`;
+        const textMessage = `¡Hola, ${data.clienteNombre}! 👋\n\nSoy *Nova*, asistente virtual de *Transportes Especiales J&J* 🚐\n\nTu servicio ha sido programado exitosamente:\n\n━━━━━━━━━━━━━━━━\n🗓️ *Fecha:* ${data.fecha}\n⏰ *Hora:* ${data.hora}\n📍 *Origen:* ${data.origen}\n🏁 *Destino:* ${data.destino}\n🚗 *Placa:* ${data.placa}\n👤 *Conductor:* ${data.conductor}\n📞 *Contacto:* ${data.telefonoConductor}\n━━━━━━━━━━━━━━━━\n\nPor favor estar listo 10 minutos antes. 🙏\n\n¡Gracias por elegirnos! 🌟`;
 
         await client.sendMessage(chatId, textMessage);
 
@@ -103,7 +101,7 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
             args: ['--no-sandbox', '--disable-setuid-sandbox']
         });
         const page = await browser.newPage();
-        await page.setViewport({ width: 600, height: 750, deviceScaleFactor: 2 });
+        await page.setViewport({ width: 600, height: 700, deviceScaleFactor: 2 });
         
         const htmlContent = `
         <html>
@@ -168,14 +166,10 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
                             <div class="label">Conductor</div>
                             <div class="value">${data.conductor}</div>
                         </div>
-                        <div class="info-box" style="grid-column: span 2;">
-                            <div class="label">Contacto del Conductor</div>
-                            <div class="value">${data.telefonoConductor}</div>
-                        </div>
                     </div>
                 </div>
                 <div class="footer">
-                    Nova | Asistente Virtual de Transportes Especiales J&J
+                    Nova | Asistente Virtual J&J
                 </div>
             </div>
         </body>
@@ -189,14 +183,14 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
         const media = new MessageMedia('image/png', screenshot, 'resumen_servicio.png');
         await client.sendMessage(chatId, media);
 
-        res.json({ success: true, message: 'Notificación enviada correctamente' });
+        res.json({ success: true, message: 'Notificación enviada' });
     } catch (error) {
         console.error('Error enviando notificación avanzada:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-// Endpoint 2: Notificación de salida (En tiempo real)
+// Endpoint 2: Notificación de salida automática (Tiempo Real + Clima)
 app.post('/send-departure-notification', authMiddleware, async (req, res) => {
     const data = req.body;
     if (!data.clienteTelefono) return res.status(400).json({ error: 'Teléfono requerido' });
@@ -211,7 +205,7 @@ app.post('/send-departure-notification', authMiddleware, async (req, res) => {
         let duracion = 'N/A';
         let distancia = 'N/A';
 
-        if (mapsData.status === 'OK') {
+        if (mapsData.status === 'OK' && mapsData.routes.length > 0) {
             const leg = mapsData.routes[0].legs[0];
             duracion = leg.duration_in_traffic?.text || leg.duration.text;
             distancia = leg.distance.text;
@@ -225,12 +219,12 @@ app.post('/send-departure-notification', authMiddleware, async (req, res) => {
         const temperatura = Math.round(weatherData.main.temp);
         const sensacion = Math.round(weatherData.main.feels_like);
         const descripcion = weatherData.weather[0].description;
-        const humedad = weatherData.main.humidity;
         const climaMain = weatherData.weather[0].main;
+        const humedad = weatherData.main.humidity;
 
-        // C) Recomendación personalizada
+        // C) Recomendación
         let recomendacion = '';
-        if (climaMain === 'Rain' || climaMain === 'Drizzle' || climaMain === 'Thunderstorm') {
+        if (['Rain', 'Drizzle', 'Thunderstorm'].includes(climaMain)) {
             recomendacion = '🌂 *Recomendación:* Hay probabilidad de lluvia. Te sugerimos llevar paraguas o impermeable.';
         } else if (temperatura < 14) {
             recomendacion = '🧥 *Recomendación:* Hace frío en el destino. Te sugerimos llevar abrigo o chaqueta.';
@@ -258,7 +252,7 @@ app.post('/send-departure-notification', authMiddleware, async (req, res) => {
 // Cron Job: Revisar servicios cada minuto
 cron.schedule('* * * * *', async () => {
     const now = new Date();
-    console.log(`[CRON] Revisando servicios para el momento de recogida: ${now.toLocaleTimeString()}`);
+    console.log(`[CRON] Revisando servicios: ${now.toLocaleTimeString()}`);
     
     try {
         const snapshot = await admin.firestore()
@@ -270,14 +264,12 @@ cron.schedule('* * * * *', async () => {
         for (const doc of snapshot.docs) {
             const servicio = doc.data();
             
-            // Verificamos si horaRecogidaTimestamp existe (lo guardaremos al crear el servicio)
             if (servicio.horaRecogidaTimestamp) {
                 const horaRecogida = servicio.horaRecogidaTimestamp.toDate();
-                const diff = Math.abs(now - horaRecogida) / 60000; // diferencia en minutos
+                const diff = Math.abs(now - horaRecogida) / 60000; 
 
-                // Si la diferencia es menor a 1 minuto y es el momento exacto (o estamos dentro del minuto)
                 if (diff <= 1) {
-                    console.log(`[CRON] Disparando notificación de salida para: ${servicio.cliente}`);
+                    console.log(`[CRON] Disparando notificación automática para: ${servicio.cliente}`);
                     
                     const response = await fetch(`http://localhost:${port}/send-departure-notification`, {
                         method: 'POST',
@@ -295,16 +287,13 @@ cron.schedule('* * * * *', async () => {
 
                     if (response.ok) {
                         await doc.ref.update({ notificacionSalidaEnviada: true });
-                        console.log(`[CRON] Servicio marcado como notificado: ${doc.id}`);
-                    } else {
-                        const errText = await response.text();
-                        console.error(`[CRON] Error al disparar notificación: ${errText}`);
+                        console.log(`[CRON] Servicio actualizado exitosamente.`);
                     }
                 }
             }
         }
     } catch (error) {
-        console.error('[CRON] Error en la ejecución del cron job:', error);
+        console.error('[CRON] Error:', error);
     }
 });
 
