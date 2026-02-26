@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/jj-ui/calendar';
-import { Calendar as CalendarIcon, User, Briefcase, MapPin, DollarSign, GripVertical, MinusCircle, PlusCircle, CreditCard, Wallet, Mail, Phone } from 'lucide-react';
+import { Calendar as CalendarIcon, User, Briefcase, MapPin, GripVertical, MinusCircle, PlusCircle, Wallet, Mail, Phone, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { useState, useEffect } from 'react';
@@ -101,8 +101,6 @@ const bancosColombia = [
 
 export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculos }: Props) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [hora, setHora] = useState('00');
-  const [minutos, setMinutos] = useState('00');
   
   const form = useForm<ServicioFormValues>({
     resolver: zodResolver(formSchema),
@@ -139,10 +137,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
   
   useEffect(() => {
     if (servicio) {
-        const [h, m] = (servicio.hora || '00:00').split(':');
-        setHora(h || '00');
-        setMinutos(m || '00');
-        
         const conductorMatched = conductores.find(c => `${c.nombres} ${c.apellidos}` === servicio.conductor);
         const vehiculoMatched = vehiculos.find(v => v.placa === servicio.vehiculoPlaca);
 
@@ -174,16 +168,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
     }
   }, [servicio, form, conductores, vehiculos]);
 
-  const handleHoraChange = (val: string) => {
-    setHora(val);
-    form.setValue('horaRecogida', `${val}:${minutos}`, { shouldValidate: true });
-  };
-
-  const handleMinutosChange = (val: string) => {
-    setMinutos(val);
-    form.setValue('horaRecogida', `${hora}:${val}`, { shouldValidate: true });
-  };
-
   const valorServicio = form.watch('valorServicio') || 0;
   const estadoPago = form.watch('estadoPago');
   const metodoPago = form.watch('metodoPago');
@@ -212,9 +196,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
         <circle cx="8" cy="8" r="4" fill="#22C55E"/>
     </svg>
   );
-  
-  const horasOptions = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
-  const minutosOptions = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
 
   return (
     <Form {...form}>
@@ -438,24 +419,23 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                             </FormItem>
                         )}
                     />
-                    <div className="flex flex-col">
-                        <FormLabel>Hora de Recogida</FormLabel>
-                        <div className="flex items-center gap-2">
-                            <Select value={hora} onValueChange={handleHoraChange}>
-                                <SelectTrigger><SelectValue/></SelectTrigger>
-                                <SelectContent>
-                                    {horasOptions.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                            <span>:</span>
-                            <Select value={minutos} onValueChange={handleMinutosChange}>
-                                <SelectTrigger><SelectValue/></SelectTrigger>
-                                <SelectContent>
-                                    {minutosOptions.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
+                    <FormField
+                        control={form.control}
+                        name="horaRecogida"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                                <FormLabel>Hora de Recogida</FormLabel>
+                                <FormControl>
+                                    <Input
+                                        type="time"
+                                        {...field}
+                                        className="w-full"
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
                  </div>
                  <div className="space-y-2">
                     <FormField name="direccionRecogida" control={form.control} render={({ field }) => (
@@ -505,7 +485,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                      <FormField name="estadoPago" control={form.control} render={({ field }) => (
                         <FormItem>
                             <FormLabel>Estado del Pago</FormLabel>
-                             <Select onValueChange={field.onChange} defaultValue={field.value}>
+                             <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
                                 <SelectContent>
                                     <SelectItem value="Pendiente">Pendiente</SelectItem>
@@ -520,7 +500,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                      <FormField name="metodoPago" control={form.control} render={({ field }) => (
                         <FormItem>
                             <FormLabel>Método de Pago</FormLabel>
-                             <Select onValueChange={field.onChange} defaultValue={field.value}>
+                             <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
                                 <SelectContent>
                                     <SelectItem value="Efectivo">Pago en Efectivo</SelectItem>
@@ -561,20 +541,20 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <FormField name="valorServicio" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Venta Servicio</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0.00" {...field} value={field.value ?? ''} /></div></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Venta Servicio</FormLabel><FormControl><div className="relative"><Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0.00" {...field} value={field.value ?? ''} /></div></FormControl><FormMessage /></FormItem>
                     )} />
                      <FormField name="costoOperacion" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Costo Operación</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0.00" {...field} value={field.value ?? ''} /></div></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Costo Operación</FormLabel><FormControl><div className="relative"><Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0.00" {...field} value={field.value ?? ''} /></div></FormControl><FormMessage /></FormItem>
                     )} />
                     {estadoPago === 'Anticipo' && (
                         <FormField name="anticipo" control={form.control} render={({ field }) => (
-                            <FormItem><FormLabel>Valor Anticipo</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0.00" {...field} value={field.value ?? ''}/></div></FormControl><FormMessage /></FormItem>
+                            <FormItem><FormLabel>Valor Anticipo</FormLabel><FormControl><div className="relative"><Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0.00" {...field} value={field.value ?? ''}/></div></FormControl><FormMessage /></FormItem>
                         )} />
                     )}
                      <FormItem>
                         <FormLabel>Saldo Pendiente</FormLabel>
                         <div className="relative">
-                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input type="text" readOnly disabled className="pl-9 font-semibold" value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(saldo)} />
                         </div>
                      </FormItem>
