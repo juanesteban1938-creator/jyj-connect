@@ -51,9 +51,9 @@ const client = new Client({
 // --- LÓGICA DE RESOLUCIÓN DE ID (SOLUCIÓN COLOMBIA) ---
 async function resolveWAId(number) {
     let clean = number.toString().replace(/\D/g, '');
-    console.log(`[Nova] Resolviendo ID para: ${clean}`);
+    console.log(`[Nova] Intentando resolver ID para: ${clean}`);
 
-    // Intento 1: Validación oficial
+    // Intento 1: Validación oficial directa
     const idDirect = await client.getNumberId(clean);
     if (idDirect) {
         console.log(`[Nova] ID Directo encontrado: ${idDirect._serialized}`);
@@ -68,10 +68,11 @@ async function resolveWAId(number) {
             console.log(`[Nova] ID Técnico Colombia (579) encontrado: ${idWithNine._serialized}`);
             return idWithNine._serialized;
         }
+        // Fallback forzado si falla validación técnica
         return `${withNine}@c.us`;
     }
 
-    // Intento 3: Fallback manual
+    // Intento 3: Fallback manual estándar
     return `${clean}@c.us`;
 }
 
@@ -175,7 +176,7 @@ app.post('/send-service-notification', async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error('[Nova] Error de envío:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Fallo al localizar el número en WhatsApp. Verifique el formato.' });
     }
 });
 
@@ -186,7 +187,6 @@ app.post('/send-departure-notification', async (req, res) => {
     try {
         const jid = await resolveWAId(data.clienteTelefono);
         
-        // Clima (OpenWeatherMap)
         let weatherMsg = '';
         try {
             const wRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=Bogota&units=metric&appid=${WEATHER_KEY}&lang=es`);
@@ -217,11 +217,11 @@ cron.schedule('* * * * *', async () => {
 
     snapshot.forEach(async (doc) => {
         const s = doc.data();
-        console.log(`[Cron] Disparando alerta para servicio ${s.consecutivo}`);
+        console.log(`[Cron] Alerta para servicio ${s.consecutivo}`);
         
         try {
             const jid = await resolveWAId(s.telefonoCliente);
-            await client.sendMessage(jid, `🚨 *NOTIFICACIÓN AUTOMÁTICA:* Su servicio *${s.consecutivo}* está próximo a iniciar (en 10 minutos). El vehículo *${s.vehiculoPlaca}* está listo.`);
+            await client.sendMessage(jid, `🚨 *NOTIFICACIÓN AUTOMÁTICA:* Su servicio *${s.consecutivo}* está próximo a iniciar (en 10 minutos). El vehículo *${s.vehiculoPlaca}* está en camino.`);
             await doc.ref.update({ notificacionSalidaEnviada: true });
         } catch (e) { console.error(`[Cron] Error en servicio ${s.id}:`, e); }
     });
