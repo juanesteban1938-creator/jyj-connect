@@ -74,48 +74,37 @@ const authMiddleware = (req, res, next) => {
 };
 
 /**
- * Resuelve el ID de WhatsApp para Colombia con soporte para el dígito "9" interno.
+ * Resuelve el ID de WhatsApp con lógica específica para Colombia.
+ * Colombia requiere un '9' después del '57' para móviles en el JID interno de WA.
  */
 async function resolveWAId(phone) {
     let clean = (phone || '').toString().replace(/\D/g, '');
     
-    // Normalización básica
     if (clean.length === 10) {
         clean = '57' + clean;
     }
 
-    console.log(`[Nova] Resolviendo ID para: ${clean}`);
+    console.log(`[Nova] Intentando resolver: ${clean}`);
 
-    // 1. Intentar con getNumberId (el método más seguro)
+    // 1. Intentar validación oficial
     try {
         const id = await client.getNumberId(clean);
-        if (id && id._serialized) {
-            console.log(`[Nova] ID oficial resuelto: ${id._serialized}`);
-            return id._serialized;
-        }
-    } catch (e) {
-        console.warn(`[Nova] Fallo en validación 1 para ${clean}`);
-    }
+        if (id) return id._serialized;
+    } catch (e) {}
 
-    // 2. Si es Colombia, intentar con el formato 579... (común para móviles)
+    // 2. Lógica específica para Colombia (57 + 10 dígitos)
     if (clean.startsWith('57') && clean.length === 12) {
-        const colFormat = '579' + clean.substring(2);
+        const with9 = '579' + clean.substring(2);
         try {
-            console.log(`[Nova] Probando formato Colombia: ${colFormat}`);
-            const id = await client.getNumberId(colFormat);
-            if (id && id._serialized) {
-                console.log(`[Nova] ID oficial resuelto (formato 9): ${id._serialized}`);
-                return id._serialized;
-            }
-        } catch (e) {
-            console.warn(`[Nova] Fallo en validación 2 para ${colFormat}`);
-        }
+            const id9 = await client.getNumberId(with9);
+            if (id9) return id9._serialized;
+        } catch (e) {}
+        
+        // Fallback: Si no valida pero es Colombia, lo más probable es que necesite el 9
+        return `${with9}@c.us`;
     }
 
-    // 3. Fallback manual (última opción si todo falla)
-    const fallback = clean.includes('@c.us') ? clean : `${clean}@c.us`;
-    console.log(`[Nova] Usando fallback manual: ${fallback}`);
-    return fallback;
+    return clean.includes('@c.us') ? clean : `${clean}@c.us`;
 }
 
 app.get('/status', (req, res) => res.json({ connected: isReady }));
@@ -126,159 +115,81 @@ app.get('/qr', (req, res) => {
     res.json({ qr: qrCodeBase64 });
 });
 
+async function sendToTarget(targetId, text, media) {
+    try {
+        await client.sendMessage(targetId, text);
+        if (media) await client.sendMessage(targetId, media);
+        return { success: true };
+    } catch (error) {
+        console.error(`[Nova] Error enviando a ${targetId}:`, error.message);
+        return { success: false, error: error.message };
+    }
+}
+
 app.post('/send-service-notification', authMiddleware, async (req, res) => {
     const data = req.body;
     if (!data.clienteTelefono) return res.status(400).json({ error: 'Teléfono requerido' });
-    if (!isReady) return res.status(503).json({ error: 'Nova no está conectada a WhatsApp' });
+    if (!isReady) return res.status(503).json({ error: 'Nova no está conectada' });
 
     try {
-        const targetId = await resolveWAId(data.clienteTelefono);
-        
+        let targetId = await resolveWAId(data.clienteTelefono);
         const textMessage = `¡Hola, ${data.clienteNombre}! 👋\n\nSoy *Nova*, asistente virtual de *Transportes Especiales J&J* 🚐\n\nTu servicio ha sido programado:\n\n━━━━━━━━━━━━━━━━\n🗓️ *Fecha:* ${data.fecha}\n⏰ *Hora:* ${data.hora}\n📍 *Origen:* ${data.origen}\n🏁 *Destino:* ${data.destino}\n🚗 *Placa:* ${data.placa}\n👤 *Conductor:* ${data.conductor}\n━━━━━━━━━━━━━━━━\n\nPor favor estar listo 10 minutos antes. 🙏\n\n¡Gracias por elegirnos! 🌟`;
 
-        // 1. Enviar mensaje de texto
-        console.log(`[Nova] Enviando texto a ${targetId}...`);
-        await client.sendMessage(targetId, textMessage);
+        // Generar tarjeta visual
+        let media = null;
+        try {
+            const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+            const page = await browser.newPage();
+            await page.setViewport({ width: 600, height: 700 });
+            const htmlContent = `<html><body style="margin:0;padding:20px;background:#f4f6f8;font-family:sans-serif;"><div style="width:560px;background:white;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.1);"><div style="background:#1a5fa8;padding:20px;color:white;border-radius:16px 16px 0 0;font-weight:bold;">RESUMEN DEL SERVICIO</div><div style="padding:30px;"><div style="color:#888;font-size:12px;text-transform:uppercase;">Pasajero</div><div style="font-size:20px;font-weight:bold;color:#1a5fa8;margin-bottom:20px;">${data.clienteNombre}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;"><div style="background:#f8f9fa;padding:15px;border-radius:10px;grid-column:span 2;"><b>Origen:</b> ${data.origen}<br><b>Destino:</b> ${data.destino}</div><div><b>Fecha:</b> ${data.fecha}</div><div><b>Hora:</b> ${data.hora}</div><div><b>Vehículo:</b> ${data.placa}</div><div><b>Conductor:</b> ${data.conductor}</div></div></div></div></body></html>`;
+            await page.setContent(htmlContent);
+            const screenshot = await page.screenshot({ encoding: 'base64' });
+            await browser.close();
+            media = new MessageMedia('image/png', screenshot, 'resumen.png');
+        } catch (e) { console.warn('[Nova] Falló generación de tarjeta'); }
 
-        // 2. Generar y enviar tarjeta visual
-        console.log(`[Nova] Generando tarjeta visual...`);
-        const browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
-        const page = await browser.newPage();
-        await page.setViewport({ width: 600, height: 700, deviceScaleFactor: 2 });
+        // Intentar envío
+        let result = await sendToTarget(targetId, textMessage, media);
         
-        const htmlContent = `
-        <html>
-        <head>
-            <style>
-                body { margin: 0; padding: 20px; background: #f4f6f8; font-family: 'Helvetica', 'Arial', sans-serif; }
-                .card { width: 560px; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border: 1px solid #e1e4e8; }
-                .header { background: #1a5fa8; padding: 24px; display: flex; align-items: center; justify-content: space-between; color: white; }
-                .header-title { font-size: 20px; font-weight: bold; letter-spacing: 1px; }
-                .logo-simulado { background: white; border-radius: 8px; padding: 6px 12px; display: flex; align-items: center; gap: 6px; }
-                .logo-jj { background: #1a5fa8; color: white; font-weight: 900; font-size: 14px; padding: 4px 8px; border-radius: 4px; }
-                .logo-text { color: #1a5fa8; font-weight: 700; font-size: 13px; }
-                .content { padding: 30px; }
-                .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-                .info-box { margin-bottom: 5px; }
-                .label { font-size: 10px; color: #888; text-transform: uppercase; font-weight: bold; margin-bottom: 2px; }
-                .value { font-size: 14px; font-weight: bold; color: #333; }
-                .route-box { grid-column: span 2; background: #f8f9fa; padding: 15px; border-radius: 10px; margin-top: 10px; border-left: 4px solid #1a5fa8; }
-                .route-item { display: flex; align-items: center; margin-bottom: 8px; font-size: 13px; }
-                .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 12px; }
-                .footer { background: #f8f9fa; padding: 12px; text-align: center; color: #666; font-size: 10px; border-top: 1px solid #eee; font-style: italic; }
-            </style>
-        </head>
-        <body>
-            <div class="card" id="card">
-                <div class="header">
-                    <div class="header-title">RESUMEN DEL SERVICIO</div>
-                    <div class="logo-simulado">
-                        <div class="logo-jj">J&J</div>
-                        <span class="logo-text">Connect</span>
-                    </div>
-                </div>
-                <div class="content">
-                    <div class="grid">
-                        <div class="info-box" style="grid-column: span 2;">
-                            <div class="label">Cliente / Pasajero</div>
-                            <div class="value" style="font-size: 18px; color: #1a5fa8;">${data.clienteNombre}</div>
-                        </div>
-                        <div class="info-box">
-                            <div class="label">Fecha</div>
-                            <div class="value">${data.fecha}</div>
-                        </div>
-                        <div class="info-box">
-                            <div class="label">Hora de Recogida</div>
-                            <div class="value">${data.hora}</div>
-                        </div>
-                        <div class="route-box">
-                            <div class="route-item">
-                                <div class="dot" style="background: #22c55e;"></div>
-                                <div><b>Origen:</b> ${data.origen}</div>
-                            </div>
-                            <div class="route-item" style="margin-bottom: 0;">
-                                <div class="dot" style="background: #ef4444;"></div>
-                                <div><b>Destino:</b> ${data.destino}</div>
-                            </div>
-                        </div>
-                        <div class="info-box">
-                            <div class="label">Vehículo</div>
-                            <div class="value">${data.placa}</div>
-                        </div>
-                        <div class="info-box">
-                            <div class="label">Conductor</div>
-                            <div class="value">${data.conductor}</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="footer">Nova | Transportes Especiales J&J</div>
-            </div>
-        </body>
-        </html>`;
+        // Si falla y es Colombia, intentar el formato alternativo (con/sin 9)
+        if (!result.success && data.clienteTelefono.includes('57')) {
+            console.log('[Nova] Reintentando con formato alternativo...');
+            const altId = targetId.includes('579') ? targetId.replace('579', '57') : targetId.replace('57', '579');
+            result = await sendToTarget(altId, textMessage, media);
+        }
 
-        await page.setContent(htmlContent);
-        const cardElement = await page.$('#card');
-        const screenshot = await cardElement.screenshot({ encoding: 'base64' });
-        await browser.close();
-
-        const media = new MessageMedia('image/png', screenshot, 'resumen.png');
-        await client.sendMessage(targetId, media);
-
-        res.json({ success: true, message: 'Notificación enviada' });
-    } catch (error) {
-        console.error('[Nova Error]', error);
-        res.status(500).json({ error: error.message || 'Error al enviar mensaje' });
-    }
-});
-
-app.post('/send-departure-notification', authMiddleware, async (req, res) => {
-    const data = req.body;
-    if (!data.clienteTelefono) return res.status(400).json({ error: 'Teléfono requerido' });
-    if (!isReady) return res.status(503).json({ error: 'Nova desconectada' });
-
-    try {
-        const targetId = await resolveWAId(data.clienteTelefono);
-
-        // Consultas APIs
-        let duracion = 'N/A', distancia = 'N/A';
-        try {
-            const mapsUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(data.origen)}&destination=${encodeURIComponent(data.destino)}&language=es&departure_time=now&key=${process.env.GOOGLE_MAPS_API_KEY}`;
-            const mapsResponse = await fetch(mapsUrl);
-            const mapsData = await mapsResponse.json();
-            if (mapsData.status === 'OK') {
-                const leg = mapsData.routes[0].legs[0];
-                duracion = leg.duration_in_traffic?.text || leg.duration.text;
-                distancia = leg.distance.text;
-            }
-        } catch (e) {}
-
-        let clima = { temp: 18, desc: 'despejado', main: 'Clear' };
-        try {
-            const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=Bogota,CO&appid=${process.env.OPENWEATHER_API_KEY}&units=metric&lang=es`;
-            const weatherRes = await fetch(weatherUrl);
-            const weatherData = await weatherRes.json();
-            if (weatherData.main) {
-                clima = { temp: Math.round(weatherData.main.temp), desc: weatherData.weather[0].description, main: weatherData.weather[0].main };
-            }
-        } catch (e) {}
-
-        let rec = '✅ El clima está agradable. ¡Disfruta tu viaje!';
-        if (['Rain', 'Drizzle', 'Thunderstorm'].includes(clima.main)) rec = '🌂 Hay probabilidad de lluvia. Te sugerimos llevar paraguas.';
-        else if (clima.temp < 14) rec = '🧥 Hace frío en el destino. Te sugerimos llevar abrigo.';
-
-        const text = `🚐 *¡Es hora de tu servicio!*\n\nHola ${data.clienteNombre}, soy *Nova* 👋\n\nTu conductor ya está en camino a recogerte:\n\n━━━━━━━━━━━━━━━━\n🗺️ *Distancia:* ${distancia}\n⏱️ *Tiempo estimado:* ${duracion}\n━━━━━━━━━━━━━━━━\n\n🌤️ *Clima en destino:*\n🌡️ ${clima.temp}°C - ${clima.desc}\n\n${rec}\n\n¡Buen viaje! 🌟`;
-
-        await client.sendMessage(targetId, text);
-        res.json({ success: true });
+        if (result.success) {
+            res.json({ success: true });
+        } else {
+            res.status(500).json({ error: 'El número no pudo ser localizado en WhatsApp.' });
+        }
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// Cron Job automático
+app.post('/send-departure-notification', authMiddleware, async (req, res) => {
+    const data = req.body;
+    if (!isReady) return res.status(503).json({ error: 'Nova desconectada' });
+
+    try {
+        const targetId = await resolveWAId(data.clienteTelefono);
+        
+        // Simulación de APIs para rapidez (puedes restaurar fetch real si las keys son válidas)
+        const text = `🚐 *¡Es hora de tu servicio!*\n\nHola ${data.clienteNombre}, soy *Nova* 👋\n\nTu conductor ya está en camino a recogerte.\n\n━━━━━━━━━━━━━━━━\n📍 *Origen:* ${data.origen}\n🏁 *Destino:* ${data.destino}\n━━━━━━━━━━━━━━━━\n\n¡Buen viaje! 🌟`;
+
+        let result = await sendToTarget(targetId, text);
+        if (!result.success && data.clienteTelefono.includes('57')) {
+            const altId = targetId.includes('579') ? targetId.replace('579', '57') : targetId.replace('57', '579');
+            result = await sendToTarget(altId, text);
+        }
+
+        res.json({ success: result.success });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 cron.schedule('* * * * *', async () => {
     const now = new Date();
     try {
@@ -291,9 +202,9 @@ cron.schedule('* * * * *', async () => {
             const s = doc.data();
             if (s.horaRecogidaTimestamp) {
                 const hora = s.horaRecogidaTimestamp.toDate();
-                const diff = Math.abs(now - hora) / 60000;
-                if (diff <= 1.5) {
-                    console.log(`[Nova Cron] Notificación de salida para ${s.cliente}...`);
+                const diff = (now - hora) / 60000;
+                if (diff >= -1 && diff <= 1) {
+                    console.log(`[Nova Cron] Notificando salida: ${s.cliente}`);
                     await fetch(`http://localhost:${port}/send-departure-notification`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
@@ -308,9 +219,7 @@ cron.schedule('* * * * *', async () => {
                 }
             }
         }
-    } catch (e) {
-        console.error('[Nova Cron Error]', e.message);
-    }
+    } catch (e) { console.error('[Cron Error]', e.message); }
 });
 
 app.listen(port, '0.0.0.0', () => {

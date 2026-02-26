@@ -4,7 +4,7 @@ const API_KEY = 'jj-connect-2026';
 
 /**
  * Limpia y normaliza un número de teléfono para WhatsApp.
- * Solo extrae dígitos para que el bot haga la resolución final.
+ * Asegura que solo viajen dígitos y el prefijo de país.
  */
 function sanitizePhoneNumber(phone: string): string {
   if (!phone) return '';
@@ -13,8 +13,8 @@ function sanitizePhoneNumber(phone: string): string {
   // Eliminar ceros iniciales
   cleaned = cleaned.replace(/^0+/, '');
   
-  // Si tiene 10 dígitos (Colombia), asegurar el prefijo 57
-  if (cleaned.length === 10 && !cleaned.startsWith('57')) {
+  // Si tiene 10 dígitos (formato local Colombia), asegurar el prefijo 57
+  if (cleaned.length === 10) {
     cleaned = '57' + cleaned;
   }
   return cleaned;
@@ -33,7 +33,7 @@ export async function enviarNotificacionServicio(servicio: {
 }) {
   const phone = sanitizePhoneNumber(servicio.clienteTelefono);
   
-  console.log('[Nova Client] Enviando petición para:', phone);
+  console.log('[Nova Client] Intentando notificar a:', phone);
 
   try {
     const response = await fetch(`${WHATSAPP_BOT_URL}/send-service-notification`, {
@@ -51,12 +51,13 @@ export async function enviarNotificacionServicio(servicio: {
     const result = await response.json();
 
     if (!response.ok) {
-        throw new Error(result.error || `Error del bot (${response.status})`);
+        // Extraer el mensaje de error específico del bot
+        throw new Error(result.error || `Error del bot: ${response.status}`);
     }
 
     return result;
   } catch (error: any) {
-    console.warn('[Nova Client] Fallo:', error.message);
+    console.warn('[Nova Client] Fallo en petición:', error.message);
     throw error;
   }
 }
@@ -64,27 +65,22 @@ export async function enviarNotificacionServicio(servicio: {
 export async function obtenerEstadoWhatsApp() {
   try {
     const response = await fetch(`${WHATSAPP_BOT_URL}/status`, {
-      mode: 'cors',
-      headers: {
-        'Accept': 'application/json'
-      }
+      headers: { 'Accept': 'application/json' }
     });
     if (!response.ok) return { connected: false };
     return response.json();
   } catch (error) {
-    return { connected: false, error: 'Servidor fuera de línea' };
+    return { connected: false, error: 'Servidor de Nova no responde' };
   }
 }
 
 export async function obtenerQR() {
   try {
     const response = await fetch(`${WHATSAPP_BOT_URL}/qr`, {
-      headers: {
-        'Accept': 'application/json'
-      }
+      headers: { 'Accept': 'application/json' }
     });
     return response.json();
   } catch (error) {
-    return { error: 'No se pudo obtener el código QR' };
+    return { error: 'No se pudo obtener el código QR de Nova' };
   }
 }
