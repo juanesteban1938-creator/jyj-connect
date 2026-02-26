@@ -81,29 +81,27 @@ app.get('/qr', (req, res) => {
     res.json({ qr: qrCodeBase64 });
 });
 
+// Función interna para normalizar números en el servidor
+const formatWAId = (phone) => {
+    let clean = (phone || '').toString().replace(/\D/g, '');
+    if (clean.length === 10) clean = '57' + clean;
+    return clean.includes('@') ? clean : `${clean}@c.us`;
+};
+
 // Notificación de Programación
 app.post('/send-service-notification', authMiddleware, async (req, res) => {
     const data = req.body;
     if (!data.clienteTelefono) return res.status(400).json({ error: 'Teléfono requerido' });
     if (!isReady) return res.status(503).json({ error: 'Bot no conectado' });
 
-    console.log(`[Nova] Intentando enviar a: ${data.clienteTelefono}`);
+    const targetId = formatWAId(data.clienteTelefono);
+    console.log(`[Nova] Intentando enviar notificación a ID: ${targetId}`);
 
     try {
-        // Intentar obtener el ID real, si falla, usar el formato estándar
-        let chatId;
-        const numberId = await client.getNumberId(data.clienteTelefono);
-        
-        if (numberId) {
-            chatId = numberId._serialized;
-        } else {
-            console.warn(`[Nova] No se validó el ID para ${data.clienteTelefono}, usando formato manual.`);
-            chatId = `${data.clienteTelefono}@c.us`;
-        }
-
         const textMessage = `¡Hola, ${data.clienteNombre}! 👋\n\nSoy *Nova*, asistente virtual de *Transportes Especiales J&J* 🚐\n\nTu servicio ha sido programado exitosamente:\n\n━━━━━━━━━━━━━━━━\n🗓️ *Fecha:* ${data.fecha}\n⏰ *Hora:* ${data.hora}\n📍 *Origen:* ${data.origen}\n🏁 *Destino:* ${data.destino}\n🚗 *Placa:* ${data.placa}\n👤 *Conductor:* ${data.conductor}\n📞 *Contacto:* ${data.telefonoConductor}\n━━━━━━━━━━━━━━━━\n\nPor favor estar listo 10 minutos antes. 🙏\n\n¡Gracias por elegirnos! 🌟`;
 
-        await client.sendMessage(chatId, textMessage);
+        // Enviar texto primero
+        await client.sendMessage(targetId, textMessage);
 
         // Generar Tarjeta Visual
         const browser = await puppeteer.launch({
@@ -191,12 +189,16 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
         await browser.close();
 
         const media = new MessageMedia('image/png', screenshot, 'resumen_servicio.png');
-        await client.sendMessage(chatId, media);
+        await client.sendMessage(targetId, media);
 
         res.json({ success: true, message: 'Notificación enviada con éxito' });
     } catch (error) {
         console.error('[Nova Error] Detalle:', error);
-        res.status(500).json({ error: error.message || 'Error desconocido al enviar mensaje' });
+        // Si el error indica que el número no existe, devolvemos un mensaje claro
+        const errorMessage = error.message && error.message.includes('not exist') 
+            ? 'El número no está registrado en WhatsApp o el formato es incorrecto.' 
+            : error.message || 'Error al enviar mensaje';
+        res.status(500).json({ error: errorMessage });
     }
 });
 
@@ -205,6 +207,8 @@ app.post('/send-departure-notification', authMiddleware, async (req, res) => {
     const data = req.body;
     if (!data.clienteTelefono) return res.status(400).json({ error: 'Teléfono requerido' });
     if (!isReady) return res.status(503).json({ error: 'Bot no conectado' });
+
+    const targetId = formatWAId(data.clienteTelefono);
 
     try {
         // Consultas de APIs Externas
@@ -239,21 +243,18 @@ app.post('/send-departure-notification', authMiddleware, async (req, res) => {
 
         let recomendacion = '';
         if (['Rain', 'Drizzle', 'Thunderstorm'].includes(climaInfo.climaMain)) {
-            recomendacion = '🌂 *Recomendación:* Hay probabilidad de lluvia. Te sugerimos llevar paraguas.';
+            recomendacion = '🌂 *Recomendación:* Hay probabilidad de lluvia en tu destino. Te sugerimos llevar paraguas.';
         } else if (climaInfo.temperatura < 14) {
-            recomendacion = '🧥 *Recomendación:* Hace frío. Te sugerimos llevar abrigo.';
+            recomendacion = '🧥 *Recomendación:* Hace frío en el destino. Te sugerimos llevar abrigo.';
         } else if (climaInfo.temperatura > 24) {
-            recomendacion = '☀️ *Recomendación:* Hace calor. Te sugerimos ropa ligera.';
+            recomendacion = '☀️ *Recomendación:* Hace calor en el destino. Te sugerimos ropa ligera.';
         } else {
             recomendacion = '✅ *Recomendación:* El clima está agradable. ¡Disfruta tu viaje!';
         }
 
-        const numberId = await client.getNumberId(data.clienteTelefono);
-        const chatId = numberId ? numberId._serialized : `${data.clienteTelefono}@c.us`;
-
         const textMessage = `🚐 *¡Es hora de tu servicio!*\n\nHola ${data.clienteNombre}, soy *Nova* de *Transportes Especiales J&J* 👋\n\nTu conductor ya está en camino. Aquí tienes tu ruta en tiempo real:\n\n━━━━━━━━━━━━━━━━\n🗺️ *Distancia:* ${distancia}\n⏱️ *Tiempo estimado:* ${duracion}\n━━━━━━━━━━━━━━━━\n\n🌤️ *Clima en tu destino:*\n🌡️ Temperatura: ${climaInfo.temperatura}°C (sensación ${climaInfo.sensacion}°C)\n☁️ Condición: ${climaInfo.descripcion}\n\n${recomendacion}\n\n━━━━━━━━━━━━━━━━\nPor favor estar listo en el punto de recogida. 🙏\n\n¡Buen viaje! 🌟`;
 
-        await client.sendMessage(chatId, textMessage);
+        await client.sendMessage(targetId, textMessage);
         res.json({ success: true, message: 'Notificación de salida enviada' });
 
     } catch (error) {

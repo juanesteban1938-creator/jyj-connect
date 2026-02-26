@@ -1,6 +1,6 @@
 
-const WHATSAPP_BOT_URL = process.env.NEXT_PUBLIC_WHATSAPP_BOT_URL || 'https://focused-harmony-production.up.railway.app';
-const API_KEY = process.env.NEXT_PUBLIC_WHATSAPP_API_KEY || 'jj-connect-2026';
+const WHATSAPP_BOT_URL = 'https://focused-harmony-production.up.railway.app';
+const API_KEY = 'jj-connect-2026';
 
 export async function enviarNotificacionServicio(servicio: {
   clienteNombre: string
@@ -13,12 +13,11 @@ export async function enviarNotificacionServicio(servicio: {
   conductor: string
   telefonoConductor: string
 }) {
-  // Limpiar y formatear el número antes de enviar
-  let phone = (servicio.clienteTelefono || '').toString();
-  phone = phone.replace(/\D/g, ''); // elimina todo lo que no sea dígito
+  // Limpieza agresiva del número: solo dígitos
+  let phone = (servicio.clienteTelefono || '').toString().replace(/\D/g, '');
   phone = phone.replace(/^0+/, ''); // elimina ceros iniciales
 
-  // Agregar código de Colombia (57) si tiene 10 dígitos y no los tiene ya
+  // Estandarizar código de Colombia si el número tiene 10 dígitos
   if (phone.length === 10 && !phone.startsWith('57')) {
     phone = `57${phone}`;
   }
@@ -68,6 +67,7 @@ export async function obtenerEstadoWhatsApp() {
     if (!response.ok) return { connected: false };
     return response.json();
   } catch (error) {
+    // Silenciamos el error visual para evitar overlays de NextJS
     return { connected: false, error: 'Servidor fuera de línea' };
   }
 }
