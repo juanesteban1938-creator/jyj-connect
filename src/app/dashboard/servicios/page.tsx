@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Search, PlusCircle, Eye, Edit, MessageSquare } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { format } from 'date-fns';
@@ -133,7 +133,7 @@ export default function ServiciosPage() {
     const conductorName = conductorObj ? `${conductorObj.nombres} ${conductorObj.apellidos}` : (data.conductorOtro || 'No asignado');
     const conductorPhone = conductorObj ? conductorObj.telefono : (data.conductorTelefonoOtro || 'N/A');
 
-    // PERSISTIR CLIENTE
+    // PERSISTIR CLIENTE AUTOMÁTICAMENTE
     const storedClientes = localStorage.getItem('clientes');
     const currentClientes = storedClientes ? JSON.parse(storedClientes) : [];
     const clientIndex = currentClientes.findIndex((c: any) => c.nit === data.nitCliente);
