@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/jj-ui/calendar';
-import { Calendar as CalendarIcon, User, Briefcase, MapPin, GripVertical, MinusCircle, PlusCircle, Wallet, Mail, Phone, Clock } from 'lucide-react';
+import { Calendar as CalendarIcon, User, Briefcase, MapPin, GripVertical, MinusCircle, PlusCircle, Wallet, Mail, Phone, Clock, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { useState, useEffect } from 'react';
@@ -90,6 +90,7 @@ type Props = {
   onCancel: () => void;
   conductores: Conductor[];
   vehiculos: Vehiculo[];
+  isSaving?: boolean;
 };
 
 const bancosColombia = [
@@ -99,7 +100,7 @@ const bancosColombia = [
   "Banco Serfinanza", "RappiPay", "Lulo Bank", "Nequi",
 ];
 
-export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculos }: Props) {
+export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculos, isSaving }: Props) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   
   const form = useForm<ServicioFormValues>({
@@ -137,6 +138,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
   
   useEffect(() => {
     if (servicio) {
+        // Buscar si la placa o el nombre del conductor coinciden con los registros actuales
         const conductorMatched = conductores.find(c => `${c.nombres} ${c.apellidos}` === servicio.conductor);
         const vehiculoMatched = vehiculos.find(v => v.placa === servicio.vehiculoPlaca);
 
@@ -159,11 +161,11 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
             banco: servicio.banco,
             esConductorNoRegistrado: !conductorMatched,
             conductorId: conductorMatched?.id || '',
-            conductorOtro: servicio.conductor,
-            conductorTelefonoOtro: servicio.conductorTelefono,
+            conductorOtro: conductorMatched ? '' : servicio.conductor,
+            conductorTelefonoOtro: conductorMatched ? '' : servicio.conductorTelefono,
             esVehiculoNoRegistrado: !vehiculoMatched,
             vehiculoId: vehiculoMatched?.id || '',
-            vehiculoOtro: servicio.vehiculoPlaca
+            vehiculoOtro: vehiculoMatched ? '' : servicio.vehiculoPlaca // ASIGNACIÓN DE PLACA MANUAL
         });
     }
   }, [servicio, form, conductores, vehiculos]);
@@ -565,10 +567,11 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
       </ScrollArea>
 
       <div className="flex justify-end gap-2 pt-4">
-        <Button type="button" variant="ghost" onClick={onCancel}>
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={isSaving}>
             Cancelar
         </Button>
-        <Button type="submit">
+        <Button type="submit" disabled={isSaving}>
+          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {servicio ? 'Guardar Cambios' : 'Guardar Servicio'}
         </Button>
       </div>
