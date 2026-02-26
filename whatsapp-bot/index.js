@@ -5,7 +5,6 @@ const qrcode = require('qrcode');
 const cors = require('cors');
 const puppeteer = require('puppeteer');
 const cron = require('node-cron');
-const fetch = require('node-fetch');
 const admin = require('firebase-admin');
 
 // Inicialización de Firebase Admin
@@ -80,18 +79,21 @@ const authMiddleware = (req, res, next) => {
 async function resolveWAId(phone) {
     let clean = (phone || '').toString().replace(/\D/g, '');
     
+    // Si el número tiene 10 dígitos (formato Colombia), añadir prefijo 57
     if (clean.length === 10) {
         clean = '57' + clean;
     }
 
-    console.log(`[Nova] Intentando resolver: ${clean}`);
+    console.log(`[Nova] Procesando número: ${clean}`);
 
-    // Si es móvil Colombia (57 + 3...), lo más probable es que necesite el 9
+    // LOGICA CRITICA: Colombia Móvil (57 + 3...)
+    // WhatsApp usa internamente 57 + 9 + 3...
     if (clean.startsWith('573') && clean.length === 12) {
-        return `579${clean.substring(2)}@c.us`;
+        const jidCon9 = `579${clean.substring(2)}@c.us`;
+        console.log(`[Nova] Formato Colombia detectado. JID sugerido: ${jidCon9}`);
+        return jidCon9;
     }
 
-    // Por defecto, intentar tal cual
     return `${clean}@c.us`;
 }
 
@@ -105,7 +107,7 @@ app.get('/qr', (req, res) => {
 
 async function sendToTarget(targetId, text, media) {
     try {
-        console.log(`[Nova] Enviando mensaje a: ${targetId}`);
+        console.log(`[Nova] Intentando envío a JID: ${targetId}`);
         await client.sendMessage(targetId, text);
         if (media) {
             await client.sendMessage(targetId, media);
@@ -126,7 +128,6 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
         const primaryId = await resolveWAId(data.clienteTelefono);
         const textMessage = `¡Hola, ${data.clienteNombre}! 👋\n\nSoy *Nova*, asistente virtual de *Transportes Especiales J&J* 🚐\n\nTu servicio ha sido programado:\n\n━━━━━━━━━━━━━━━━\n🗓️ *Fecha:* ${data.fecha}\n⏰ *Hora:* ${data.hora}\n📍 *Origen:* ${data.origen}\n🏁 *Destino:* ${data.destino}\n🚗 *Placa:* ${data.placa}\n👤 *Conductor:* ${data.conductor}\n━━━━━━━━━━━━━━━━\n\nPor favor estar listo 10 minutos antes. 🙏\n\n¡Gracias por elegirnos! 🌟`;
 
-        // Generar tarjeta visual
         let media = null;
         try {
             const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
@@ -138,15 +139,15 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
             await browser.close();
             media = new MessageMedia('image/png', screenshot, 'resumen.png');
         } catch (e) { 
-            console.warn('[Nova] Falló generación de tarjeta:', e.message); 
+            console.warn('[Nova] Falló generación de tarjeta visual.'); 
         }
 
-        // Primer Intento
+        // Primer Intento (con JID resuelto)
         let result = await sendToTarget(primaryId, textMessage, media);
         
-        // Reintento automático con formato alternativo para Colombia
+        // REINTENTO: Si falla y es Colombia, probar el formato sin el '9' o viceversa
         if (!result.success && data.clienteTelefono.toString().includes('57')) {
-            console.log('[Nova] Reintentando con formato alternativo...');
+            console.log('[Nova] Reintentando con formato alternativo para Colombia...');
             const altId = primaryId.includes('579') 
                 ? primaryId.replace('579', '57') 
                 : primaryId.replace('57', '579');
@@ -157,7 +158,7 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
         if (result.success) {
             res.json({ success: true });
         } else {
-            res.status(500).json({ error: `No se pudo encontrar el número en WhatsApp (${primaryId}). Verifique el número e intente de nuevo.` });
+            res.status(500).json({ error: `El número ${data.clienteTelefono} no parece estar en WhatsApp o el formato es incorrecto.` });
         }
     } catch (error) {
         console.error('[Nova] Error crítico:', error);
@@ -165,61 +166,7 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
     }
 });
 
-app.post('/send-departure-notification', authMiddleware, async (req, res) => {
-    const data = req.body;
-    if (!isReady) return res.status(503).json({ error: 'Nova desconectada' });
-
-    try {
-        const targetId = await resolveWAId(data.clienteTelefono);
-        const text = `🚐 *¡Es hora de tu servicio!*\n\nHola ${data.clienteNombre}, soy *Nova* 👋\n\nTu conductor ya está en camino a recogerte.\n\n━━━━━━━━━━━━━━━━\n📍 *Origen:* ${data.origen}\n🏁 *Destino:* ${data.destino}\n━━━━━━━━━━━━━━━━\n\n¡Buen viaje! 🌟`;
-
-        let result = await sendToTarget(targetId, text);
-        
-        // Reintento para Colombia
-        if (!result.success && data.clienteTelefono.toString().includes('57')) {
-            const altId = targetId.includes('579') ? targetId.replace('579', '57') : targetId.replace('57', '579');
-            result = await sendToTarget(altId, text);
-        }
-
-        res.json({ success: result.success });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-cron.schedule('* * * * *', async () => {
-    const now = new Date();
-    try {
-        const snapshot = await admin.firestore().collection('servicios')
-            .where('estado', 'in', ['Programado', 'programado'])
-            .where('notificacionSalidaEnviada', '==', false)
-            .get();
-
-        for (const doc of snapshot.docs) {
-            const s = doc.data();
-            if (s.horaRecogidaTimestamp) {
-                const hora = s.horaRecogidaTimestamp.toDate();
-                const diff = (now - hora) / 60000;
-                if (diff >= -1 && diff <= 1) {
-                    console.log(`[Nova Cron] Notificando salida: ${s.cliente}`);
-                    await fetch(`http://localhost:${port}/send-departure-notification`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-                        body: JSON.stringify({
-                            clienteTelefono: s.telefonoCliente,
-                            clienteNombre: s.cliente,
-                            origen: s.origen,
-                            destino: s.destino
-                        })
-                    });
-                    await doc.ref.update({ notificacionSalidaEnviada: true });
-                }
-            }
-        }
-    } catch (e) { console.error('[Cron Error]', e.message); }
-});
-
 app.listen(port, '0.0.0.0', () => {
-    console.log(`[Nova] Servidor en puerto ${port}`);
+    console.log(`[Nova] Servidor activo en puerto ${port}`);
     client.initialize().catch(err => console.error('[Nova] Init error:', err));
 });

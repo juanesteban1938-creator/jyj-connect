@@ -33,7 +33,7 @@ export async function enviarNotificacionServicio(servicio: {
 }) {
   const phone = sanitizePhoneNumber(servicio.clienteTelefono);
   
-  console.log('[Nova Client] Enviando a Nova:', phone);
+  console.log('[Nova Client] Intentando notificar a:', phone);
 
   try {
     const response = await fetch(`${WHATSAPP_BOT_URL}/send-service-notification`, {
@@ -51,13 +51,13 @@ export async function enviarNotificacionServicio(servicio: {
     const result = await response.json();
 
     if (!response.ok) {
-        // Mostrar el mensaje de error exacto del bot (ej. número inválido con JID)
-        throw new Error(result.error || `Error del bot: ${response.status}`);
+        // Retornamos el error específico del servidor (ej. "Número no está en WhatsApp")
+        throw new Error(result.error || `Error del servidor: ${response.status}`);
     }
 
     return result;
   } catch (error: any) {
-    console.warn('[Nova Client] Fallo en petición:', error.message);
+    console.error('[Nova Client] Error en petición:', error.message);
     throw error;
   }
 }
@@ -70,7 +70,7 @@ export async function obtenerEstadoWhatsApp() {
     if (!response.ok) return { connected: false };
     return response.json();
   } catch (error) {
-    console.warn('Servidor de Nova no disponible:', error);
+    console.warn('Nova Server Offline');
     return { connected: false, error: 'Servidor de Nova no responde' };
   }
 }
@@ -82,6 +82,6 @@ export async function obtenerQR() {
     });
     return response.json();
   } catch (error) {
-    return { error: 'No se pudo obtener el código QR de Nova' };
+    return { error: 'No se pudo obtener el código QR' };
   }
 }

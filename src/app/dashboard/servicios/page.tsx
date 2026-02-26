@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -105,18 +106,9 @@ export default function ServiciosPage() {
         estado: 'enviado'
       });
 
-      toast({ title: "Nova ha enviado la notificación", description: `Se notificó a ${s.cliente} exitosamente.` });
+      toast({ title: "Notificación enviada", description: `Nova notificó a ${s.cliente} correctamente.` });
     } catch (err: any) {
-      addDoc(collection(db, 'notificaciones_whatsapp'), {
-        fecha: serverTimestamp(),
-        clienteNombre: s.cliente,
-        clienteTelefono: phone,
-        origen: s.origen,
-        destino: s.destino,
-        estado: 'error',
-        error: err.message
-      });
-      toast({ variant: "destructive", title: "Error de notificación", description: err.message || "No se pudo conectar con Nova." });
+      toast({ variant: "destructive", title: "Error de notificación", description: err.message });
     }
   };
 
@@ -138,30 +130,6 @@ export default function ServiciosPage() {
       const conductorName = conductorObj ? `${conductorObj.nombres} ${conductorObj.apellidos}` : (data.conductorOtro || 'No asignado');
       const conductorPhone = conductorObj ? conductorObj.telefono : (data.conductorTelefonoOtro || 'N/A');
 
-      // Sincronizar Clientes LocalStorage
-      const storedClientes = localStorage.getItem('clientes');
-      const currentClientes = storedClientes ? JSON.parse(storedClientes) : [];
-      const clientIndex = currentClientes.findIndex((c: any) => c.nit === data.nitCliente);
-      
-      if (clientIndex === -1) {
-        currentClientes.push({
-          id: data.nitCliente,
-          razonSocial: data.nombreCliente,
-          nit: data.nitCliente,
-          telefono: cleanPhone,
-          email: data.emailCliente,
-          tipo: 'Particular'
-        });
-      } else {
-        currentClientes[clientIndex] = {
-          ...currentClientes[clientIndex],
-          razonSocial: data.nombreCliente,
-          telefono: cleanPhone,
-          email: data.emailCliente
-        };
-      }
-      localStorage.setItem('clientes', JSON.stringify(currentClientes));
-
       const valor = Number(data.valorServicio) || 0;
       const anticipo = Number(data.anticipo) || 0;
       const costo = Number(data.costoOperacion) || 0;
@@ -180,7 +148,7 @@ export default function ServiciosPage() {
         nitCliente: data.nitCliente,
         emailCliente: data.emailCliente || '',
         vehiculo: vehiculoNombre,
-        vehiculoPlaca: placaReal, // PERSISTENCIA DE PLACA
+        vehiculoPlaca: placaReal,
         conductor: conductorName,
         conductorTelefono: conductorPhone,
         estado: selected?.estado || 'Programado',
@@ -194,7 +162,7 @@ export default function ServiciosPage() {
         notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false
       };
 
-      // Actualizar LocalStorage Servicios
+      // Actualizar LocalStorage
       let updated;
       if (selected) {
         updated = servicios.map(s => s.id === selected.id ? nuevoServicioData : s);
@@ -211,52 +179,33 @@ export default function ServiciosPage() {
       if (isValid(pickupDate)) {
         pickupDate.setHours(isNaN(h) ? 0 : h, isNaN(m) ? 0 : m, 0, 0);
         
+        const payload = {
+            ...nuevoServicioData,
+            horaRecogidaTimestamp: Timestamp.fromDate(pickupDate),
+            updatedAt: serverTimestamp()
+        };
+
         if (isNew) {
-          await addDoc(collection(db, 'servicios'), {
-            ...nuevoServicioData,
-            horaRecogidaTimestamp: Timestamp.fromDate(pickupDate),
-            createdAt: serverTimestamp()
-          });
+            await addDoc(collection(db, 'servicios'), { ...payload, createdAt: serverTimestamp() });
         } else {
-          // Si estamos editando y ya tiene un ID real de Firestore (en apps reales), usaríamos ese.
-          // Aquí asumimos que queremos mantener el historial sincronizado
-          const serviciosRef = collection(db, 'servicios');
-          await addDoc(serviciosRef, {
-            ...nuevoServicioData,
-            horaRecogidaTimestamp: Timestamp.fromDate(pickupDate),
-            updatedAt: serverTimestamp(),
-            editado: true
-          });
+            // Buscamos si ya existe el doc en Firestore para actualizarlo, sino creamos uno nuevo
+            // Para simplicidad en este MVP, agregamos un nuevo registro de auditoría
+            await addDoc(collection(db, 'servicios'), { ...payload, editado: true });
         }
       }
 
-      toast({ title: isNew ? "Servicio creado" : "Servicio actualizado" });
+      toast({ title: isNew ? "Servicio programado" : "Servicio actualizado" });
       setIsFormOpen(false);
       setSelected(null);
 
-      // Notificación de Bienvenida (Solo nuevos)
+      // Notificación automática para nuevos
       if (isNew) {
-        const fechaStr = format(isValid(new Date(data.fechaRecogida)) ? new Date(data.fechaRecogida) : new Date(), 'dd/MM/yyyy', { locale: es });
-        try {
-          await enviarNotificacionServicio({
-            clienteNombre: data.nombreCliente,
-            clienteTelefono: cleanPhone,
-            fecha: fechaStr,
-            hora: data.horaRecogida,
-            origen: data.direccionRecogida,
-            destino: data.direccionDestino,
-            placa: placaReal,
-            conductor: conductorName,
-            telefonoConductor: conductorPhone
-          });
-        } catch (err) {
-          console.warn('Fallo notificación automática:', err);
-        }
+        handleManualNotification(nuevoServicioData);
       }
 
     } catch (error: any) {
-      console.error('Error saving service:', error);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo guardar el servicio." });
+      console.error('Save error:', error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo sincronizar con el servidor." });
     } finally {
       setIsSaving(false);
     }
@@ -339,7 +288,7 @@ export default function ServiciosPage() {
                       <DropdownMenuItem onClick={() => { setSelected(s); setIsFormOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className="text-green-600 font-bold" onClick={() => handleManualNotification(s)}>
-                        <MessageSquare className="mr-2 h-4 w-4" /> Notificar WhatsApp
+                        <MessageSquare className="mr-2 h-4 w-4" /> Re-notificar WhatsApp
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
