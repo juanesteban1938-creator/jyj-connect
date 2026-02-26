@@ -13,7 +13,21 @@ export async function enviarNotificacionServicio(servicio: {
   conductor: string
   telefonoConductor: string
 }) {
-  console.log('Nova intentando enviar notificación avanzada a:', servicio.clienteTelefono);
+  // Limpiar y formatear el número antes de enviar
+  let phone = (servicio.clienteTelefono || '').toString();
+  phone = phone.replace(/\D/g, ''); // elimina todo lo que no sea dígito
+  phone = phone.replace(/^0+/, ''); // elimina ceros iniciales
+
+  // Agregar código de Colombia si no lo tiene (asumiendo 10 dígitos para celular local)
+  if (phone.length === 10 && !phone.startsWith('57')) {
+    phone = `57${phone}`;
+  } else if (phone.length > 0 && !phone.startsWith('57')) {
+    // Si tiene otra longitud pero no empieza por 57, lo forzamos si es un número local común
+    phone = `57${phone}`;
+  }
+
+  console.log('Nova intentando enviar notificación a:', phone);
+
   try {
     const response = await fetch(`${WHATSAPP_BOT_URL}/send-service-notification`, {
       method: 'POST',
@@ -21,12 +35,15 @@ export async function enviarNotificacionServicio(servicio: {
         'Content-Type': 'application/json',
         'x-api-key': API_KEY
       },
-      body: JSON.stringify(servicio)
+      body: JSON.stringify({
+        ...servicio,
+        clienteTelefono: phone // Enviamos el número limpio
+      })
     });
     
     if (!response.ok) {
         const errorText = await response.text();
-        let errorMessage = `Bot respondió con error: ${response.status}`;
+        let errorMessage = `Error del servidor Nova (${response.status})`;
         try {
             const errorJson = JSON.parse(errorText);
             errorMessage = errorJson.error || errorMessage;
@@ -38,7 +55,7 @@ export async function enviarNotificacionServicio(servicio: {
 
     return await response.json();
   } catch (error: any) {
-    console.warn('Error detallado enviando notificación:', error.message);
+    console.warn('Fallo en la comunicación con Nova:', error.message);
     throw error;
   }
 }

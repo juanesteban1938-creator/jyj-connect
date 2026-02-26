@@ -71,9 +71,11 @@ export default function ServiciosPage() {
     if (c) setConductores(JSON.parse(c));
   }, []);
 
+  // Función para sanitizar el número de teléfono
   const sanitizePhone = (phone: string) => {
     if (!phone) return '';
     let cleaned = phone.toString().replace(/\D/g, ''); 
+    cleaned = cleaned.replace(/^0+/, '');
     if (cleaned.length === 10) cleaned = '57' + cleaned;
     return cleaned;
   };
@@ -124,6 +126,9 @@ export default function ServiciosPage() {
     const newId = Date.now().toString();
     const newConsecutivo = `GA-CCT-${servicios.length + 101}`;
     
+    // Sanitizar teléfono antes de guardar
+    const cleanPhone = sanitizePhone(data.telefonoCliente);
+
     // Resolución de vehículo
     const vehiculoObj = data.esVehiculoNoRegistrado ? null : vehiculos.find(v => v.id === data.vehiculoId);
     const placaReal = vehiculoObj ? vehiculoObj.placa : (data.vehiculoOtro || 'N/A');
@@ -144,7 +149,7 @@ export default function ServiciosPage() {
         id: data.nitCliente,
         razonSocial: data.nombreCliente,
         nit: data.nitCliente,
-        telefono: data.telefonoCliente,
+        telefono: cleanPhone,
         email: data.emailCliente,
         tipo: 'Particular'
       });
@@ -152,7 +157,7 @@ export default function ServiciosPage() {
       currentClientes[clientIndex] = {
         ...currentClientes[clientIndex],
         razonSocial: data.nombreCliente,
-        telefono: data.telefonoCliente,
+        telefono: cleanPhone,
         email: data.emailCliente
       };
     }
@@ -171,6 +176,7 @@ export default function ServiciosPage() {
       clienteIniciales: data.nombreCliente.substring(0, 2).toUpperCase(),
       origen: data.direccionRecogida,
       destino: data.direccionDestino,
+      telefonoCliente: cleanPhone, // Guardamos el número limpio
       fecha: data.fechaRecogida.toISOString(),
       hora: data.horaRecogida,
       vehiculo: vehiculoNombre,
@@ -210,13 +216,11 @@ export default function ServiciosPage() {
     });
 
     if (isNew) {
-      const phone = sanitizePhone(data.telefonoCliente);
       const fechaStr = format(data.fechaRecogida, 'dd/MM/yyyy', { locale: es });
-
       try {
         await enviarNotificacionServicio({
           clienteNombre: data.nombreCliente,
-          clienteTelefono: phone,
+          clienteTelefono: cleanPhone,
           fecha: fechaStr,
           hora: data.horaRecogida,
           origen: data.direccionRecogida,
@@ -229,7 +233,7 @@ export default function ServiciosPage() {
         addDoc(collection(db, 'notificaciones_whatsapp'), {
           fecha: serverTimestamp(),
           clienteNombre: data.nombreCliente,
-          clienteTelefono: phone,
+          clienteTelefono: cleanPhone,
           origen: data.direccionRecogida,
           destino: data.destino,
           estado: 'enviado'
@@ -240,7 +244,7 @@ export default function ServiciosPage() {
         addDoc(collection(db, 'notificaciones_whatsapp'), {
           fecha: serverTimestamp(),
           clienteNombre: data.nombreCliente,
-          clienteTelefono: phone,
+          clienteTelefono: cleanPhone,
           origen: data.direccionRecogida,
           destino: data.destino,
           estado: 'error',
