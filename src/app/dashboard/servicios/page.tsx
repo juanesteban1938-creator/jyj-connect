@@ -19,7 +19,7 @@ import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
 import { useFirestore } from '@/firebase';
-import { collection, addDoc, serverTimestamp, Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, Timestamp, doc, updateDoc, setDoc } from 'firebase/firestore';
 
 export type Servicio = {
   id: string;
@@ -188,9 +188,8 @@ export default function ServiciosPage() {
         if (isNew) {
             await addDoc(collection(db, 'servicios'), { ...payload, createdAt: serverTimestamp() });
         } else {
-            // Buscamos si ya existe el doc en Firestore para actualizarlo, sino creamos uno nuevo
-            // Para simplicidad en este MVP, agregamos un nuevo registro de auditoría
-            await addDoc(collection(db, 'servicios'), { ...payload, editado: true });
+            // Actualización directa en Firestore
+            await setDoc(doc(db, 'servicios', nuevoServicioData.id), { ...payload }, { merge: true });
         }
       }
 

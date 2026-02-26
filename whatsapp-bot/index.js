@@ -4,7 +4,6 @@ const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 const cors = require('cors');
 const puppeteer = require('puppeteer');
-const cron = require('node-cron');
 const admin = require('firebase-admin');
 
 // Inicialización de Firebase Admin

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -138,7 +139,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
   
   useEffect(() => {
     if (servicio) {
-        // Buscar si la placa o el nombre del conductor coinciden con los registros actuales
+        // Buscar coincidencias para cargar los selects de conductor y vehículo
         const conductorMatched = conductores.find(c => `${c.nombres} ${c.apellidos}` === servicio.conductor);
         const vehiculoMatched = vehiculos.find(v => v.placa === servicio.vehiculoPlaca);
 
@@ -165,7 +166,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
             conductorTelefonoOtro: conductorMatched ? '' : servicio.conductorTelefono,
             esVehiculoNoRegistrado: !vehiculoMatched,
             vehiculoId: vehiculoMatched?.id || '',
-            vehiculoOtro: vehiculoMatched ? '' : servicio.vehiculoPlaca // ASIGNACIÓN DE PLACA MANUAL
+            vehiculoOtro: vehiculoMatched ? '' : (servicio.vehiculoPlaca || '')
         });
     }
   }, [servicio, form, conductores, vehiculos]);
