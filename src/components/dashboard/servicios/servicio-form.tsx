@@ -101,6 +101,8 @@ const bancosColombia = [
 
 export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculos }: Props) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [hora, setHora] = useState('00');
+  const [minutos, setMinutos] = useState('00');
   
   const form = useForm<ServicioFormValues>({
     resolver: zodResolver(formSchema),
@@ -135,14 +137,11 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
     name: "paradasAdicionales"
   });
   
-  const [hora, setHora] = useState('00');
-  const [minutos, setMinutos] = useState('00');
-  
   useEffect(() => {
     if (servicio) {
         const [h, m] = (servicio.hora || '00:00').split(':');
-        setHora(h);
-        setMinutos(m);
+        setHora(h || '00');
+        setMinutos(m || '00');
         
         const conductorMatched = conductores.find(c => `${c.nombres} ${c.apellidos}` === servicio.conductor);
         const vehiculoMatched = vehiculos.find(v => v.placa === servicio.vehiculoPlaca);
@@ -153,7 +152,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
             telefonoCliente: servicio.telefonoCliente || '',
             emailCliente: servicio.emailCliente || '',
             fechaRecogida: servicio.fecha ? parseISO(servicio.fecha) : new Date(),
-            horaRecogida: servicio.hora,
+            horaRecogida: servicio.hora || '00:00',
             direccionRecogida: servicio.origen,
             direccionDestino: servicio.destino,
             paradasAdicionales: (servicio.paradasAdicionales || []).map(p => ({ direccion: p })),
@@ -175,11 +174,15 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
     }
   }, [servicio, form, conductores, vehiculos]);
 
+  const handleHoraChange = (val: string) => {
+    setHora(val);
+    form.setValue('horaRecogida', `${val}:${minutos}`, { shouldValidate: true });
+  };
 
-  useEffect(() => {
-    form.setValue('horaRecogida', `${hora}:${minutos}`);
-  }, [hora, minutos, form]);
-
+  const handleMinutosChange = (val: string) => {
+    setMinutos(val);
+    form.setValue('horaRecogida', `${hora}:${val}`, { shouldValidate: true });
+  };
 
   const valorServicio = form.watch('valorServicio') || 0;
   const estadoPago = form.watch('estadoPago');
@@ -438,21 +441,20 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                     <div className="flex flex-col">
                         <FormLabel>Hora de Recogida</FormLabel>
                         <div className="flex items-center gap-2">
-                            <Select value={hora} onValueChange={setHora}>
+                            <Select value={hora} onValueChange={handleHoraChange}>
                                 <SelectTrigger><SelectValue/></SelectTrigger>
                                 <SelectContent>
                                     {horasOptions.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                             <span>:</span>
-                            <Select value={minutos} onValueChange={setMinutos}>
+                            <Select value={minutos} onValueChange={handleMinutosChange}>
                                 <SelectTrigger><SelectValue/></SelectTrigger>
                                 <SelectContent>
                                     {minutosOptions.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
-                         <FormField name="horaRecogida" control={form.control} render={() => (<FormItem><FormMessage className="mt-2" /></FormItem>)} />
                     </div>
                  </div>
                  <div className="space-y-2">

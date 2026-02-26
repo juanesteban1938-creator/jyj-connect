@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -203,17 +202,15 @@ export default function ServiciosPage() {
 
     // Sincronización con Firestore para el Bot (Cron Job)
     try {
-      const pickupDateTime = new Date(data.fechaRecogida);
-      const timeParts = (data.horaRecogida || '00:00').split(':');
-      const h = parseInt(timeParts[0] || '0', 10);
-      const m = parseInt(timeParts[1] || '0', 10);
+      const pickupDate = data.fechaRecogida instanceof Date ? data.fechaRecogida : new Date(data.fechaRecogida);
+      const [h, m] = (data.horaRecogida || '00:00').split(':').map(val => parseInt(val, 10));
       
-      if (isValid(pickupDateTime) && !isNaN(h) && !isNaN(m)) {
-        pickupDateTime.setHours(h, m, 0, 0);
+      if (isValid(pickupDate)) {
+        pickupDate.setHours(isNaN(h) ? 0 : h, isNaN(m) ? 0 : m, 0, 0);
         
         await addDoc(collection(db, 'servicios'), {
           ...nuevoServicioData,
-          horaRecogidaTimestamp: Timestamp.fromDate(pickupDateTime),
+          horaRecogidaTimestamp: Timestamp.fromDate(pickupDate),
           createdAt: serverTimestamp()
         });
       }
@@ -352,4 +349,3 @@ export default function ServiciosPage() {
     </div>
   );
 }
-
