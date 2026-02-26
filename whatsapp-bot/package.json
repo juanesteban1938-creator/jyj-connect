@@ -1,3 +1,4 @@
+
 {
   "name": "whatsapp-bot",
   "version": "1.0.0",
@@ -10,6 +11,9 @@
     "express": "latest",
     "qrcode": "latest",
     "cors": "latest",
-    "puppeteer": "latest"
+    "puppeteer": "latest",
+    "node-cron": "latest",
+    "node-fetch": "^2.6.7",
+    "firebase-admin": "latest"
   }
 }

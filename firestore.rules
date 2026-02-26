@@ -5,7 +5,7 @@ service cloud.firestore {
 
     /**
      * VIANOVA S.A.S. - TRANSPORT MANAGEMENT SYSTEM
-     * SECURITY RULES - v2.2 (Added Notification Logs)
+     * SECURITY RULES - v2.3 (Added Services Collection)
      */
 
     function isSignedIn() {
@@ -18,6 +18,11 @@ service cloud.firestore {
      */
     match /notificaciones_whatsapp/{notificacionId} {
       allow read, create: if true;
+    }
+
+    /** @description Colección de servicios. */
+    match /servicios/{servicioId} {
+      allow read, write: if true;
     }
 
     /** @description Colección de clientes. */

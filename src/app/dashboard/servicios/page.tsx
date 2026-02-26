@@ -19,7 +19,7 @@ import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
 import { useFirestore } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 
 export type Servicio = {
   id: string;
@@ -47,6 +47,7 @@ export type Servicio = {
   paradasAdicionales: string[];
   numeroComprobante?: string;
   banco?: string;
+  notificacionSalidaEnviada: boolean;
 };
 
 export default function ServiciosPage() {
@@ -181,7 +182,8 @@ export default function ServiciosPage() {
       anticipo: anticipo,
       costoOperacion: costo,
       saldo: saldo,
-      paradasAdicionales: (data.paradasAdicionales || []).map((p: any) => p.direccion)
+      paradasAdicionales: (data.paradasAdicionales || []).map((p: any) => p.direccion),
+      notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false
     };
 
     let updated;
@@ -195,6 +197,17 @@ export default function ServiciosPage() {
     localStorage.setItem('servicios', JSON.stringify(updated));
     setIsFormOpen(false);
     toast({ title: "Servicio guardado exitosamente" });
+
+    // Sincronización con Firestore para el Bot (Cron Job)
+    const pickupDateTime = new Date(data.fechaRecogida);
+    const [h, m] = data.horaRecogida.split(':');
+    pickupDateTime.setHours(parseInt(h), parseInt(m), 0, 0);
+
+    addDoc(collection(db, 'servicios'), {
+      ...nuevoServicioData,
+      horaRecogidaTimestamp: Timestamp.fromDate(pickupDateTime),
+      createdAt: serverTimestamp()
+    });
 
     if (isNew) {
       const phone = sanitizePhone(data.telefonoCliente);
@@ -218,7 +231,7 @@ export default function ServiciosPage() {
           clienteNombre: data.nombreCliente,
           clienteTelefono: phone,
           origen: data.direccionRecogida,
-          destino: data.direccionDestino,
+          destino: data.destino,
           estado: 'enviado'
         });
 
@@ -229,7 +242,7 @@ export default function ServiciosPage() {
           clienteNombre: data.nombreCliente,
           clienteTelefono: phone,
           origen: data.direccionRecogida,
-          destino: data.direccionDestino,
+          destino: data.destino,
           estado: 'error',
           error: err.message
         });

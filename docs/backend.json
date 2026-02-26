@@ -28,6 +28,28 @@
         "estado": { "type": "string", "enum": ["pendiente", "enviada", "pagada"] }
       }
     },
+    "Servicio": {
+      "title": "Servicio",
+      "description": "Entidad que representa un servicio de transporte programado.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "consecutivo": { "type": "string" },
+        "cliente": { "type": "string" },
+        "nitCliente": { "type": "string" },
+        "telefonoCliente": { "type": "string" },
+        "origen": { "type": "string" },
+        "destino": { "type": "string" },
+        "hora": { "type": "string" },
+        "fecha": { "type": "string" },
+        "conductor": { "type": "string" },
+        "vehiculo": { "type": "string" },
+        "vehiculoPlaca": { "type": "string" },
+        "estado": { "type": "string" },
+        "notificacionSalidaEnviada": { "type": "boolean" },
+        "horaRecogidaTimestamp": { "type": "string", "format": "date-time" }
+      }
+    },
     "NotificacionWhatsapp": {
       "title": "NotificacionWhatsapp",
       "description": "Registro de intentos de envío de notificaciones vía WhatsApp.",
@@ -48,15 +70,19 @@
   },
   "firestore": {
     "/clientes/{clienteId}": {
-      "schema": { "$ref": "#/entities/Cliente" },
+      "schema": { "$ref": "#/backend/entities/Cliente" },
       "description": "Colección de clientes."
     },
     "/cuentas_cobro/{cuentaCobroId}": {
-      "schema": { "$ref": "#/entities/CuentaCobro" },
+      "schema": { "$ref": "#/backend/entities/CuentaCobro" },
       "description": "Colección de cuentas de cobro."
     },
+    "/servicios/{servicioId}": {
+      "schema": { "$ref": "#/backend/entities/Servicio" },
+      "description": "Colección de servicios para el bot."
+    },
     "/notificaciones_whatsapp/{notificacionId}": {
-      "schema": { "$ref": "#/entities/NotificacionWhatsapp" },
+      "schema": { "$ref": "#/backend/entities/NotificacionWhatsapp" },
       "description": "Historial de notificaciones de WhatsApp."
     }
   }

@@ -4,6 +4,18 @@ const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 const cors = require('cors');
 const puppeteer = require('puppeteer');
+const cron = require('node-cron');
+const fetch = require('node-fetch');
+const admin = require('firebase-admin');
+
+// Inicialización de Firebase Admin
+// Nota: En Railway, asegúrate de configurar las variables de entorno necesarias
+// o subir el archivo de credenciales si no usas Application Default Credentials.
+if (!admin.apps.length) {
+    admin.initializeApp({
+        projectId: process.env.FIREBASE_PROJECT_ID || 'studio-6997056255-a0ecc'
+    });
+}
 
 const app = express();
 app.use(express.json());
@@ -69,6 +81,7 @@ app.get('/qr', (req, res) => {
     res.json({ qr: qrCodeBase64 });
 });
 
+// Endpoint 1: Notificación inicial de programación
 app.post('/send-service-notification', authMiddleware, async (req, res) => {
     const data = req.body;
     if (!data.clienteTelefono) return res.status(400).json({ error: 'Teléfono requerido' });
@@ -81,30 +94,7 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
         }
         const chatId = numberId._serialized;
 
-        const textMessage = `¡Hola, ${data.clienteNombre}! 👋
-
-Soy *Nova*, asistente virtual de *Transportes Especiales J&J* 🚐
-
-Me complace confirmarte que tu servicio de transporte ha sido programado exitosamente. Aquí tienes todos los detalles:
-
-━━━━━━━━━━━━━━━━
-🗓️ *Fecha:* ${data.fecha}
-⏰ *Hora de recogida:* ${data.hora}
-📍 *Origen:* ${data.origen}
-🏁 *Destino:* ${data.destino}
-🚗 *Vehículo / Placa:* ${data.placa}
-👤 *Conductor:* ${data.conductor}
-📞 *Contacto conductor:* ${data.telefonoConductor}
-━━━━━━━━━━━━━━━━
-
-Por favor, estar listo 10 minutos antes de la hora de recogida. 🙏
-
-Si tienes alguna pregunta o necesitas hacer algún cambio, no dudes en contactarnos.
-
-¡Gracias por confiar en nosotros! 🌟
-*Transportes Especiales J&J*
-
-_Nova | Asistente Virtual_`;
+        const textMessage = `¡Hola, ${data.clienteNombre}! 👋\n\nSoy *Nova*, asistente virtual de *Transportes Especiales J&J* 🚐\n\nMe complace confirmarte que tu servicio de transporte ha sido programado exitosamente. Aquí tienes todos los detalles:\n\n━━━━━━━━━━━━━━━━\n🗓️ *Fecha:* ${data.fecha}\n⏰ *Hora de recogida:* ${data.hora}\n📍 *Origen:* ${data.origen}\n🏁 *Destino:* ${data.destino}\n🚗 *Vehículo / Placa:* ${data.placa}\n👤 *Conductor:* ${data.conductor}\n📞 *Contacto conductor:* ${data.telefonoConductor}\n━━━━━━━━━━━━━━━━\n\nPor favor, estar listo 10 minutos antes de la hora de recogida. 🙏\n\nSi tienes alguna pregunta o necesitas hacer algún cambio, no dudes en contactarnos.\n\n¡Gracias por confiar en nosotros! 🌟\n*Transportes Especiales J&J*\n\n_Nova | Asistente Virtual_`;
 
         await client.sendMessage(chatId, textMessage);
 
@@ -203,6 +193,118 @@ _Nova | Asistente Virtual_`;
     } catch (error) {
         console.error('Error enviando notificación avanzada:', error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint 2: Notificación de salida (En tiempo real)
+app.post('/send-departure-notification', authMiddleware, async (req, res) => {
+    const data = req.body;
+    if (!data.clienteTelefono) return res.status(400).json({ error: 'Teléfono requerido' });
+    if (!isReady) return res.status(503).json({ error: 'Bot no conectado' });
+
+    try {
+        // A) Google Maps Directions API
+        const mapsUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(data.origen)}&destination=${encodeURIComponent(data.destino)}&language=es&departure_time=now&key=${process.env.GOOGLE_MAPS_API_KEY}`;
+        const mapsResponse = await fetch(mapsUrl);
+        const mapsData = await mapsResponse.json();
+        
+        let duracion = 'N/A';
+        let distancia = 'N/A';
+
+        if (mapsData.status === 'OK') {
+            const leg = mapsData.routes[0].legs[0];
+            duracion = leg.duration_in_traffic?.text || leg.duration.text;
+            distancia = leg.distance.text;
+        }
+
+        // B) OpenWeatherMap API
+        const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=Bogota,CO&appid=${process.env.OPENWEATHER_API_KEY}&units=metric&lang=es`;
+        const weatherResponse = await fetch(weatherUrl);
+        const weatherData = await weatherResponse.json();
+        
+        const temperatura = Math.round(weatherData.main.temp);
+        const sensacion = Math.round(weatherData.main.feels_like);
+        const descripcion = weatherData.weather[0].description;
+        const humedad = weatherData.main.humidity;
+        const climaMain = weatherData.weather[0].main;
+
+        // C) Recomendación personalizada
+        let recomendacion = '';
+        if (climaMain === 'Rain' || climaMain === 'Drizzle' || climaMain === 'Thunderstorm') {
+            recomendacion = '🌂 *Recomendación:* Hay probabilidad de lluvia. Te sugerimos llevar paraguas o impermeable.';
+        } else if (temperatura < 14) {
+            recomendacion = '🧥 *Recomendación:* Hace frío en el destino. Te sugerimos llevar abrigo o chaqueta.';
+        } else if (temperatura > 24) {
+            recomendacion = '☀️ *Recomendación:* Hace calor en el destino. Te sugerimos ropa ligera y protector solar.';
+        } else {
+            recomendacion = '✅ *Recomendación:* El clima está agradable. ¡Disfruta tu viaje!';
+        }
+
+        const numberId = await client.getNumberId(data.clienteTelefono);
+        if (!numberId) return res.status(404).json({ error: 'Número no registrado' });
+        const chatId = numberId._serialized;
+
+        const textMessage = `🚐 *¡Es hora de tu servicio!*\n\nHola ${data.clienteNombre}, soy *Nova* de *Transportes Especiales J&J* 👋\n\nTu conductor ya está en camino a recogerte. Aquí tienes la información de tu ruta en tiempo real:\n\n━━━━━━━━━━━━━━━━\n🗺️ *Distancia:* ${distancia}\n⏱️ *Tiempo estimado:* ${duracion} (con tráfico actual)\n━━━━━━━━━━━━━━━━\n\n🌤️ *Clima en tu destino ahora:*\n🌡️ Temperatura: ${temperatura}°C (sensación ${sensacion}°C)\n💧 Humedad: ${humedad}%\n☁️ Condición: ${descripcion}\n\n${recomendacion}\n\n━━━━━━━━━━━━━━━━\nPor favor estar listo en el punto de recogida. 🙏\n\n¡Buen viaje! 🌟\n*Transportes Especiales J&J*`;
+
+        await client.sendMessage(chatId, textMessage);
+        res.json({ success: true, message: 'Notificación de salida enviada' });
+
+    } catch (error) {
+        console.error('Error en notificación de salida:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Cron Job: Revisar servicios cada minuto
+cron.schedule('* * * * *', async () => {
+    const now = new Date();
+    console.log(`[CRON] Revisando servicios para el momento de recogida: ${now.toLocaleTimeString()}`);
+    
+    try {
+        const snapshot = await admin.firestore()
+            .collection('servicios')
+            .where('estado', 'in', ['Programado', 'programado'])
+            .where('notificacionSalidaEnviada', '==', false)
+            .get();
+
+        for (const doc of snapshot.docs) {
+            const servicio = doc.data();
+            
+            // Verificamos si horaRecogidaTimestamp existe (lo guardaremos al crear el servicio)
+            if (servicio.horaRecogidaTimestamp) {
+                const horaRecogida = servicio.horaRecogidaTimestamp.toDate();
+                const diff = Math.abs(now - horaRecogida) / 60000; // diferencia en minutos
+
+                // Si la diferencia es menor a 1 minuto y es el momento exacto (o estamos dentro del minuto)
+                if (diff <= 1) {
+                    console.log(`[CRON] Disparando notificación de salida para: ${servicio.cliente}`);
+                    
+                    const response = await fetch(`http://localhost:${port}/send-departure-notification`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json', 
+                            'x-api-key': apiKey 
+                        },
+                        body: JSON.stringify({
+                            clienteTelefono: servicio.telefonoCliente,
+                            clienteNombre: servicio.cliente,
+                            origen: servicio.origen,
+                            destino: servicio.destino
+                        })
+                    });
+
+                    if (response.ok) {
+                        await doc.ref.update({ notificacionSalidaEnviada: true });
+                        console.log(`[CRON] Servicio marcado como notificado: ${doc.id}`);
+                    } else {
+                        const errText = await response.text();
+                        console.error(`[CRON] Error al disparar notificación: ${errText}`);
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        console.error('[CRON] Error en la ejecución del cron job:', error);
     }
 });
 
