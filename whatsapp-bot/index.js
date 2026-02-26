@@ -86,25 +86,13 @@ async function resolveWAId(phone) {
 
     console.log(`[Nova] Intentando resolver: ${clean}`);
 
-    // 1. Intentar validación oficial
-    try {
-        const id = await client.getNumberId(clean);
-        if (id) return id._serialized;
-    } catch (e) {}
-
-    // 2. Lógica específica para Colombia (57 + 10 dígitos)
-    if (clean.startsWith('57') && clean.length === 12) {
-        const with9 = '579' + clean.substring(2);
-        try {
-            const id9 = await client.getNumberId(with9);
-            if (id9) return id9._serialized;
-        } catch (e) {}
-        
-        // Fallback: Si no valida pero es Colombia, lo más probable es que necesite el 9
-        return `${with9}@c.us`;
+    // Si es móvil Colombia (57 + 3...), lo más probable es que necesite el 9
+    if (clean.startsWith('573') && clean.length === 12) {
+        return `579${clean.substring(2)}@c.us`;
     }
 
-    return clean.includes('@c.us') ? clean : `${clean}@c.us`;
+    // Por defecto, intentar tal cual
+    return `${clean}@c.us`;
 }
 
 app.get('/status', (req, res) => res.json({ connected: isReady }));
@@ -117,11 +105,14 @@ app.get('/qr', (req, res) => {
 
 async function sendToTarget(targetId, text, media) {
     try {
+        console.log(`[Nova] Enviando mensaje a: ${targetId}`);
         await client.sendMessage(targetId, text);
-        if (media) await client.sendMessage(targetId, media);
+        if (media) {
+            await client.sendMessage(targetId, media);
+        }
         return { success: true };
     } catch (error) {
-        console.error(`[Nova] Error enviando a ${targetId}:`, error.message);
+        console.warn(`[Nova] Fallo envío a ${targetId}:`, error.message);
         return { success: false, error: error.message };
     }
 }
@@ -132,7 +123,7 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
     if (!isReady) return res.status(503).json({ error: 'Nova no está conectada' });
 
     try {
-        let targetId = await resolveWAId(data.clienteTelefono);
+        const primaryId = await resolveWAId(data.clienteTelefono);
         const textMessage = `¡Hola, ${data.clienteNombre}! 👋\n\nSoy *Nova*, asistente virtual de *Transportes Especiales J&J* 🚐\n\nTu servicio ha sido programado:\n\n━━━━━━━━━━━━━━━━\n🗓️ *Fecha:* ${data.fecha}\n⏰ *Hora:* ${data.hora}\n📍 *Origen:* ${data.origen}\n🏁 *Destino:* ${data.destino}\n🚗 *Placa:* ${data.placa}\n👤 *Conductor:* ${data.conductor}\n━━━━━━━━━━━━━━━━\n\nPor favor estar listo 10 minutos antes. 🙏\n\n¡Gracias por elegirnos! 🌟`;
 
         // Generar tarjeta visual
@@ -146,25 +137,31 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
             const screenshot = await page.screenshot({ encoding: 'base64' });
             await browser.close();
             media = new MessageMedia('image/png', screenshot, 'resumen.png');
-        } catch (e) { console.warn('[Nova] Falló generación de tarjeta'); }
+        } catch (e) { 
+            console.warn('[Nova] Falló generación de tarjeta:', e.message); 
+        }
 
-        // Intentar envío
-        let result = await sendToTarget(targetId, textMessage, media);
+        // Primer Intento
+        let result = await sendToTarget(primaryId, textMessage, media);
         
-        // Si falla y es Colombia, intentar el formato alternativo (con/sin 9)
-        if (!result.success && data.clienteTelefono.includes('57')) {
+        // Reintento automático con formato alternativo para Colombia
+        if (!result.success && data.clienteTelefono.toString().includes('57')) {
             console.log('[Nova] Reintentando con formato alternativo...');
-            const altId = targetId.includes('579') ? targetId.replace('579', '57') : targetId.replace('57', '579');
+            const altId = primaryId.includes('579') 
+                ? primaryId.replace('579', '57') 
+                : primaryId.replace('57', '579');
+            
             result = await sendToTarget(altId, textMessage, media);
         }
 
         if (result.success) {
             res.json({ success: true });
         } else {
-            res.status(500).json({ error: 'El número no pudo ser localizado en WhatsApp.' });
+            res.status(500).json({ error: `No se pudo encontrar el número en WhatsApp (${primaryId}). Verifique el número e intente de nuevo.` });
         }
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('[Nova] Error crítico:', error);
+        res.status(500).json({ error: 'Error interno del bot: ' + error.message });
     }
 });
 
@@ -174,12 +171,12 @@ app.post('/send-departure-notification', authMiddleware, async (req, res) => {
 
     try {
         const targetId = await resolveWAId(data.clienteTelefono);
-        
-        // Simulación de APIs para rapidez (puedes restaurar fetch real si las keys son válidas)
         const text = `🚐 *¡Es hora de tu servicio!*\n\nHola ${data.clienteNombre}, soy *Nova* 👋\n\nTu conductor ya está en camino a recogerte.\n\n━━━━━━━━━━━━━━━━\n📍 *Origen:* ${data.origen}\n🏁 *Destino:* ${data.destino}\n━━━━━━━━━━━━━━━━\n\n¡Buen viaje! 🌟`;
 
         let result = await sendToTarget(targetId, text);
-        if (!result.success && data.clienteTelefono.includes('57')) {
+        
+        // Reintento para Colombia
+        if (!result.success && data.clienteTelefono.toString().includes('57')) {
             const altId = targetId.includes('579') ? targetId.replace('579', '57') : targetId.replace('57', '579');
             result = await sendToTarget(altId, text);
         }

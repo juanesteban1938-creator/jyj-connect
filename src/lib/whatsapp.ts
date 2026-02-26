@@ -8,12 +8,12 @@ const API_KEY = 'jj-connect-2026';
  */
 function sanitizePhoneNumber(phone: string): string {
   if (!phone) return '';
-  // Extraer solo dígitos
+  // Extraer solo dígitos (elimina espacios, guiones, paréntesis)
   let cleaned = phone.toString().replace(/\D/g, '');
   // Eliminar ceros iniciales
   cleaned = cleaned.replace(/^0+/, '');
   
-  // Si tiene 10 dígitos (formato local Colombia), asegurar el prefijo 57
+  // Si tiene 10 dígitos (formato móvil Colombia), asegurar el prefijo 57
   if (cleaned.length === 10) {
     cleaned = '57' + cleaned;
   }
@@ -33,7 +33,7 @@ export async function enviarNotificacionServicio(servicio: {
 }) {
   const phone = sanitizePhoneNumber(servicio.clienteTelefono);
   
-  console.log('[Nova Client] Intentando notificar a:', phone);
+  console.log('[Nova Client] Enviando a Nova:', phone);
 
   try {
     const response = await fetch(`${WHATSAPP_BOT_URL}/send-service-notification`, {
@@ -51,7 +51,7 @@ export async function enviarNotificacionServicio(servicio: {
     const result = await response.json();
 
     if (!response.ok) {
-        // Extraer el mensaje de error específico del bot
+        // Mostrar el mensaje de error exacto del bot (ej. número inválido con JID)
         throw new Error(result.error || `Error del bot: ${response.status}`);
     }
 
@@ -70,6 +70,7 @@ export async function obtenerEstadoWhatsApp() {
     if (!response.ok) return { connected: false };
     return response.json();
   } catch (error) {
+    console.warn('Servidor de Nova no disponible:', error);
     return { connected: false, error: 'Servidor de Nova no responde' };
   }
 }
