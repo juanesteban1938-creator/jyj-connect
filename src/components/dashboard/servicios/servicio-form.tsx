@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/jj-ui/calendar';
-import { Calendar as CalendarIcon, User, Briefcase, MapPin, GripVertical, MinusCircle, PlusCircle, Wallet, Mail, Phone, Clock, Loader2 } from 'lucide-react';
+import { Calendar as CalendarIcon, User, Briefcase, MapPin, Mail, Phone, Clock, Loader2, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { useState, useEffect } from 'react';
@@ -92,13 +92,6 @@ type Props = {
   isSaving?: boolean;
 };
 
-const bancosColombia = [
-  "Bancolombia", "Banco de Bogotá", "Davivienda", "BBVA Colombia", "Banco de Occidente", "Banco Popular", "Banco AV Villas",
-  "Itaú Corpbanca Colombia", "Scotiabank Colpatria", "GNB Sudameris", "Banco Caja Social", "Citibank Colombia",
-  "Banco Agrario de Colombia", "Bancamía", "Banco W", "Bancoomeva", "Banco Falabella", "Banco Pichincha",
-  "Banco Serfinanza", "RappiPay", "Lulo Bank", "Nequi",
-];
-
 export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculos, isSaving }: Props) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   
@@ -130,11 +123,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "paradasAdicionales"
-  });
-  
   useEffect(() => {
     if (servicio) {
         const conductorMatched = conductores.find(c => `${c.nombres} ${c.apellidos}` === servicio.conductor);
@@ -170,7 +158,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
 
   const valorServicio = form.watch('valorServicio') || 0;
   const estadoPago = form.watch('estadoPago');
-  const metodoPago = form.watch('metodoPago');
   const esConductorNoRegistrado = form.watch('esConductorNoRegistrado');
   const esVehiculoNoRegistrado = form.watch('esVehiculoNoRegistrado');
 
@@ -192,7 +179,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
          <div className="space-y-6 p-1">
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
-                    <User className="h-5 w-5 text-primary"/>
+                    <Briefcase className="h-5 w-5 text-primary"/>
                     <h3 className="text-lg font-semibold">Información del Cliente</h3>
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -215,7 +202,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
             
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
-                    <Briefcase className="h-5 w-5 text-primary"/>
+                    <User className="h-5 w-5 text-primary"/>
                     <h3 className="text-lg font-semibold">Recursos Asignados</h3>
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -231,8 +218,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                                         onCheckedChange={(checked) => {
                                             field.onChange(checked);
                                             form.setValue('conductorId', '');
-                                            form.setValue('conductorOtro', '');
-                                            form.setValue('conductorTelefonoOtro', '');
                                         }}
                                     />
                                 </FormControl>
@@ -267,7 +252,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                                         onCheckedChange={(checked) => {
                                             field.onChange(checked);
                                             form.setValue('vehiculoId', '');
-                                            form.setValue('vehiculoOtro', '');
                                         }}
                                     />
                                 </FormControl>
@@ -309,7 +293,12 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                     <FormField control={form.control} name="horaRecogida" render={({ field }) => (
                         <FormItem className="flex flex-col">
                             <FormLabel>Hora de Recogida</FormLabel>
-                            <FormControl><Input type="time" {...field} className="w-full" /></FormControl>
+                            <FormControl>
+                                <div className="relative">
+                                    <Input type="time" {...field} className="w-full pl-10" />
+                                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                </div>
+                            </FormControl>
                             <FormMessage />
                         </FormItem>
                     )} />
@@ -326,17 +315,17 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
 
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
-                    <Wallet className="h-5 w-5 text-primary"/>
+                    <DollarSign className="h-5 w-5 text-primary"/>
                     <h3 className="text-lg font-semibold">Datos Financieros</h3>
                 </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <FormField name="valorServicio" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Venta</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormItem>
+                        <FormItem><FormLabel>Venta Servicio</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" {...field} /></div></FormControl></FormItem>
                     )} />
                     <FormField name="anticipo" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Anticipo</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormItem>
+                        <FormItem><FormLabel>Anticipo</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" {...field} /></div></FormControl></FormItem>
                     )} />
-                    <FormItem><FormLabel>Saldo</FormLabel><FormControl><Input readOnly disabled value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(saldo)} /></FormControl></FormItem>
+                    <FormItem><FormLabel>Saldo Pendiente</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input readOnly disabled className="pl-9 font-bold" value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(saldo)} /></div></FormControl></FormItem>
                 </div>
             </div>
         </div>
@@ -344,7 +333,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
 
       <div className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="ghost" onClick={onCancel} disabled={isSaving}>Cancelar</Button>
-        <Button type="submit" disabled={isSaving}>{isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Guardar Servicio</Button>
+        <Button type="submit" disabled={isSaving}>{isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Guardar Servicio'}</Button>
       </div>
       </form>
     </Form>

@@ -9,9 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Search, PlusCircle, Eye, Edit, MessageSquare, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { format, isValid } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
@@ -19,7 +17,7 @@ import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
 import { useFirestore } from '@/firebase';
-import { collection, addDoc, serverTimestamp, Timestamp, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, Timestamp, doc, setDoc } from 'firebase/firestore';
 
 export type Servicio = {
   id: string;
@@ -87,7 +85,7 @@ export default function ServiciosPage() {
       });
       toast({ title: "Notificación enviada" });
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Error", description: err.message });
+      toast({ variant: "destructive", title: "Error de WhatsApp", description: err.message });
     }
   };
 
@@ -98,12 +96,28 @@ export default function ServiciosPage() {
     try {
       const isNew = !selected;
       const vehiculoObj = data.esVehiculoNoRegistrado ? null : vehiculos.find(v => v.id === data.vehiculoId);
-      const placaReal = data.esVehiculoNoRegistrado ? (data.vehiculoOtro || 'N/A') : (vehiculoObj?.placa || 'N/A');
+      const placaFinal = data.esVehiculoNoRegistrado ? (data.vehiculoOtro || 'N/A') : (vehiculoObj?.placa || 'N/A');
       const conductorObj = data.esConductorNoRegistrado ? null : conductores.find(c => c.id === data.conductorId);
       
       const valor = Number(data.valorServicio) || 0;
       const anticipo = Number(data.anticipo) || 0;
       const saldo = valor - anticipo;
+
+      // VALIDACIÓN CRÍTICA DE FECHA Y HORA
+      const pickupDate = new Date(data.fechaRecogida);
+      if (!isValid(pickupDate)) {
+          throw new Error("La fecha seleccionada no es válida.");
+      }
+      
+      const [h, m] = (data.horaRecogida || '00:00').split(':').map(Number);
+      if (isNaN(h) || isNaN(m)) {
+          throw new Error("La hora seleccionada tiene un formato inválido.");
+      }
+      
+      pickupDate.setHours(h, m, 0, 0);
+      if (!isValid(pickupDate)) {
+          throw new Error("El tiempo resultante es inválido.");
+      }
 
       const payload: Servicio = { 
         id: selected?.id || Date.now().toString(),
@@ -117,8 +131,8 @@ export default function ServiciosPage() {
         hora: data.horaRecogida,
         nitCliente: data.nitCliente,
         emailCliente: data.emailCliente || '',
-        vehiculo: data.esVehiculoNoRegistrado ? data.vehiculoOtro : (vehiculoObj ? `${vehiculoObj.marca} ${vehiculoObj.linea}` : 'N/A'),
-        vehiculoPlaca: placaReal,
+        vehiculo: data.esVehiculoNoRegistrado ? `OTRO • ${data.vehiculoOtro}` : (vehiculoObj ? `${vehiculoObj.marca} ${vehiculoObj.linea}` : 'N/A'),
+        vehiculoPlaca: placaFinal,
         conductor: data.esConductorNoRegistrado ? data.conductorOtro : (conductorObj ? `${conductorObj.nombres} ${conductorObj.apellidos}` : 'No asignado'),
         conductorTelefono: data.esConductorNoRegistrado ? data.conductorTelefonoOtro : (conductorObj?.telefono || ''),
         estado: selected?.estado || 'Programado',
@@ -138,10 +152,6 @@ export default function ServiciosPage() {
       localStorage.setItem('servicios', JSON.stringify(updated));
 
       // 2. Firestore
-      const pickupDate = new Date(data.fechaRecogida);
-      const [h, m] = (data.horaRecogida || '00:00').split(':').map(Number);
-      pickupDate.setHours(h, m, 0, 0);
-
       const firestoreData = {
         ...payload,
         horaRecogidaTimestamp: Timestamp.fromDate(pickupDate),
@@ -157,6 +167,8 @@ export default function ServiciosPage() {
       toast({ title: isNew ? "Servicio creado" : "Servicio actualizado" });
       setIsFormOpen(false);
       setSelected(null);
+      
+      // Notificación automática solo en nuevos
       if (isNew) handleManualNotification(payload);
 
     } catch (error: any) {
@@ -168,7 +180,7 @@ export default function ServiciosPage() {
   };
 
   const filtered = servicios.filter(s => {
-    const isMatch = s.cliente?.toLowerCase().includes(searchTerm.toLowerCase()) || s.conductor?.toLowerCase().includes(searchTerm.toLowerCase());
+    const isMatch = s.cliente?.toLowerCase().includes(searchTerm.toLowerCase()) || s.conductor?.toLowerCase().includes(searchTerm.toLowerCase()) || s.vehiculoPlaca?.toLowerCase().includes(searchTerm.toLowerCase());
     const isTabMatch = activeTab === 'activos' ? (s.estado === 'Programado' || s.estado === 'En Servicio') : (s.estado === 'Finalizado' || s.estado === 'Cancelado');
     return isMatch && isTabMatch;
   });
@@ -183,34 +195,44 @@ export default function ServiciosPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          <Input placeholder="Buscar por cliente, conductor o placa..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
         <Button onClick={() => setIsFormOpen(true)} className="btn-action"><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Servicio</Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-white p-1 border">
-          <TabsTrigger value="activos" className="px-6">Activos</TabsTrigger>
-          <TabsTrigger value="historial" className="px-6">Historial</TabsTrigger>
+          <TabsTrigger value="activos" className="px-6 font-bold uppercase text-[10px] tracking-widest">Servicios Activos</TabsTrigger>
+          <TabsTrigger value="historial" className="px-6 font-bold uppercase text-[10px] tracking-widest">Historial</TabsTrigger>
         </TabsList>
         <TabsContent value={activeTab} className="space-y-4">
-          {filtered.map(s => (
-            <Card key={s.id} className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xl font-bold text-primary">{s.hora} - {s.consecutivo}</p>
-                  <p className="text-sm font-semibold">{s.origen} ➔ {s.destino}</p>
-                  <p className="text-xs text-muted-foreground uppercase">{s.cliente} | {s.conductor} ({s.vehiculoPlaca})</p>
+          {filtered.length === 0 ? (
+            <Card className="p-12 text-center text-muted-foreground">No se encontraron servicios.</Card>
+          ) : filtered.map(s => (
+            <Card key={s.id} className="p-6 hover:shadow-md transition-shadow">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xl font-bold text-primary">{s.hora}</p>
+                    <span className="text-xs font-bold text-muted-foreground">|</span>
+                    <p className="text-xs font-bold uppercase tracking-wider">{s.consecutivo}</p>
+                  </div>
+                  <p className="text-sm font-semibold">{s.origen} <span className="text-primary mx-1">➔</span> {s.destino}</p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground font-medium">
+                    <p className="uppercase"><Briefcase className="inline h-3 w-3 mr-1"/> {s.cliente}</p>
+                    <p className="uppercase"><User className="inline h-3 w-3 mr-1"/> {s.conductor}</p>
+                    <p className="uppercase font-bold text-primary"><Truck className="inline h-3 w-3 mr-1"/> {s.vehiculoPlaca}</p>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Badge variant="secondary">{s.estado}</Badge>
+                <div className="flex items-center gap-3">
+                  <Badge variant={s.estado === 'Programado' ? 'secondary' : 'default'} className="text-[10px] font-bold uppercase">{s.estado}</Badge>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><PlusCircle className="h-4 w-4" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => { setSelected(s); setIsResumenOpen(true); }}><Eye className="mr-2 h-4 w-4" /> Ver</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setSelected(s); setIsResumenOpen(true); }}><Eye className="mr-2 h-4 w-4" /> Ver Detalles</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setSelected(s); setIsFormOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-green-600" onClick={() => handleManualNotification(s)}><MessageSquare className="mr-2 h-4 w-4" /> Notificar</DropdownMenuItem>
+                      <DropdownMenuItem className="text-green-600 font-bold" onClick={() => handleManualNotification(s)}><MessageSquare className="mr-2 h-4 w-4" /> Notificar por WhatsApp</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -223,14 +245,14 @@ export default function ServiciosPage() {
       <Dialog open={isFormOpen} onOpenChange={o => { if(!isSaving) { setIsFormOpen(o); if(!o) setSelected(null); } }}>
         <DialogContent className="sm:max-w-4xl">
           <VisuallyHidden><DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader></VisuallyHidden>
-          <DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-2xl font-bold">{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader>
           <ServicioForm servicio={selected} onSave={handleSave} onCancel={() => setIsFormOpen(false)} conductores={conductores} vehiculos={vehiculos} isSaving={isSaving} />
         </DialogContent>
       </Dialog>
 
       <Dialog open={isResumenOpen} onOpenChange={setIsResumenOpen}>
         <DialogContent className="sm:max-w-lg">
-          <VisuallyHidden><DialogHeader><DialogTitle>Resumen</DialogTitle></DialogHeader></VisuallyHidden>
+          <VisuallyHidden><DialogHeader><DialogTitle>Resumen del Servicio</DialogTitle></DialogHeader></VisuallyHidden>
           {selected && <ResumenServicio servicio={selected} />}
         </DialogContent>
       </Dialog>
