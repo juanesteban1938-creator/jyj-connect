@@ -48,20 +48,20 @@ client.on('qr', (qr) => {
         qrCodeBase64 = url;
     });
     isReady = false;
-    console.log('Nuevo QR generado. Escanea en la página de estado.');
+    console.log('[Nova] Nuevo QR generado.');
 });
 
 client.on('ready', () => {
-    console.log('Bot Nova listo y conectado.');
+    console.log('[Nova] Bot listo y conectado.');
     isReady = true;
     qrCodeBase64 = '';
 });
 
 client.on('disconnected', (reason) => {
-    console.log('Bot desconectado:', reason);
+    console.log('[Nova] Desconectado:', reason);
     isReady = false;
     setTimeout(() => {
-        client.initialize().catch(err => console.error('Error re-init:', err));
+        client.initialize().catch(err => console.error('[Nova] Error re-init:', err));
     }, 5000);
 });
 
@@ -73,37 +73,55 @@ const authMiddleware = (req, res, next) => {
     next();
 };
 
+/**
+ * Resuelve el ID de WhatsApp correcto para un número.
+ * Especialmente útil para Colombia (57) donde algunos números requieren un 9 interno.
+ */
+async function resolveWAId(phone) {
+    let clean = (phone || '').toString().replace(/\D/g, '');
+    
+    // Si tiene 10 dígitos (Colombia), agregar el prefijo 57
+    if (clean.length === 10) clean = '57' + clean;
+
+    try {
+        // Intentar obtener el ID oficial desde la red de WhatsApp
+        const info = await client.getNumberId(clean);
+        if (info && info._serialized) {
+            console.log(`[Nova] ID resuelto por red: ${info._serialized}`);
+            return info._serialized;
+        }
+    } catch (e) {
+        console.warn(`[Nova] Error validando número ${clean}:`, e.message);
+    }
+
+    // Fallback: Formato manual estándar
+    const manualId = `${clean}@c.us`;
+    console.log(`[Nova] Usando ID manual (fallback): ${manualId}`);
+    return manualId;
+}
+
 app.get('/status', (req, res) => res.json({ connected: isReady }));
 
 app.get('/qr', (req, res) => {
     if (isReady) return res.json({ message: 'Conectado' });
-    if (!qrCodeBase64) return res.status(404).json({ error: 'QR no listo o no generado' });
+    if (!qrCodeBase64) return res.status(404).json({ error: 'QR no generado' });
     res.json({ qr: qrCodeBase64 });
 });
 
-// Función interna para normalizar números en el servidor
-const formatWAId = (phone) => {
-    let clean = (phone || '').toString().replace(/\D/g, '');
-    if (clean.length === 10) clean = '57' + clean;
-    return clean.includes('@') ? clean : `${clean}@c.us`;
-};
-
-// Notificación de Programación
 app.post('/send-service-notification', authMiddleware, async (req, res) => {
     const data = req.body;
     if (!data.clienteTelefono) return res.status(400).json({ error: 'Teléfono requerido' });
-    if (!isReady) return res.status(503).json({ error: 'Bot no conectado' });
-
-    const targetId = formatWAId(data.clienteTelefono);
-    console.log(`[Nova] Intentando enviar notificación a ID: ${targetId}`);
+    if (!isReady) return res.status(503).json({ error: 'Nova no está conectada a WhatsApp' });
 
     try {
-        const textMessage = `¡Hola, ${data.clienteNombre}! 👋\n\nSoy *Nova*, asistente virtual de *Transportes Especiales J&J* 🚐\n\nTu servicio ha sido programado exitosamente:\n\n━━━━━━━━━━━━━━━━\n🗓️ *Fecha:* ${data.fecha}\n⏰ *Hora:* ${data.hora}\n📍 *Origen:* ${data.origen}\n🏁 *Destino:* ${data.destino}\n🚗 *Placa:* ${data.placa}\n👤 *Conductor:* ${data.conductor}\n📞 *Contacto:* ${data.telefonoConductor}\n━━━━━━━━━━━━━━━━\n\nPor favor estar listo 10 minutos antes. 🙏\n\n¡Gracias por elegirnos! 🌟`;
+        const targetId = await resolveWAId(data.clienteTelefono);
+        
+        const textMessage = `¡Hola, ${data.clienteNombre}! 👋\n\nSoy *Nova*, asistente virtual de *Transportes Especiales J&J* 🚐\n\nTu servicio ha sido programado:\n\n━━━━━━━━━━━━━━━━\n🗓️ *Fecha:* ${data.fecha}\n⏰ *Hora:* ${data.hora}\n📍 *Origen:* ${data.origen}\n🏁 *Destino:* ${data.destino}\n🚗 *Placa:* ${data.placa}\n👤 *Conductor:* ${data.conductor}\n📞 *Contacto:* ${data.telefonoConductor}\n━━━━━━━━━━━━━━━━\n\nPor favor estar listo 10 minutos antes. 🙏\n\n¡Gracias por elegirnos! 🌟`;
 
-        // Enviar texto primero
+        // 1. Enviar mensaje de texto
         await client.sendMessage(targetId, textMessage);
 
-        // Generar Tarjeta Visual
+        // 2. Generar y enviar tarjeta visual
         const browser = await puppeteer.launch({
             headless: true,
             args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -149,7 +167,7 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
                             <div class="value" style="font-size: 18px; color: #1a5fa8;">${data.clienteNombre}</div>
                         </div>
                         <div class="info-box">
-                            <div class="label">Fecha del Servicio</div>
+                            <div class="label">Fecha</div>
                             <div class="value">${data.fecha}</div>
                         </div>
                         <div class="info-box">
@@ -167,7 +185,7 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
                             </div>
                         </div>
                         <div class="info-box">
-                            <div class="label">Vehículo / Placa</div>
+                            <div class="label">Vehículo</div>
                             <div class="value">${data.placa}</div>
                         </div>
                         <div class="info-box">
@@ -176,9 +194,7 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
                         </div>
                     </div>
                 </div>
-                <div class="footer">
-                    Nova | Asistente Virtual J&J
-                </div>
+                <div class="footer">Nova | Transportes Especiales J&J</div>
             </div>
         </body>
         </html>`;
@@ -188,118 +204,93 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
         const screenshot = await cardElement.screenshot({ encoding: 'base64' });
         await browser.close();
 
-        const media = new MessageMedia('image/png', screenshot, 'resumen_servicio.png');
+        const media = new MessageMedia('image/png', screenshot, 'resumen.png');
         await client.sendMessage(targetId, media);
 
-        res.json({ success: true, message: 'Notificación enviada con éxito' });
+        res.json({ success: true, message: 'Notificación enviada' });
     } catch (error) {
-        console.error('[Nova Error] Detalle:', error);
-        // Si el error indica que el número no existe, devolvemos un mensaje claro
-        const errorMessage = error.message && error.message.includes('not exist') 
-            ? 'El número no está registrado en WhatsApp o el formato es incorrecto.' 
-            : error.message || 'Error al enviar mensaje';
-        res.status(500).json({ error: errorMessage });
+        console.error('[Nova Error]', error);
+        res.status(500).json({ error: error.message || 'Error al enviar mensaje' });
     }
 });
 
-// Notificación de Salida
 app.post('/send-departure-notification', authMiddleware, async (req, res) => {
     const data = req.body;
     if (!data.clienteTelefono) return res.status(400).json({ error: 'Teléfono requerido' });
-    if (!isReady) return res.status(503).json({ error: 'Bot no conectado' });
-
-    const targetId = formatWAId(data.clienteTelefono);
+    if (!isReady) return res.status(503).json({ error: 'Nova desconectada' });
 
     try {
-        // Consultas de APIs Externas
-        let duracion = 'N/A';
-        let distancia = 'N/A';
+        const targetId = await resolveWAId(data.clienteTelefono);
+
+        // Consultas APIs
+        let duracion = 'N/A', distancia = 'N/A';
         try {
             const mapsUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(data.origen)}&destination=${encodeURIComponent(data.destino)}&language=es&departure_time=now&key=${process.env.GOOGLE_MAPS_API_KEY}`;
             const mapsResponse = await fetch(mapsUrl);
             const mapsData = await mapsResponse.json();
-            if (mapsData.status === 'OK' && mapsData.routes.length > 0) {
+            if (mapsData.status === 'OK') {
                 const leg = mapsData.routes[0].legs[0];
                 duracion = leg.duration_in_traffic?.text || leg.duration.text;
                 distancia = leg.distance.text;
             }
-        } catch (e) { console.warn('Maps falló:', e.message); }
+        } catch (e) {}
 
-        let climaInfo = { temperatura: 18, sensacion: 18, descripcion: 'despejado', climaMain: 'Clear', humedad: 50 };
+        let clima = { temp: 18, desc: 'despejado', main: 'Clear' };
         try {
             const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=Bogota,CO&appid=${process.env.OPENWEATHER_API_KEY}&units=metric&lang=es`;
-            const weatherResponse = await fetch(weatherUrl);
-            const weatherData = await weatherResponse.json();
+            const weatherRes = await fetch(weatherUrl);
+            const weatherData = await weatherRes.json();
             if (weatherData.main) {
-                climaInfo = {
-                    temperatura: Math.round(weatherData.main.temp),
-                    sensacion: Math.round(weatherData.main.feels_like),
-                    descripcion: weatherData.weather[0].description,
-                    climaMain: weatherData.weather[0].main,
-                    humedad: weatherData.main.humidity
-                };
+                clima = { temp: Math.round(weatherData.main.temp), desc: weatherData.weather[0].description, main: weatherData.weather[0].main };
             }
-        } catch (e) { console.warn('Weather falló:', e.message); }
+        } catch (e) {}
 
-        let recomendacion = '';
-        if (['Rain', 'Drizzle', 'Thunderstorm'].includes(climaInfo.climaMain)) {
-            recomendacion = '🌂 *Recomendación:* Hay probabilidad de lluvia en tu destino. Te sugerimos llevar paraguas.';
-        } else if (climaInfo.temperatura < 14) {
-            recomendacion = '🧥 *Recomendación:* Hace frío en el destino. Te sugerimos llevar abrigo.';
-        } else if (climaInfo.temperatura > 24) {
-            recomendacion = '☀️ *Recomendación:* Hace calor en el destino. Te sugerimos ropa ligera.';
-        } else {
-            recomendacion = '✅ *Recomendación:* El clima está agradable. ¡Disfruta tu viaje!';
-        }
+        let rec = '✅ El clima está agradable. ¡Disfruta tu viaje!';
+        if (['Rain', 'Drizzle', 'Thunderstorm'].includes(clima.main)) rec = '🌂 Hay probabilidad de lluvia. Te sugerimos llevar paraguas.';
+        else if (clima.temp < 14) rec = '🧥 Hace frío en el destino. Te sugerimos llevar abrigo.';
 
-        const textMessage = `🚐 *¡Es hora de tu servicio!*\n\nHola ${data.clienteNombre}, soy *Nova* de *Transportes Especiales J&J* 👋\n\nTu conductor ya está en camino. Aquí tienes tu ruta en tiempo real:\n\n━━━━━━━━━━━━━━━━\n🗺️ *Distancia:* ${distancia}\n⏱️ *Tiempo estimado:* ${duracion}\n━━━━━━━━━━━━━━━━\n\n🌤️ *Clima en tu destino:*\n🌡️ Temperatura: ${climaInfo.temperatura}°C (sensación ${climaInfo.sensacion}°C)\n☁️ Condición: ${climaInfo.descripcion}\n\n${recomendacion}\n\n━━━━━━━━━━━━━━━━\nPor favor estar listo en el punto de recogida. 🙏\n\n¡Buen viaje! 🌟`;
+        const text = `🚐 *¡Es hora de tu servicio!*\n\nHola ${data.clienteNombre}, soy *Nova* 👋\n\nTu conductor ya está en camino:\n\n━━━━━━━━━━━━━━━━\n🗺️ *Distancia:* ${distancia}\n⏱️ *Tiempo estimado:* ${duracion}\n━━━━━━━━━━━━━━━━\n\n🌤️ *Clima en destino:*\n🌡️ ${clima.temp}°C - ${clima.desc}\n\n${rec}\n\n¡Buen viaje! 🌟`;
 
-        await client.sendMessage(targetId, textMessage);
-        res.json({ success: true, message: 'Notificación de salida enviada' });
-
+        await client.sendMessage(targetId, text);
+        res.json({ success: true });
     } catch (error) {
-        console.error('Error en salida:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-// Cron Job automático
+// Cron Job
 cron.schedule('* * * * *', async () => {
     const now = new Date();
     try {
-        const snapshot = await admin.firestore()
-            .collection('servicios')
+        const snapshot = await admin.firestore().collection('servicios')
             .where('estado', 'in', ['Programado', 'programado'])
             .where('notificacionSalidaEnviada', '==', false)
             .get();
 
         for (const doc of snapshot.docs) {
-            const servicio = doc.data();
-            if (servicio.horaRecogidaTimestamp) {
-                const horaRecogida = servicio.horaRecogidaTimestamp.toDate();
-                const diffMin = Math.abs(now - horaRecogida) / 60000; 
-
-                if (diffMin <= 1.5) {
+            const s = doc.data();
+            if (s.horaRecogidaTimestamp) {
+                const hora = s.horaRecogidaTimestamp.toDate();
+                const diff = Math.abs(now - hora) / 60000;
+                if (diff <= 1.5) {
                     await fetch(`http://localhost:${port}/send-departure-notification`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
                         body: JSON.stringify({
-                            clienteTelefono: servicio.telefonoCliente,
-                            clienteNombre: servicio.cliente,
-                            origen: servicio.origen,
-                            destino: servicio.destino
+                            clienteTelefono: s.telefonoCliente,
+                            clienteNombre: s.cliente,
+                            origen: s.origen,
+                            destino: s.destino
                         })
                     });
                     await doc.ref.update({ notificacionSalidaEnviada: true });
                 }
             }
         }
-    } catch (error) {
-        console.error('[CRON] Error:', error);
-    }
+    } catch (e) {}
 });
 
 app.listen(port, '0.0.0.0', () => {
-    console.log(`Bot Nova en puerto ${port}`);
-    client.initialize().catch(err => console.error('Error init:', err));
+    console.log(`[Nova] Servidor en puerto ${port}`);
+    client.initialize().catch(err => console.error('[Nova] Init error:', err));
 });
