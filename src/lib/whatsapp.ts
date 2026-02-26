@@ -18,15 +18,12 @@ export async function enviarNotificacionServicio(servicio: {
   phone = phone.replace(/\D/g, ''); // elimina todo lo que no sea dígito
   phone = phone.replace(/^0+/, ''); // elimina ceros iniciales
 
-  // Agregar código de Colombia si no lo tiene (asumiendo 10 dígitos para celular local)
+  // Agregar código de Colombia (57) si tiene 10 dígitos y no los tiene ya
   if (phone.length === 10 && !phone.startsWith('57')) {
-    phone = `57${phone}`;
-  } else if (phone.length > 0 && !phone.startsWith('57')) {
-    // Si tiene otra longitud pero no empieza por 57, lo forzamos si es un número local común
     phone = `57${phone}`;
   }
 
-  console.log('Nova intentando enviar notificación a:', phone);
+  console.log('Solicitando a Nova enviar notificación a:', phone);
 
   try {
     const response = await fetch(`${WHATSAPP_BOT_URL}/send-service-notification`, {
@@ -37,13 +34,13 @@ export async function enviarNotificacionServicio(servicio: {
       },
       body: JSON.stringify({
         ...servicio,
-        clienteTelefono: phone // Enviamos el número limpio
+        clienteTelefono: phone 
       })
     });
     
     if (!response.ok) {
         const errorText = await response.text();
-        let errorMessage = `Error del servidor Nova (${response.status})`;
+        let errorMessage = `Error de Nova (${response.status})`;
         try {
             const errorJson = JSON.parse(errorText);
             errorMessage = errorJson.error || errorMessage;
@@ -71,7 +68,6 @@ export async function obtenerEstadoWhatsApp() {
     if (!response.ok) return { connected: false };
     return response.json();
   } catch (error) {
-    console.warn('Servidor del bot no disponible actualmente.');
     return { connected: false, error: 'Servidor fuera de línea' };
   }
 }
@@ -85,7 +81,6 @@ export async function obtenerQR() {
     });
     return response.json();
   } catch (error) {
-    console.warn('No se pudo obtener el QR:', error);
     return { error: 'No se pudo obtener el código QR' };
   }
 }
