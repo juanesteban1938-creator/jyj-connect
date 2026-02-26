@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/jj-ui/calendar';
-import { Calendar as CalendarIcon, User, Briefcase, MapPin, DollarSign, GripVertical, MinusCircle, PlusCircle, CreditCard, Wallet, Mail } from 'lucide-react';
+import { Calendar as CalendarIcon, User, Briefcase, MapPin, DollarSign, GripVertical, MinusCircle, PlusCircle, CreditCard, Wallet, Mail, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { useState, useEffect } from 'react';
@@ -47,6 +47,7 @@ const formSchema = z.object({
     esConductorNoRegistrado: z.boolean().default(false),
     conductorId: z.string().optional(),
     conductorOtro: z.string().optional(),
+    conductorTelefonoOtro: z.string().optional(),
 
     esVehiculoNoRegistrado: z.boolean().default(false),
     vehiculoId: z.string().optional(),
@@ -92,28 +93,10 @@ type Props = {
 };
 
 const bancosColombia = [
-  "Bancolombia",
-  "Banco de Bogotá",
-  "Davivienda",
-  "BBVA Colombia",
-  "Banco de Occidente",
-  "Banco Popular",
-  "Banco AV Villas",
-  "Itaú Corpbanca Colombia",
-  "Scotiabank Colpatria",
-  "GNB Sudameris",
-  "Banco Caja Social",
-  "Citibank Colombia",
-  "Banco Agrario de Colombia",
-  "Bancamía",
-  "Banco W",
-  "Bancoomeva",
-  "Banco Falabella",
-  "Banco Pichincha",
-  "Banco Serfinanza",
-  "RappiPay",
-  "Lulo Bank",
-  "Nequi",
+  "Bancolombia", "Banco de Bogotá", "Davivienda", "BBVA Colombia", "Banco de Occidente", "Banco Popular", "Banco AV Villas",
+  "Itaú Corpbanca Colombia", "Scotiabank Colpatria", "GNB Sudameris", "Banco Caja Social", "Citibank Colombia",
+  "Banco Agrario de Colombia", "Bancamía", "Banco W", "Bancoomeva", "Banco Falabella", "Banco Pichincha",
+  "Banco Serfinanza", "RappiPay", "Lulo Bank", "Nequi",
 ];
 
 export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculos }: Props) {
@@ -129,6 +112,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
       esConductorNoRegistrado: false,
       conductorId: '',
       conductorOtro: '',
+      conductorTelefonoOtro: '',
       esVehiculoNoRegistrado: false,
       vehiculoId: '',
       vehiculoOtro: '',
@@ -154,22 +138,21 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
   const [hora, setHora] = useState('00');
   const [minutos, setMinutos] = useState('00');
   
-    useEffect(() => {
+  useEffect(() => {
     if (servicio) {
-        const [h, m] = servicio.hora.split(':');
+        const [h, m] = (servicio.hora || '00:00').split(':');
         setHora(h);
         setMinutos(m);
         form.reset({
             nombreCliente: servicio.cliente,
-            nitCliente: servicio.nitCliente,
-            telefonoCliente: servicio.telefonoCliente,
-            emailCliente: servicio.emailCliente,
-            // Logic for conductor/vehicle would need more info on how they are stored
-            fechaRecogida: parseISO(servicio.fecha),
+            nitCliente: servicio.nitCliente || '',
+            telefonoCliente: servicio.telefonoCliente || '',
+            emailCliente: servicio.emailCliente || '',
+            fechaRecogida: servicio.fecha ? parseISO(servicio.fecha) : new Date(),
             horaRecogida: servicio.hora,
             direccionRecogida: servicio.origen,
             direccionDestino: servicio.destino,
-            paradasAdicionales: servicio.paradasAdicionales.map(p => ({ direccion: p })),
+            paradasAdicionales: (servicio.paradasAdicionales || []).map(p => ({ direccion: p })),
             metodoPago: servicio.metodoPago,
             valorServicio: servicio.valorServicio,
             costoOperacion: servicio.costoOperacion,
@@ -177,35 +160,14 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
             anticipo: servicio.anticipo,
             numeroComprobante: servicio.numeroComprobante,
             banco: servicio.banco,
+            esConductorNoRegistrado: !conductores.some(c => `${c.nombres} ${c.apellidos}` === servicio.conductor),
+            conductorOtro: servicio.conductor,
+            conductorTelefonoOtro: servicio.conductorTelefono,
+            esVehiculoNoRegistrado: !vehiculos.some(v => v.placa === servicio.vehiculoPlaca),
+            vehiculoOtro: servicio.vehiculoPlaca
         });
-    } else {
-        form.reset({
-            nombreCliente: '',
-            nitCliente: '',
-            telefonoCliente: '',
-            emailCliente: '',
-            esConductorNoRegistrado: false,
-            conductorId: '',
-            conductorOtro: '',
-            esVehiculoNoRegistrado: false,
-            vehiculoId: '',
-            vehiculoOtro: '',
-            horaRecogida: '00:00',
-            direccionRecogida: '',
-            paradasAdicionales: [],
-            direccionDestino: '',
-            metodoPago: 'Facturacion',
-            valorServicio: 0,
-            costoOperacion: 0,
-            estadoPago: 'Pendiente',
-            anticipo: 0,
-            numeroComprobante: '',
-            banco: '',
-        });
-        setHora('00');
-        setMinutos('00');
     }
-  }, [servicio, form]);
+  }, [servicio, form, conductores, vehiculos]);
 
 
   useEffect(() => {
@@ -232,14 +194,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
   const esVehiculoNoRegistrado = form.watch('esVehiculoNoRegistrado');
   
   const onSubmit = (data: ServicioFormValues) => {
-    const finalData = {
-        ...data,
-        conductorId: data.esConductorNoRegistrado ? undefined : data.conductorId,
-        conductorOtro: data.esConductorNoRegistrado ? data.conductorOtro : undefined,
-        vehiculoId: data.esVehiculoNoRegistrado ? undefined : data.vehiculoId,
-        vehiculoOtro: data.esVehiculoNoRegistrado ? data.vehiculoOtro : undefined,
-    }
-    onSave(finalData);
+    onSave(data);
   };
 
   const OrigenIcon = () => (
@@ -288,12 +243,12 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
+                    <div className="space-y-4 border p-4 rounded-lg bg-muted/10">
                          <FormField
                             control={form.control}
                             name="esConductorNoRegistrado"
                             render={({ field }) => (
-                                <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                <FormItem className="flex flex-row items-center space-x-2 space-y-0 pb-2">
                                 <FormControl>
                                     <Checkbox
                                         checked={field.value}
@@ -301,36 +256,55 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                                             field.onChange(checked);
                                             form.setValue('conductorId', '');
                                             form.setValue('conductorOtro', '');
+                                            form.setValue('conductorTelefonoOtro', '');
                                         }}
                                     />
                                 </FormControl>
-                                <FormLabel className="font-normal">Conductor no registrado</FormLabel>
+                                <FormLabel className="font-bold text-primary">Conductor NO registrado</FormLabel>
                                 </FormItem>
                             )}
                         />
                         {esConductorNoRegistrado ? (
-                            <FormField
-                                control={form.control}
-                                name="conductorOtro"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Nombre del Conductor</FormLabel>
-                                        <FormControl><Input placeholder="Escribir nombre..." {...field} value={field.value ?? ''} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                            <div className="space-y-3">
+                                <FormField
+                                    control={form.control}
+                                    name="conductorOtro"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Nombre del Conductor</FormLabel>
+                                            <FormControl><Input placeholder="Nombre completo..." {...field} value={field.value ?? ''} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="conductorTelefonoOtro"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Teléfono del Conductor</FormLabel>
+                                            <FormControl>
+                                                <div className="relative">
+                                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                    <Input className="pl-9" placeholder="Celular..." {...field} value={field.value ?? ''} />
+                                                </div>
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
                         ) : (
                              <FormField
                                 control={form.control}
                                 name="conductorId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Conductor</FormLabel>
+                                        <FormLabel>Seleccionar Conductor</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                                             <FormControl>
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder="Seleccione un conductor" />
+                                                    <SelectValue placeholder="Busque en conductores registrados" />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
@@ -343,12 +317,12 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                             />
                         )}
                     </div>
-                     <div className="space-y-2">
+                     <div className="space-y-4 border p-4 rounded-lg bg-muted/10">
                         <FormField
                             control={form.control}
                             name="esVehiculoNoRegistrado"
                             render={({ field }) => (
-                                <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                <FormItem className="flex flex-row items-center space-x-2 space-y-0 pb-2">
                                 <FormControl>
                                     <Checkbox
                                         checked={field.value}
@@ -359,7 +333,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                                         }}
                                     />
                                 </FormControl>
-                                <FormLabel className="font-normal">Vehículo no registrado</FormLabel>
+                                <FormLabel className="font-bold text-primary">Vehículo NO registrado</FormLabel>
                                 </FormItem>
                             )}
                         />
@@ -381,11 +355,11 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                                 name="vehiculoId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Vehículo</FormLabel>
+                                        <FormLabel>Seleccionar Vehículo</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                                             <FormControl>
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder="Seleccione un vehículo" />
+                                                    <SelectValue placeholder="Busque por placa..." />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>

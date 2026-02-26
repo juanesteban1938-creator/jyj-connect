@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -71,6 +70,7 @@ export default function ServiciosPage() {
   }, []);
 
   const sanitizePhone = (phone: string) => {
+    if (!phone) return 'N/A';
     let cleaned = phone.replace(/\D/g, ''); 
     if (cleaned.length === 10) cleaned = '57' + cleaned;
     return cleaned;
@@ -125,14 +125,17 @@ export default function ServiciosPage() {
     const newId = Date.now().toString();
     const newConsecutivo = `GA-CCT-${servicios.length + 100}`;
     
+    // Resolución de vehículo
     const vehiculoObj = data.esVehiculoNoRegistrado ? null : vehiculos.find(v => v.id === data.vehiculoId);
     const placaReal = vehiculoObj ? vehiculoObj.placa : (data.vehiculoOtro || 'N/A');
+    const vehiculoNombre = data.esVehiculoNoRegistrado ? data.vehiculoOtro : (vehiculoObj ? `${vehiculoObj.marca} ${vehiculoObj.linea}` : 'N/A');
     
+    // Resolución de conductor
     const conductorObj = data.esConductorNoRegistrado ? null : conductores.find(c => c.id === data.conductorId);
     const conductorName = conductorObj ? `${conductorObj.nombres} ${conductorObj.apellidos}` : (data.conductorOtro || 'No asignado');
-    const conductorPhone = conductorObj?.telefono || 'N/A';
+    const conductorPhone = conductorObj ? conductorObj.telefono : (data.conductorTelefonoOtro || 'N/A');
 
-    console.log('Guardando servicio. Datos para Nova:', { placaReal, conductorName, conductorPhone });
+    console.log('Guardando servicio. Datos resueltos:', { placaReal, conductorName, conductorPhone });
 
     const nuevoServicioData: Servicio = { 
       ...data, 
@@ -144,12 +147,12 @@ export default function ServiciosPage() {
       destino: data.direccionDestino,
       fecha: data.fechaRecogida.toISOString(),
       hora: data.horaRecogida,
-      vehiculo: data.esVehiculoNoRegistrado ? data.vehiculoOtro : (vehiculoObj ? `${vehiculoObj.marca} ${vehiculoObj.linea}` : 'N/A'),
+      vehiculo: vehiculoNombre,
       vehiculoPlaca: placaReal,
       conductor: conductorName,
       conductorTelefono: conductorPhone,
       estado: selected?.estado || 'Programado',
-      paradasAdicionales: data.paradasAdicionales.map((p: any) => p.direccion)
+      paradasAdicionales: (data.paradasAdicionales || []).map((p: any) => p.direccion)
     };
 
     let updated;
@@ -162,13 +165,13 @@ export default function ServiciosPage() {
     setServicios(updated);
     localStorage.setItem('servicios', JSON.stringify(updated));
     setIsFormOpen(false);
-    toast({ title: "Servicio guardado" });
+    toast({ title: "Servicio guardado exitosamente" });
 
     if (isNew) {
       const phone = sanitizePhone(data.telefonoCliente);
       const fechaStr = format(data.fechaRecogida, 'dd/MM/yyyy', { locale: es });
 
-      console.log('Iniciando envío automático de Nova...');
+      console.log('Iniciando envío automático de Nova con datos:', { conductorName, conductorPhone, placaReal });
 
       try {
         await enviarNotificacionServicio({
@@ -192,9 +195,9 @@ export default function ServiciosPage() {
           estado: 'enviado'
         });
 
-        toast({ title: "Nova ha notificado al cliente", description: "Se envió el resumen de confirmación automáticamente." });
+        toast({ title: "Nova ha notificado al cliente", description: "Confirmación enviada automáticamente por WhatsApp." });
       } catch (err: any) {
-        console.error("Error al notificar por WhatsApp automáticamente:", err);
+        console.error("Error al notificar automáticamente:", err);
         addDoc(collection(db, 'notificaciones_whatsapp'), {
           fecha: serverTimestamp(),
           clienteNombre: data.nombreCliente,
@@ -230,7 +233,7 @@ export default function ServiciosPage() {
         </div>
         <Dialog open={isFormOpen} onOpenChange={(o) => { setIsFormOpen(o); if(!o) setSelected(null); }}>
           <Button onClick={() => setIsFormOpen(true)} className="btn-action"><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Servicio</Button>
-          <DialogContent className="sm:max-w-3xl">
+          <DialogContent className="sm:max-w-4xl">
             <VisuallyHidden><DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader></VisuallyHidden>
             <DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader>
             <ServicioForm servicio={selected} onSave={handleSave} onCancel={() => setIsFormOpen(false)} conductores={conductores} vehiculos={vehiculos} />
