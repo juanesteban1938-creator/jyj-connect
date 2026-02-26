@@ -6,7 +6,17 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { Search, PlusCircle, Eye, Edit, MessageSquare, Loader2, Briefcase, User, Truck } from 'lucide-react';
+import { 
+  Search, 
+  PlusCircle, 
+  Eye, 
+  Edit, 
+  MessageSquare, 
+  Loader2, 
+  Briefcase, 
+  User, 
+  Truck 
+} from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { format, isValid } from 'date-fns';
@@ -111,6 +121,9 @@ export default function ServiciosPage() {
           throw new Error("La fecha u hora seleccionada no es válida.");
       }
 
+      // 1. Limpieza de teléfono (Solo dígitos para Nova)
+      const cleanPhone = data.telefonoCliente.replace(/\D/g, '');
+
       const payload: Servicio = { 
         id: selected?.id || Date.now().toString(),
         consecutivo: selected?.consecutivo || `GA-CCT-${servicios.length + 101}`,
@@ -118,7 +131,7 @@ export default function ServiciosPage() {
         clienteIniciales: data.nombreCliente.substring(0, 2).toUpperCase(),
         origen: data.direccionRecogida,
         destino: data.direccionDestino,
-        telefonoCliente: data.telefonoCliente,
+        telefonoCliente: cleanPhone,
         fecha: data.fechaRecogida.toISOString(),
         hora: data.horaRecogida,
         nitCliente: data.nitCliente,
@@ -138,10 +151,12 @@ export default function ServiciosPage() {
         notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false
       };
 
-      const updated = selected ? servicios.map(s => s.id === selected.id ? payload : s) : [...servicios, payload];
-      setServicios(updated);
-      localStorage.setItem('servicios', JSON.stringify(updated));
+      // Guardado Local
+      const updatedServicios = selected ? servicios.map(s => s.id === selected.id ? payload : s) : [...servicios, payload];
+      setServicios(updatedServicios);
+      localStorage.setItem('servicios', JSON.stringify(updatedServicios));
 
+      // 2. Guardado en Firestore con campos exactos
       const firestoreData = {
         ...payload,
         horaRecogidaTimestamp: Timestamp.fromDate(pickupDate),
@@ -149,7 +164,12 @@ export default function ServiciosPage() {
       };
 
       if (isNew) {
-        await addDoc(collection(db, 'servicios'), { ...firestoreData, createdAt: serverTimestamp() });
+        await addDoc(collection(db, 'servicios'), { 
+          ...firestoreData, 
+          createdAt: serverTimestamp(),
+          estado: "Programado", // Forzado para nuevos
+          notificacionSalidaEnviada: false // Forzado para nuevos
+        });
       } else {
         await setDoc(doc(db, 'servicios', payload.id), firestoreData, { merge: true });
       }
@@ -169,7 +189,9 @@ export default function ServiciosPage() {
   };
 
   const filtered = servicios.filter(s => {
-    const isMatch = s.cliente?.toLowerCase().includes(searchTerm.toLowerCase()) || s.conductor?.toLowerCase().includes(searchTerm.toLowerCase()) || s.vehiculoPlaca?.toLowerCase().includes(searchTerm.toLowerCase());
+    const isMatch = s.cliente?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                    s.conductor?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                    s.vehiculoPlaca?.toLowerCase().includes(searchTerm.toLowerCase());
     const isTabMatch = activeTab === 'activos' ? (s.estado === 'Programado' || s.estado === 'En Servicio') : (s.estado === 'Finalizado' || s.estado === 'Cancelado');
     return isMatch && isTabMatch;
   });
