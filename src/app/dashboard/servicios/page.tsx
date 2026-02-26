@@ -115,7 +115,7 @@ export default function ServiciosPage() {
         estado: 'error',
         error: err.message
       });
-      toast({ variant: "destructive", title: "Error de notificación", description: "No se pudo conectar con Nova." });
+      toast({ variant: "destructive", title: "Error de notificación", description: err.message || "No se pudo conectar con Nova." });
     }
   };
 
@@ -246,6 +246,7 @@ export default function ServiciosPage() {
           estado: 'error',
           error: err.message
         });
+        toast({ variant: "destructive", title: "Error en notificación automática", description: err.message || "Fallo al conectar con el bot." });
       }
     }
     

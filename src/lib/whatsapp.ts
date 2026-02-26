@@ -26,12 +26,19 @@ export async function enviarNotificacionServicio(servicio: {
     
     if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Bot respondió con error: ${response.status} - ${errorText}`);
+        let errorMessage = `Bot respondió con error: ${response.status}`;
+        try {
+            const errorJson = JSON.parse(errorText);
+            errorMessage = errorJson.error || errorMessage;
+        } catch (e) {
+            errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
     }
 
     return await response.json();
-  } catch (error) {
-    console.warn('Error enviando notificación avanzada:', error);
+  } catch (error: any) {
+    console.warn('Error detallado enviando notificación:', error.message);
     throw error;
   }
 }
@@ -47,7 +54,6 @@ export async function obtenerEstadoWhatsApp() {
     if (!response.ok) return { connected: false };
     return response.json();
   } catch (error) {
-    // Usamos warn para evitar disparar el error overlay de NextJS en desarrollo
     console.warn('Servidor del bot no disponible actualmente.');
     return { connected: false, error: 'Servidor fuera de línea' };
   }
