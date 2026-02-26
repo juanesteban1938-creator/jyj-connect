@@ -10,7 +10,7 @@ import { Search, PlusCircle, Eye, Edit, MessageSquare } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -71,7 +71,6 @@ export default function ServiciosPage() {
     if (c) setConductores(JSON.parse(c));
   }, []);
 
-  // Función para sanitizar el número de teléfono
   const sanitizePhone = (phone: string) => {
     if (!phone) return '';
     let cleaned = phone.toString().replace(/\D/g, ''); 
@@ -126,20 +125,16 @@ export default function ServiciosPage() {
     const newId = Date.now().toString();
     const newConsecutivo = `GA-CCT-${servicios.length + 101}`;
     
-    // Sanitizar teléfono antes de guardar
     const cleanPhone = sanitizePhone(data.telefonoCliente);
 
-    // Resolución de vehículo
     const vehiculoObj = data.esVehiculoNoRegistrado ? null : vehiculos.find(v => v.id === data.vehiculoId);
     const placaReal = vehiculoObj ? vehiculoObj.placa : (data.vehiculoOtro || 'N/A');
     const vehiculoNombre = data.esVehiculoNoRegistrado ? data.vehiculoOtro : (vehiculoObj ? `${vehiculoObj.marca} ${vehiculoObj.linea}` : 'N/A');
     
-    // Resolución de conductor
     const conductorObj = data.esConductorNoRegistrado ? null : conductores.find(c => c.id === data.conductorId);
     const conductorName = conductorObj ? `${conductorObj.nombres} ${conductorObj.apellidos}` : (data.conductorOtro || 'No asignado');
     const conductorPhone = conductorObj ? conductorObj.telefono : (data.conductorTelefonoOtro || 'N/A');
 
-    // PERSISTIR CLIENTE AUTOMÁTICAMENTE
     const storedClientes = localStorage.getItem('clientes');
     const currentClientes = storedClientes ? JSON.parse(storedClientes) : [];
     const clientIndex = currentClientes.findIndex((c: any) => c.nit === data.nitCliente);
@@ -169,16 +164,17 @@ export default function ServiciosPage() {
     const saldo = valor - anticipo;
 
     const nuevoServicioData: Servicio = { 
-      ...data, 
       id: selected?.id || newId,
       consecutivo: selected?.consecutivo || newConsecutivo,
       cliente: data.nombreCliente,
       clienteIniciales: data.nombreCliente.substring(0, 2).toUpperCase(),
       origen: data.direccionRecogida,
       destino: data.direccionDestino,
-      telefonoCliente: cleanPhone, // Guardamos el número limpio
-      fecha: data.fechaRecogida.toISOString(),
-      hora: data.horaRecogida,
+      telefonoCliente: cleanPhone,
+      fecha: data.fechaRecogida instanceof Date && isValid(data.fechaRecogida) ? data.fechaRecogida.toISOString() : new Date().toISOString(),
+      hora: data.horaRecogida || '00:00',
+      nitCliente: data.nitCliente,
+      emailCliente: data.emailCliente || '',
       vehiculo: vehiculoNombre,
       vehiculoPlaca: placaReal,
       conductor: conductorName,
@@ -188,6 +184,8 @@ export default function ServiciosPage() {
       anticipo: anticipo,
       costoOperacion: costo,
       saldo: saldo,
+      metodoPago: data.metodoPago,
+      estadoPago: data.estadoPago,
       paradasAdicionales: (data.paradasAdicionales || []).map((p: any) => p.direccion),
       notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false
     };
@@ -202,21 +200,31 @@ export default function ServiciosPage() {
     setServicios(updated);
     localStorage.setItem('servicios', JSON.stringify(updated));
     setIsFormOpen(false);
-    toast({ title: "Servicio guardado exitosamente" });
 
     // Sincronización con Firestore para el Bot (Cron Job)
-    const pickupDateTime = new Date(data.fechaRecogida);
-    const [h, m] = data.horaRecogida.split(':');
-    pickupDateTime.setHours(parseInt(h), parseInt(m), 0, 0);
+    try {
+      const pickupDateTime = new Date(data.fechaRecogida);
+      const timeParts = (data.horaRecogida || '00:00').split(':');
+      const h = parseInt(timeParts[0] || '0', 10);
+      const m = parseInt(timeParts[1] || '0', 10);
+      
+      if (isValid(pickupDateTime) && !isNaN(h) && !isNaN(m)) {
+        pickupDateTime.setHours(h, m, 0, 0);
+        
+        await addDoc(collection(db, 'servicios'), {
+          ...nuevoServicioData,
+          horaRecogidaTimestamp: Timestamp.fromDate(pickupDateTime),
+          createdAt: serverTimestamp()
+        });
+      }
+    } catch (fsError) {
+      console.error('Error al sincronizar con Firestore:', fsError);
+    }
 
-    addDoc(collection(db, 'servicios'), {
-      ...nuevoServicioData,
-      horaRecogidaTimestamp: Timestamp.fromDate(pickupDateTime),
-      createdAt: serverTimestamp()
-    });
+    toast({ title: "Servicio guardado exitosamente" });
 
     if (isNew) {
-      const fechaStr = format(data.fechaRecogida, 'dd/MM/yyyy', { locale: es });
+      const fechaStr = format(isValid(new Date(data.fechaRecogida)) ? new Date(data.fechaRecogida) : new Date(), 'dd/MM/yyyy', { locale: es });
       try {
         await enviarNotificacionServicio({
           clienteNombre: data.nombreCliente,
@@ -235,7 +243,7 @@ export default function ServiciosPage() {
           clienteNombre: data.nombreCliente,
           clienteTelefono: cleanPhone,
           origen: data.direccionRecogida,
-          destino: data.destino,
+          destino: data.direccionDestino,
           estado: 'enviado'
         });
 
@@ -246,7 +254,7 @@ export default function ServiciosPage() {
           clienteNombre: data.nombreCliente,
           clienteTelefono: cleanPhone,
           origen: data.direccionRecogida,
-          destino: data.destino,
+          destino: data.direccionDestino,
           estado: 'error',
           error: err.message
         });
@@ -297,7 +305,7 @@ export default function ServiciosPage() {
                 <div className="col-span-12 sm:col-span-2 text-center border-r pr-4">
                   <p className="text-xl font-bold text-primary">{s.hora}</p>
                   <p className="text-[10px] uppercase text-muted-foreground font-semibold">
-                    {s.fecha ? format(new Date(s.fecha), 'dd MMM', { locale: es }) : 'N/A'}
+                    {s.fecha && isValid(new Date(s.fecha)) ? format(new Date(s.fecha), 'dd MMM', { locale: es }) : 'N/A'}
                   </p>
                 </div>
                 <div className="col-span-12 sm:col-span-4 space-y-1">
@@ -344,3 +352,4 @@ export default function ServiciosPage() {
     </div>
   );
 }
+
