@@ -1,6 +1,6 @@
 /**
  * VIANOVA S.A.S - WhatsApp Bot Engine (Nova)
- * Versión: 3.6.0 (Resolución de ID Colombia + Tarjetas HD + Clima + Cron)
+ * Versión: 3.7.0 (Sincronización de ID + Tarjetas HD + Clima + Cron)
  */
 
 const express = require('express');
@@ -44,25 +44,12 @@ const client = new Client({
 });
 
 /**
- * LÓGICA DE RESOLUCIÓN DE ID (SOLUCIÓN COLOMBIA)
- * WhatsApp exige un "9" adicional después del 57 para números móviles en Colombia.
+ * RESOLUCIÓN DE ID (SÍNCRONA)
+ * Limpia y formatea el número para WhatsApp.
  */
-async function resolveWAId(number) {
+function resolveWAId(number) {
     let clean = number.toString().replace(/\D/g, '');
-    console.log(`[Nova] Resolviendo identidad para: ${clean}`);
-
-    // Intento 1: Validación oficial directa
-    const idDirect = await client.getNumberId(clean);
-    if (idDirect) return idDirect._serialized;
-
-    // Intento 2: Ajuste técnico Colombia (Prefijo 579 para móviles)
-    if (clean.startsWith('573') && clean.length === 12) {
-        const withNine = '579' + clean.substring(2);
-        const idWithNine = await client.getNumberId(withNine);
-        if (idWithNine) return idWithNine._serialized;
-        return `${withNine}@c.us`;
-    }
-
+    if (!clean.startsWith('57')) clean = '57' + clean;
     return `${clean}@c.us`;
 }
 
@@ -114,7 +101,7 @@ async function generateServiceCard(data) {
                     <div class="value">Placa: ${data.placa} / ${data.conductor}</div>
                 </div>
             </div>
-            <div class="footer">Este es un comprobante digital generado por Nova v3.6</div>
+            <div class="footer">Este es un comprobante digital generado por Nova v3.7</div>
         </div>
     </body>
     </html>
@@ -155,7 +142,7 @@ app.post('/send-service-notification', async (req, res) => {
     if (!isReady) return res.status(503).json({ error: 'Nova no está conectada' });
 
     try {
-        const jid = await resolveWAId(data.clienteTelefono);
+        const jid = resolveWAId(data.clienteTelefono);
         const imageBase64 = await generateServiceCard(data);
         const media = new MessageMedia('image/png', imageBase64, 'servicio.png');
 
@@ -166,7 +153,7 @@ app.post('/send-service-notification', async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error('[Nova] Error de envío:', error);
-        res.status(500).json({ error: 'Fallo al localizar el número en WhatsApp.' });
+        res.status(500).json({ error: 'Fallo al enviar notificación.' });
     }
 });
 
@@ -175,7 +162,7 @@ app.post('/send-departure-notification', async (req, res) => {
     if (!isReady) return res.status(503).json({ error: 'Nova no está conectada' });
 
     try {
-        const jid = await resolveWAId(data.clienteTelefono);
+        const jid = resolveWAId(data.clienteTelefono);
         
         let weatherMsg = '';
         try {
@@ -208,7 +195,7 @@ cron.schedule('* * * * *', async () => {
     snapshot.forEach(async (doc) => {
         const s = doc.data();
         try {
-            const jid = await resolveWAId(s.telefonoCliente);
+            const jid = resolveWAId(s.telefonoCliente);
             await client.sendMessage(jid, `🚨 *NOTIFICACIÓN AUTOMÁTICA:* Su servicio *${s.consecutivo}* está próximo a iniciar (en 10 minutos). El vehículo *${s.vehiculoPlaca}* está en camino.`);
             await doc.ref.update({ notificacionSalidaEnviada: true });
         } catch (e) { console.error(`[Cron] Error en servicio ${s.id}:`, e); }
