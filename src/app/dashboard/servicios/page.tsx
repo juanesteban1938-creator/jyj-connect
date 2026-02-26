@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { Search, PlusCircle, Eye, Edit, MessageSquare, Loader2 } from 'lucide-react';
+import { Search, PlusCircle, Eye, Edit, MessageSquare, Loader2, Briefcase, User, Truck } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { format, isValid } from 'date-fns';
@@ -168,7 +168,6 @@ export default function ServiciosPage() {
       setIsFormOpen(false);
       setSelected(null);
       
-      // Notificación automática solo en nuevos
       if (isNew) handleManualNotification(payload);
 
     } catch (error: any) {
