@@ -75,28 +75,32 @@ const authMiddleware = (req, res, next) => {
 
 /**
  * Resuelve el ID de WhatsApp correcto para un número.
- * Especialmente útil para Colombia (57) donde algunos números requieren un 9 interno.
+ * Implementa lógica de validación oficial y fallback.
  */
 async function resolveWAId(phone) {
     let clean = (phone || '').toString().replace(/\D/g, '');
     
-    // Si tiene 10 dígitos (Colombia), agregar el prefijo 57
-    if (clean.length === 10) clean = '57' + clean;
+    // Normalización para Colombia
+    if (clean.length === 10) {
+        clean = '57' + clean;
+    }
+
+    console.log(`[Nova] Intentando resolver ID para: ${clean}`);
 
     try {
-        // Intentar obtener el ID oficial desde la red de WhatsApp
+        // 1. Intentar validación oficial con el servidor de WhatsApp
         const info = await client.getNumberId(clean);
         if (info && info._serialized) {
-            console.log(`[Nova] ID resuelto por red: ${info._serialized}`);
+            console.log(`[Nova] ID oficial resuelto: ${info._serialized}`);
             return info._serialized;
         }
     } catch (e) {
-        console.warn(`[Nova] Error validando número ${clean}:`, e.message);
+        console.warn(`[Nova] Fallo en getNumberId para ${clean}:`, e.message);
     }
 
-    // Fallback: Formato manual estándar
-    const manualId = `${clean}@c.us`;
-    console.log(`[Nova] Usando ID manual (fallback): ${manualId}`);
+    // 2. Fallback: Formato manual si la validación falla
+    const manualId = clean.includes('@c.us') ? clean : `${clean}@c.us`;
+    console.log(`[Nova] Usando formato manual de respaldo: ${manualId}`);
     return manualId;
 }
 
@@ -119,9 +123,11 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
         const textMessage = `¡Hola, ${data.clienteNombre}! 👋\n\nSoy *Nova*, asistente virtual de *Transportes Especiales J&J* 🚐\n\nTu servicio ha sido programado:\n\n━━━━━━━━━━━━━━━━\n🗓️ *Fecha:* ${data.fecha}\n⏰ *Hora:* ${data.hora}\n📍 *Origen:* ${data.origen}\n🏁 *Destino:* ${data.destino}\n🚗 *Placa:* ${data.placa}\n👤 *Conductor:* ${data.conductor}\n📞 *Contacto:* ${data.telefonoConductor}\n━━━━━━━━━━━━━━━━\n\nPor favor estar listo 10 minutos antes. 🙏\n\n¡Gracias por elegirnos! 🌟`;
 
         // 1. Enviar mensaje de texto
+        console.log(`[Nova] Enviando texto a ${targetId}...`);
         await client.sendMessage(targetId, textMessage);
 
         // 2. Generar y enviar tarjeta visual
+        console.log(`[Nova] Generando tarjeta visual...`);
         const browser = await puppeteer.launch({
             headless: true,
             args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -258,7 +264,7 @@ app.post('/send-departure-notification', authMiddleware, async (req, res) => {
     }
 });
 
-// Cron Job
+// Cron Job automático
 cron.schedule('* * * * *', async () => {
     const now = new Date();
     try {
@@ -273,6 +279,7 @@ cron.schedule('* * * * *', async () => {
                 const hora = s.horaRecogidaTimestamp.toDate();
                 const diff = Math.abs(now - hora) / 60000;
                 if (diff <= 1.5) {
+                    console.log(`[Nova Cron] Disparando notificación de salida para ${s.cliente}...`);
                     await fetch(`http://localhost:${port}/send-departure-notification`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
@@ -287,7 +294,9 @@ cron.schedule('* * * * *', async () => {
                 }
             }
         }
-    } catch (e) {}
+    } catch (e) {
+        console.error('[Nova Cron Error]', e.message);
+    }
 });
 
 app.listen(port, '0.0.0.0', () => {

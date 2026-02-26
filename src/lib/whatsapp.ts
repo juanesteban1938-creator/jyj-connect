@@ -2,6 +2,22 @@
 const WHATSAPP_BOT_URL = 'https://focused-harmony-production.up.railway.app';
 const API_KEY = 'jj-connect-2026';
 
+/**
+ * Limpia y normaliza un número de teléfono para WhatsApp.
+ */
+function sanitizePhoneNumber(phone: string): string {
+  if (!phone) return '';
+  // Solo dígitos
+  let cleaned = phone.toString().replace(/\D/g, '');
+  // Eliminar ceros iniciales
+  cleaned = cleaned.replace(/^0+/, '');
+  // Si tiene 10 dígitos (Colombia), asegurar el prefijo 57
+  if (cleaned.length === 10 && !cleaned.startsWith('57')) {
+    cleaned = '57' + cleaned;
+  }
+  return cleaned;
+}
+
 export async function enviarNotificacionServicio(servicio: {
   clienteNombre: string
   clienteTelefono: string
@@ -13,15 +29,8 @@ export async function enviarNotificacionServicio(servicio: {
   conductor: string
   telefonoConductor: string
 }) {
-  // Limpieza agresiva del número: solo dígitos
-  let phone = (servicio.clienteTelefono || '').toString().replace(/\D/g, '');
-  phone = phone.replace(/^0+/, ''); // elimina ceros iniciales
-
-  // Estandarizar código de Colombia si el número tiene 10 dígitos
-  if (phone.length === 10 && !phone.startsWith('57')) {
-    phone = `57${phone}`;
-  }
-
+  const phone = sanitizePhoneNumber(servicio.clienteTelefono);
+  
   console.log('Solicitando a Nova enviar notificación a:', phone);
 
   try {
@@ -67,7 +76,6 @@ export async function obtenerEstadoWhatsApp() {
     if (!response.ok) return { connected: false };
     return response.json();
   } catch (error) {
-    // Silenciamos el error visual para evitar overlays de NextJS
     return { connected: false, error: 'Servidor fuera de línea' };
   }
 }
