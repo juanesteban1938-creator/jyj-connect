@@ -72,23 +72,12 @@ export default function ServiciosPage() {
     if (c) setConductores(JSON.parse(c));
   }, []);
 
-  const sanitizePhone = (phone: string) => {
-    if (!phone) return '';
-    let cleaned = phone.toString().replace(/\D/g, ''); 
-    cleaned = cleaned.replace(/^0+/, '');
-    if (cleaned.length === 10) cleaned = '57' + cleaned;
-    return cleaned;
-  };
-
   const handleManualNotification = async (s: Servicio) => {
-    const phone = sanitizePhone(s.telefonoCliente);
-    const fechaStr = format(new Date(s.fecha), 'dd/MM/yyyy', { locale: es });
-
     try {
       await enviarNotificacionServicio({
         clienteNombre: s.cliente,
-        clienteTelefono: phone,
-        fecha: fechaStr,
+        clienteTelefono: s.telefonoCliente,
+        fecha: format(new Date(s.fecha), 'dd/MM/yyyy'),
         hora: s.hora,
         origen: s.origen,
         destino: s.destino,
@@ -96,19 +85,9 @@ export default function ServiciosPage() {
         conductor: s.conductor,
         telefonoConductor: s.conductorTelefono || 'N/A'
       });
-      
-      addDoc(collection(db, 'notificaciones_whatsapp'), {
-        fecha: serverTimestamp(),
-        clienteNombre: s.cliente,
-        clienteTelefono: phone,
-        origen: s.origen,
-        destino: s.destino,
-        estado: 'enviado'
-      });
-
-      toast({ title: "Notificación enviada", description: `Nova notificó a ${s.cliente} correctamente.` });
+      toast({ title: "Notificación enviada" });
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Error de notificación", description: err.message });
+      toast({ variant: "destructive", title: "Error", description: err.message });
     }
   };
 
@@ -118,43 +97,34 @@ export default function ServiciosPage() {
 
     try {
       const isNew = !selected;
-      const cleanPhone = sanitizePhone(data.telefonoCliente);
-
-      // Resolución de Vehículo y Placa
       const vehiculoObj = data.esVehiculoNoRegistrado ? null : vehiculos.find(v => v.id === data.vehiculoId);
       const placaReal = data.esVehiculoNoRegistrado ? (data.vehiculoOtro || 'N/A') : (vehiculoObj?.placa || 'N/A');
-      const vehiculoNombre = data.esVehiculoNoRegistrado ? `• ${data.vehiculoOtro}` : (vehiculoObj ? `${vehiculoObj.marca} ${vehiculoObj.linea} • ${vehiculoObj.placa}` : 'N/A');
-      
-      // Resolución de Conductor
       const conductorObj = data.esConductorNoRegistrado ? null : conductores.find(c => c.id === data.conductorId);
-      const conductorName = conductorObj ? `${conductorObj.nombres} ${conductorObj.apellidos}` : (data.conductorOtro || 'No asignado');
-      const conductorPhone = conductorObj ? conductorObj.telefono : (data.conductorTelefonoOtro || 'N/A');
-
+      
       const valor = Number(data.valorServicio) || 0;
       const anticipo = Number(data.anticipo) || 0;
-      const costo = Number(data.costoOperacion) || 0;
       const saldo = valor - anticipo;
 
-      const nuevoServicioData: Servicio = { 
+      const payload: Servicio = { 
         id: selected?.id || Date.now().toString(),
         consecutivo: selected?.consecutivo || `GA-CCT-${servicios.length + 101}`,
         cliente: data.nombreCliente,
         clienteIniciales: data.nombreCliente.substring(0, 2).toUpperCase(),
         origen: data.direccionRecogida,
         destino: data.direccionDestino,
-        telefonoCliente: cleanPhone,
-        fecha: data.fechaRecogida instanceof Date && isValid(data.fechaRecogida) ? data.fechaRecogida.toISOString() : new Date().toISOString(),
-        hora: data.horaRecogida || '00:00',
+        telefonoCliente: data.telefonoCliente,
+        fecha: data.fechaRecogida.toISOString(),
+        hora: data.horaRecogida,
         nitCliente: data.nitCliente,
         emailCliente: data.emailCliente || '',
-        vehiculo: vehiculoNombre,
+        vehiculo: data.esVehiculoNoRegistrado ? data.vehiculoOtro : (vehiculoObj ? `${vehiculoObj.marca} ${vehiculoObj.linea}` : 'N/A'),
         vehiculoPlaca: placaReal,
-        conductor: conductorName,
-        conductorTelefono: conductorPhone,
+        conductor: data.esConductorNoRegistrado ? data.conductorOtro : (conductorObj ? `${conductorObj.nombres} ${conductorObj.apellidos}` : 'No asignado'),
+        conductorTelefono: data.esConductorNoRegistrado ? data.conductorTelefonoOtro : (conductorObj?.telefono || ''),
         estado: selected?.estado || 'Programado',
         valorServicio: valor,
         anticipo: anticipo,
-        costoOperacion: costo,
+        costoOperacion: Number(data.costoOperacion) || 0,
         saldo: saldo,
         metodoPago: data.metodoPago,
         estadoPago: data.estadoPago,
@@ -162,49 +132,36 @@ export default function ServiciosPage() {
         notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false
       };
 
-      // Actualizar LocalStorage
-      let updated;
-      if (selected) {
-        updated = servicios.map(s => s.id === selected.id ? nuevoServicioData : s);
-      } else {
-        updated = [...servicios, nuevoServicioData];
-      }
+      // 1. LocalStorage
+      const updated = selected ? servicios.map(s => s.id === selected.id ? payload : s) : [...servicios, payload];
       setServicios(updated);
       localStorage.setItem('servicios', JSON.stringify(updated));
 
-      // Sincronización con Firestore
-      const pickupDate = data.fechaRecogida instanceof Date ? data.fechaRecogida : new Date(data.fechaRecogida);
-      const [h, m] = (data.horaRecogida || '00:00').split(':').map(val => parseInt(val, 10));
-      
-      if (isValid(pickupDate)) {
-        pickupDate.setHours(isNaN(h) ? 0 : h, isNaN(m) ? 0 : m, 0, 0);
-        
-        const payload = {
-            ...nuevoServicioData,
-            horaRecogidaTimestamp: Timestamp.fromDate(pickupDate),
-            updatedAt: serverTimestamp()
-        };
+      // 2. Firestore
+      const pickupDate = new Date(data.fechaRecogida);
+      const [h, m] = (data.horaRecogida || '00:00').split(':').map(Number);
+      pickupDate.setHours(h, m, 0, 0);
 
-        if (isNew) {
-            await addDoc(collection(db, 'servicios'), { ...payload, createdAt: serverTimestamp() });
-        } else {
-            // Actualización directa en Firestore
-            await setDoc(doc(db, 'servicios', nuevoServicioData.id), { ...payload }, { merge: true });
-        }
+      const firestoreData = {
+        ...payload,
+        horaRecogidaTimestamp: Timestamp.fromDate(pickupDate),
+        updatedAt: serverTimestamp()
+      };
+
+      if (isNew) {
+        await addDoc(collection(db, 'servicios'), { ...firestoreData, createdAt: serverTimestamp() });
+      } else {
+        await setDoc(doc(db, 'servicios', payload.id), firestoreData, { merge: true });
       }
 
-      toast({ title: isNew ? "Servicio programado" : "Servicio actualizado" });
+      toast({ title: isNew ? "Servicio creado" : "Servicio actualizado" });
       setIsFormOpen(false);
       setSelected(null);
-
-      // Notificación automática para nuevos
-      if (isNew) {
-        handleManualNotification(nuevoServicioData);
-      }
+      if (isNew) handleManualNotification(payload);
 
     } catch (error: any) {
-      console.error('Save error:', error);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo sincronizar con el servidor." });
+      console.error(error);
+      toast({ variant: "destructive", title: "Error al guardar", description: error.message });
     } finally {
       setIsSaving(false);
     }
@@ -226,83 +183,54 @@ export default function ServiciosPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar por cliente o conductor..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          <Input placeholder="Buscar..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
-        <Dialog open={isFormOpen} onOpenChange={(o) => { if(!isSaving) { setIsFormOpen(o); if(!o) setSelected(null); } }}>
-          <Button onClick={() => setIsFormOpen(true)} className="btn-action"><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Servicio</Button>
-          <DialogContent className="sm:max-w-4xl">
-            <VisuallyHidden><DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader></VisuallyHidden>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                {selected ? 'Editar' : 'Programar'} Servicio
-                {isSaving && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-              </DialogTitle>
-            </DialogHeader>
-            <ServicioForm 
-              servicio={selected} 
-              onSave={handleSave} 
-              onCancel={() => setIsFormOpen(false)} 
-              conductores={conductores} 
-              vehiculos={vehiculos}
-              isSaving={isSaving}
-            />
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setIsFormOpen(true)} className="btn-action"><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Servicio</Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-white p-1 shadow-sm border">
-          <TabsTrigger value="activos" className="px-6">Activos / Programados</TabsTrigger>
+        <TabsList className="bg-white p-1 border">
+          <TabsTrigger value="activos" className="px-6">Activos</TabsTrigger>
           <TabsTrigger value="historial" className="px-6">Historial</TabsTrigger>
         </TabsList>
         <TabsContent value={activeTab} className="space-y-4">
           {filtered.map(s => (
-            <Card key={s.id} className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none p-0 overflow-hidden">
-              <div className="grid grid-cols-12 items-center gap-4 p-6 hover:bg-muted/10 transition-colors">
-                <div className="col-span-12 sm:col-span-2 text-center border-r pr-4">
-                  <p className="text-xl font-bold text-primary">{s.hora}</p>
-                  <p className="text-[10px] uppercase text-muted-foreground font-semibold">
-                    {s.fecha && isValid(new Date(s.fecha)) ? format(new Date(s.fecha), 'dd MMM', { locale: es }) : 'N/A'}
-                  </p>
+            <Card key={s.id} className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xl font-bold text-primary">{s.hora} - {s.consecutivo}</p>
+                  <p className="text-sm font-semibold">{s.origen} ➔ {s.destino}</p>
+                  <p className="text-xs text-muted-foreground uppercase">{s.cliente} | {s.conductor} ({s.vehiculoPlaca})</p>
                 </div>
-                <div className="col-span-12 sm:col-span-4 space-y-1">
-                  <div className="flex items-center gap-2 text-sm font-semibold"><div className="h-2 w-2 rounded-full bg-green-500" /> {s.origen}</div>
-                  <div className="flex items-center gap-2 text-sm font-semibold"><MessageSquare className="h-3 w-3 text-red-500" /> {s.destino}</div>
-                </div>
-                <div className="col-span-6 sm:col-span-3 flex items-center gap-3">
-                  <Avatar className="h-8 w-8 bg-primary/10"><AvatarFallback className="text-[10px] font-bold">{s.clienteIniciales}</AvatarFallback></Avatar>
-                  <div>
-                    <p className="text-sm font-bold">{s.cliente}</p>
-                    <p className="text-[10px] text-muted-foreground uppercase">{s.conductor}</p>
-                  </div>
-                </div>
-                <div className="col-span-6 sm:col-span-3 flex justify-end gap-2">
-                  <Badge variant="secondary" className="text-[10px] uppercase font-bold">{s.estado}</Badge>
+                <div className="flex gap-2">
+                  <Badge variant="secondary">{s.estado}</Badge>
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8"><PlusCircle className="h-4 w-4" /></Button>
-                    </DropdownMenuTrigger>
+                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><PlusCircle className="h-4 w-4" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => { setSelected(s); setIsResumenOpen(true); }}><Eye className="mr-2 h-4 w-4" /> Ver Detalles</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setSelected(s); setIsResumenOpen(true); }}><Eye className="mr-2 h-4 w-4" /> Ver</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setSelected(s); setIsFormOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-green-600 font-bold" onClick={() => handleManualNotification(s)}>
-                        <MessageSquare className="mr-2 h-4 w-4" /> Re-notificar WhatsApp
-                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-green-600" onClick={() => handleManualNotification(s)}><MessageSquare className="mr-2 h-4 w-4" /> Notificar</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
               </div>
             </Card>
           ))}
-          {filtered.length === 0 && <p className="text-center py-12 text-muted-foreground">No se encontraron servicios.</p>}
         </TabsContent>
       </Tabs>
 
+      <Dialog open={isFormOpen} onOpenChange={o => { if(!isSaving) { setIsFormOpen(o); if(!o) setSelected(null); } }}>
+        <DialogContent className="sm:max-w-4xl">
+          <VisuallyHidden><DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader></VisuallyHidden>
+          <DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader>
+          <ServicioForm servicio={selected} onSave={handleSave} onCancel={() => setIsFormOpen(false)} conductores={conductores} vehiculos={vehiculos} isSaving={isSaving} />
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isResumenOpen} onOpenChange={setIsResumenOpen}>
         <DialogContent className="sm:max-w-lg">
-          <VisuallyHidden><DialogHeader><DialogTitle>Resumen del Servicio</DialogTitle></DialogHeader></VisuallyHidden>
-          <DialogHeader><DialogTitle>Resumen del Servicio</DialogTitle></DialogHeader>
+          <VisuallyHidden><DialogHeader><DialogTitle>Resumen</DialogTitle></DialogHeader></VisuallyHidden>
           {selected && <ResumenServicio servicio={selected} />}
         </DialogContent>
       </Dialog>

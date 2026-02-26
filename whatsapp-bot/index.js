@@ -71,6 +71,31 @@ const authMiddleware = (req, res, next) => {
     next();
 };
 
+/**
+ * Resuelve el ID real de WhatsApp (JID) para un número dado.
+ * Maneja la complejidad del dígito "9" en Colombia.
+ */
+async function resolveWAId(number) {
+    let clean = number.toString().replace(/\D/g, '');
+    
+    // 1. Intentar validación directa
+    const idDirect = await client.getNumberId(clean);
+    if (idDirect) return idDirect._serialized;
+
+    // 2. Si es Colombia (573...) y falló, intentar con el 9 interno (5793...)
+    if (clean.startsWith('573') && clean.length === 12) {
+        const withNine = '579' + clean.substring(2);
+        const idWithNine = await client.getNumberId(withNine);
+        if (idWithNine) return idWithNine._serialized;
+        
+        // Fallback manual si el servidor de WA está lento
+        return `${withNine}@c.us`;
+    }
+
+    // 3. Fallback manual estándar
+    return `${clean}@c.us`;
+}
+
 app.get('/status', (req, res) => res.json({ connected: isReady }));
 
 app.get('/qr', (req, res) => {
@@ -85,26 +110,14 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
     if (!isReady) return res.status(503).json({ error: 'Nova no está conectada' });
 
     try {
-        let cleanPhone = data.clienteTelefono.toString().replace(/\D/g, '');
-        
-        // Resolver el ID real en WhatsApp (Maneja automáticamente el '9' de Colombia)
-        console.log(`[Nova] Validando número en WhatsApp: ${cleanPhone}`);
-        const contactId = await client.getNumberId(cleanPhone);
-        
-        if (!contactId) {
-            console.warn(`[Nova] El número ${cleanPhone} no fue encontrado en la red de WhatsApp.`);
-            return res.status(404).json({ error: 'El número no está en WhatsApp o es inválido.' });
-        }
-
-        const targetJid = contactId._serialized;
-        console.log(`[Nova] ID resuelto con éxito: ${targetJid}`);
+        const targetJid = await resolveWAId(data.clienteTelefono);
+        console.log(`[Nova] Intentando enviar a: ${targetJid}`);
 
         const textMessage = `¡Hola, ${data.clienteNombre}! 👋\n\nSoy *Nova*, asistente virtual de *Transportes Especiales J&J* 🚐\n\nTu servicio ha sido programado:\n\n━━━━━━━━━━━━━━━━\n🗓️ *Fecha:* ${data.fecha}\n⏰ *Hora:* ${data.hora}\n📍 *Origen:* ${data.origen}\n🏁 *Destino:* ${data.destino}\n🚗 *Placa:* ${data.placa}\n👤 *Conductor:* ${data.conductor}\n━━━━━━━━━━━━━━━━\n\nPor favor estar listo 10 minutos antes. 🙏\n\n¡Gracias por elegirnos! 🌟`;
 
-        // Enviar mensaje de texto
         await client.sendMessage(targetJid, textMessage);
         
-        // Intentar enviar tarjeta visual (opcional)
+        // Generar y enviar tarjeta visual
         try {
             const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
             const page = await browser.newPage();
@@ -116,14 +129,13 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
             const media = new MessageMedia('image/png', screenshot, 'resumen.png');
             await client.sendMessage(targetJid, media);
         } catch (e) { 
-            console.warn('[Nova] Falló generación de tarjeta visual, pero el texto se envió.'); 
+            console.warn('[Nova] Error en tarjeta visual, texto enviado.'); 
         }
 
         res.json({ success: true });
-
     } catch (error) {
-        console.error('[Nova] Error crítico al enviar:', error);
-        res.status(500).json({ error: 'Error interno de Nova: ' + error.message });
+        console.error('[Nova] Error de envío:', error);
+        res.status(500).json({ error: 'El número no está en WhatsApp o Nova tuvo un error.' });
     }
 });
 

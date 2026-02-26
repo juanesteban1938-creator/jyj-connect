@@ -38,7 +38,6 @@ import type { Conductor } from '@/app/dashboard/conductores/page';
 import type { Vehiculo } from '@/app/dashboard/vehiculos/page';
 import type { Servicio } from '@/app/dashboard/servicios/page';
 
-
 const formSchema = z.object({
     nombreCliente: z.string().min(1, 'El nombre es requerido'),
     nitCliente: z.string().min(1, 'El NIT es requerido'),
@@ -81,7 +80,6 @@ const formSchema = z.object({
     message: 'Comprobante y banco son requeridos para transferencia',
     path: ['numeroComprobante']
 });
-
 
 export type ServicioFormValues = z.infer<typeof formSchema>;
 
@@ -139,7 +137,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
   
   useEffect(() => {
     if (servicio) {
-        // Buscar coincidencias para cargar los selects de conductor y vehículo
         const conductorMatched = conductores.find(c => `${c.nombres} ${c.apellidos}` === servicio.conductor);
         const vehiculoMatched = vehiculos.find(v => v.placa === servicio.vehiculoPlaca);
 
@@ -163,7 +160,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
             esConductorNoRegistrado: !conductorMatched,
             conductorId: conductorMatched?.id || '',
             conductorOtro: conductorMatched ? '' : servicio.conductor,
-            conductorTelefonoOtro: conductorMatched ? '' : servicio.conductorTelefono,
+            conductorTelefonoOtro: conductorMatched ? '' : (servicio.conductorTelefono || ''),
             esVehiculoNoRegistrado: !vehiculoMatched,
             vehiculoId: vehiculoMatched?.id || '',
             vehiculoOtro: vehiculoMatched ? '' : (servicio.vehiculoPlaca || '')
@@ -174,6 +171,8 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
   const valorServicio = form.watch('valorServicio') || 0;
   const estadoPago = form.watch('estadoPago');
   const metodoPago = form.watch('metodoPago');
+  const esConductorNoRegistrado = form.watch('esConductorNoRegistrado');
+  const esVehiculoNoRegistrado = form.watch('esVehiculoNoRegistrado');
 
   useEffect(() => {
     if (estadoPago === 'Pagado') {
@@ -186,26 +185,11 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
   const anticipo = form.watch('anticipo') || 0;
   const saldo = valorServicio - anticipo;
   
-  const esConductorNoRegistrado = form.watch('esConductorNoRegistrado');
-  const esVehiculoNoRegistrado = form.watch('esVehiculoNoRegistrado');
-  
-  const onSubmit = (data: ServicioFormValues) => {
-    onSave(data);
-  };
-
-  const OrigenIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="8" cy="8" r="7.5" fill="white" stroke="#22C55E"/>
-        <circle cx="8" cy="8" r="4" fill="#22C55E"/>
-    </svg>
-  );
-
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSave)} className="space-y-6">
         <ScrollArea className="h-[70vh] w-full">
          <div className="space-y-6 p-1">
-            
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <User className="h-5 w-5 text-primary"/>
@@ -234,7 +218,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                     <Briefcase className="h-5 w-5 text-primary"/>
                     <h3 className="text-lg font-semibold">Recursos Asignados</h3>
                 </div>
-
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-4 border p-4 rounded-lg bg-muted/10">
                          <FormField
@@ -259,55 +242,17 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                         />
                         {esConductorNoRegistrado ? (
                             <div className="space-y-3">
-                                <FormField
-                                    control={form.control}
-                                    name="conductorOtro"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Nombre del Conductor</FormLabel>
-                                            <FormControl><Input placeholder="Nombre completo..." {...field} value={field.value ?? ''} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="conductorTelefonoOtro"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Teléfono del Conductor</FormLabel>
-                                            <FormControl>
-                                                <div className="relative">
-                                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                    <Input className="pl-9" placeholder="Celular..." {...field} value={field.value ?? ''} />
-                                                </div>
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                                <FormField name="conductorOtro" control={form.control} render={({ field }) => (
+                                    <FormItem><FormLabel>Nombre del Conductor</FormLabel><FormControl><Input placeholder="Nombre..." {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                                )} />
+                                <FormField name="conductorTelefonoOtro" control={form.control} render={({ field }) => (
+                                    <FormItem><FormLabel>Teléfono</FormLabel><FormControl><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input className="pl-9" placeholder="Celular..." {...field} value={field.value ?? ''} /></div></FormControl><FormMessage /></FormItem>
+                                )} />
                             </div>
                         ) : (
-                             <FormField
-                                control={form.control}
-                                name="conductorId"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Seleccionar Conductor</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Busque en conductores registrados" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {conductores.map(c => <SelectItem key={c.id} value={c.id}>{c.nombres} {c.apellidos}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                             <FormField name="conductorId" control={form.control} render={({ field }) => (
+                                <FormItem><FormLabel>Conductor</FormLabel><Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl><SelectContent>{conductores.map(c => <SelectItem key={c.id} value={c.id}>{c.nombres} {c.apellidos}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                             )} />
                         )}
                     </div>
                      <div className="space-y-4 border p-4 rounded-lg bg-muted/10">
@@ -331,38 +276,13 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                             )}
                         />
                         {esVehiculoNoRegistrado ? (
-                            <FormField
-                                control={form.control}
-                                name="vehiculoOtro"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Placa del Vehículo</FormLabel>
-                                        <FormControl><Input placeholder="Escribir placa..." {...field} value={field.value ?? ''}/></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                            <FormField name="vehiculoOtro" control={form.control} render={({ field }) => (
+                                <FormItem><FormLabel>Placa del Vehículo</FormLabel><FormControl><Input placeholder="XXX-000" {...field} value={field.value ?? ''}/></FormControl><FormMessage /></FormItem>
+                            )} />
                         ) : (
-                           <FormField
-                                control={form.control}
-                                name="vehiculoId"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Seleccionar Vehículo</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Busque por placa..." />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {vehiculos.map(v => <SelectItem key={v.id} value={v.id}>{v.marca} {v.linea} ({v.placa})</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                           <FormField name="vehiculoId" control={form.control} render={({ field }) => (
+                                <FormItem><FormLabel>Vehículo</FormLabel><Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl><SelectContent>{vehiculos.map(v => <SelectItem key={v.id} value={v.id}>{v.marca} {v.linea} ({v.placa})</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                           )} />
                         )}
                     </div>
                 </div>
@@ -376,105 +296,30 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                     <h3 className="text-lg font-semibold">Detalles de Ruta</h3>
                 </div>
                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <FormField
-                        control={form.control}
-                        name="fechaRecogida"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col">
+                    <FormField control={form.control} name="fechaRecogida" render={({ field }) => (
+                        <FormItem className="flex flex-col">
                             <FormLabel>Fecha de Recogida</FormLabel>
                             <Popover modal={true} open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                                <PopoverTrigger asChild>
-                                <FormControl>
-                                    <Button
-                                    variant={'outline'}
-                                    type="button"
-                                    className={cn(
-                                        'w-full pl-3 text-left font-normal',
-                                        !field.value && 'text-muted-foreground'
-                                    )}
-                                    >
-                                    {field.value ? (
-                                        format(field.value, 'dd/MM/yyyy')
-                                    ) : (
-                                        <span>Seleccione una fecha</span>
-                                    )}
-                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                    </Button>
-                                </FormControl>
-                                </PopoverTrigger>
-                                <PopoverContent 
-                                    className="w-auto p-0" 
-                                    align="start"
-                                    onPointerDownOutside={(e) => e.preventDefault()}
-                                >
-                                    <Calendar
-                                        mode="single"
-                                        selected={field.value}
-                                        onSelect={(date) => {
-                                            field.onChange(date);
-                                            setIsCalendarOpen(false);
-                                        }}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
+                                <PopoverTrigger asChild><Button variant={'outline'} className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? format(field.value, 'dd/MM/yyyy') : <span>Fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(date) => { field.onChange(date); setIsCalendarOpen(false); }} initialFocus /></PopoverContent>
                             </Popover>
                             <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="horaRecogida"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                                <FormLabel>Hora de Recogida</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        type="time"
-                                        {...field}
-                                        className="w-full"
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                 </div>
-                 <div className="space-y-2">
-                    <FormField name="direccionRecogida" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Dirección de Recogida</FormLabel><FormControl><div className="relative"><Input className="pl-9" placeholder="Dirección principal..." {...field} /><div className="absolute left-3 top-1/2 -translate-y-1/2"><OrigenIcon /></div></div></FormControl><FormMessage /></FormItem>
+                        </FormItem>
                     )} />
-                    {fields.map((field, index) => (
-                        <FormField
-                            key={field.id}
-                            control={form.control}
-                            name={`paradasAdicionales.${index}.direccion`}
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormControl>
-                                        <div className="relative">
-                                            <Input className="pl-9" placeholder={`Parada adicional ${index + 1}...`} {...field} />
-                                            <GripVertical className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                            <Button type="button" size="icon" variant="ghost" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-red-500" onClick={() => remove(index)}>
-                                                <MinusCircle className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    ))}
-                    {fields.length < 3 && (
-                        <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => append({ direccion: "" })}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Añadir Parada
-                        </Button>
-                    )}
-                </div>
+                    <FormField control={form.control} name="horaRecogida" render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                            <FormLabel>Hora de Recogida</FormLabel>
+                            <FormControl><Input type="time" {...field} className="w-full" /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                 </div>
+                 <FormField name="direccionRecogida" control={form.control} render={({ field }) => (
+                    <FormItem><FormLabel>Origen</FormLabel><FormControl><div className="relative"><Input className="pl-9" placeholder="Dirección..." {...field} /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-600" /></div></FormControl><FormMessage /></FormItem>
+                 )} />
                  <FormField name="direccionDestino" control={form.control} render={({ field }) => (
-                    <FormItem><FormLabel>Dirección de Destino</FormLabel><FormControl><div className="relative"><Input className="pl-9" placeholder="Destino final..." {...field} /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" /></div></FormControl><FormMessage /></FormItem>
-                )} />
+                    <FormItem><FormLabel>Destino</FormLabel><FormControl><div className="relative"><Input className="pl-9" placeholder="Destino..." {...field} /><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-600" /></div></FormControl><FormMessage /></FormItem>
+                 )} />
             </div>
 
             <Separator />
@@ -484,97 +329,22 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                     <Wallet className="h-5 w-5 text-primary"/>
                     <h3 className="text-lg font-semibold">Datos Financieros</h3>
                 </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                     <FormField name="estadoPago" control={form.control} render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Estado del Pago</FormLabel>
-                             <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                    <SelectItem value="Pendiente">Pendiente</SelectItem>
-                                    <SelectItem value="Anticipo">Anticipo</SelectItem>
-                                    <SelectItem value="Pagado">Pagado</SelectItem>
-                                    <SelectItem value="Anulado">Anulado</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
-                     <FormField name="metodoPago" control={form.control} render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Método de Pago</FormLabel>
-                             <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                    <SelectItem value="Efectivo">Pago en Efectivo</SelectItem>
-                                    <SelectItem value="Transferencia">Transferencia</SelectItem>
-                                    <SelectItem value="Facturacion">A Facturación</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
-                </div>
-                
-                {metodoPago === 'Transferencia' && (
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <FormField name="numeroComprobante" control={form.control} render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Número de Comprobante</FormLabel>
-                                <FormControl><Input placeholder="Ej. 12345678" {...field} value={field.value ?? ''} /></FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                        <FormField name="banco" control={form.control} render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Banco</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un banco..." /></SelectTrigger></FormControl>
-                                    <SelectContent>
-                                        {bancosColombia.map(banco => (
-                                            <SelectItem key={banco} value={banco}>{banco}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                    </div>
-                )}
-                
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <FormField name="valorServicio" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Venta Servicio</FormLabel><FormControl><div className="relative"><Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0.00" {...field} value={field.value ?? ''} /></div></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Venta</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormItem>
                     )} />
-                     <FormField name="costoOperacion" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Costo Operación</FormLabel><FormControl><div className="relative"><Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0.00" {...field} value={field.value ?? ''} /></div></FormControl><FormMessage /></FormItem>
+                    <FormField name="anticipo" control={form.control} render={({ field }) => (
+                        <FormItem><FormLabel>Anticipo</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormItem>
                     )} />
-                    {estadoPago === 'Anticipo' && (
-                        <FormField name="anticipo" control={form.control} render={({ field }) => (
-                            <FormItem><FormLabel>Valor Anticipo</FormLabel><FormControl><div className="relative"><Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0.00" {...field} value={field.value ?? ''}/></div></FormControl><FormMessage /></FormItem>
-                        )} />
-                    )}
-                     <FormItem>
-                        <FormLabel>Saldo Pendiente</FormLabel>
-                        <div className="relative">
-                            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input type="text" readOnly disabled className="pl-9 font-semibold" value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(saldo)} />
-                        </div>
-                     </FormItem>
+                    <FormItem><FormLabel>Saldo</FormLabel><FormControl><Input readOnly disabled value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(saldo)} /></FormControl></FormItem>
                 </div>
             </div>
-
         </div>
       </ScrollArea>
 
       <div className="flex justify-end gap-2 pt-4">
-        <Button type="button" variant="ghost" onClick={onCancel} disabled={isSaving}>
-            Cancelar
-        </Button>
-        <Button type="submit" disabled={isSaving}>
-          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          {servicio ? 'Guardar Cambios' : 'Guardar Servicio'}
-        </Button>
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={isSaving}>Cancelar</Button>
+        <Button type="submit" disabled={isSaving}>{isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Guardar Servicio</Button>
       </div>
       </form>
     </Form>
