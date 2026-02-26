@@ -1,4 +1,3 @@
-
 /**
  * VIANOVA S.A.S - WhatsApp Bot Engine (Nova)
  * Versión: 3.6.0 (Resolución de ID Colombia + Tarjetas HD + Clima + Cron)

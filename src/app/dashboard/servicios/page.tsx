@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -113,6 +112,7 @@ export default function ServiciosPage() {
       const anticipo = Number(data.anticipo) || 0;
       const saldo = valor - anticipo;
 
+      // VALIDACIÓN DE FECHA Y HORA
       const pickupDate = new Date(data.fechaRecogida);
       const [h, m] = (data.horaRecogida || '00:00').split(':').map(Number);
       pickupDate.setHours(h, m, 0, 0);
@@ -121,7 +121,7 @@ export default function ServiciosPage() {
           throw new Error("La fecha u hora seleccionada no es válida.");
       }
 
-      // 1. Limpieza de teléfono (Solo dígitos para Nova)
+      // LIMPIEZA DE TELÉFONO (Solo dígitos)
       const cleanPhone = data.telefonoCliente.replace(/\D/g, '');
 
       const payload: Servicio = { 
@@ -151,14 +151,16 @@ export default function ServiciosPage() {
         notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false
       };
 
-      // Guardado Local
+      // GUARDADO LOCAL
       const updatedServicios = selected ? servicios.map(s => s.id === selected.id ? payload : s) : [...servicios, payload];
       setServicios(updatedServicios);
       localStorage.setItem('servicios', JSON.stringify(updatedServicios));
 
-      // 2. Guardado en Firestore con campos exactos
+      // GUARDADO EN FIRESTORE (Campos exactos solicitados)
       const firestoreData = {
         ...payload,
+        estado: isNew ? "Programado" : payload.estado,
+        notificacionSalidaEnviada: isNew ? false : payload.notificacionSalidaEnviada,
         horaRecogidaTimestamp: Timestamp.fromDate(pickupDate),
         updatedAt: serverTimestamp()
       };
@@ -166,9 +168,7 @@ export default function ServiciosPage() {
       if (isNew) {
         await addDoc(collection(db, 'servicios'), { 
           ...firestoreData, 
-          createdAt: serverTimestamp(),
-          estado: "Programado", // Forzado para nuevos
-          notificacionSalidaEnviada: false // Forzado para nuevos
+          createdAt: serverTimestamp()
         });
       } else {
         await setDoc(doc(db, 'servicios', payload.id), firestoreData, { merge: true });
