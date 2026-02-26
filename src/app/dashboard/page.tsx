@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -77,8 +78,18 @@ export default function DashboardHomePage() {
   }, []);
 
   const stats = useMemo(() => {
-    const totalVenta = servicios.reduce((acc, s) => acc + (s.valorServicio || 0), 0);
-    const totalCartera = servicios.reduce((acc, s) => acc + (s.saldo ?? (s.valorServicio - (s.anticipo || 0))), 0);
+    const totalVenta = servicios.reduce((acc, s) => acc + (Number(s.valorServicio) || 0), 0);
+    const totalCartera = servicios.reduce((acc, s) => {
+        const valor = Number(s.valorServicio) || 0;
+        const anticipo = Number(s.anticipo) || 0;
+        const saldo = (s.saldo !== undefined && s.saldo !== null) ? Number(s.saldo) : (valor - anticipo);
+        
+        if (s.estadoPago === 'Pendiente' || s.estadoPago === 'Anticipo') {
+            return acc + saldo;
+        }
+        return acc;
+    }, 0);
+
     return {
       venta: currencyFormatter.format(totalVenta),
       cartera: currencyFormatter.format(totalCartera),
@@ -87,7 +98,10 @@ export default function DashboardHomePage() {
     };
   }, [servicios, vehiculos, conductores]);
 
-  const recientes = useMemo(() => servicios.slice(-3).reverse(), [servicios]);
+  const recientes = useMemo(() => {
+      if (!servicios) return [];
+      return [...servicios].slice(-3).reverse();
+  }, [servicios]);
 
   return (
     <div className="page-container">
@@ -96,7 +110,6 @@ export default function DashboardHomePage() {
         <p className="page-subtitle">Bienvenido al centro de operaciones de J&J Connect V2.0.</p>
       </header>
 
-      {/* MÉTRICAS PRINCIPALES */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
         <StatCard
           title="Total de Vehículos"
@@ -136,7 +149,6 @@ export default function DashboardHomePage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* ACCESO RÁPIDO */}
         <Card className="lg:col-span-2 rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none relative overflow-hidden bg-primary/5">
            <CardContent className="p-8">
             <div className="flex flex-col md:flex-row items-center justify-between gap-6">
@@ -168,7 +180,6 @@ export default function DashboardHomePage() {
           </CardContent>
         </Card>
 
-        {/* ÚLTIMOS SERVICIOS */}
         <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none">
           <CardHeader className="p-6">
             <CardTitle className="text-lg">Servicios Recientes</CardTitle>

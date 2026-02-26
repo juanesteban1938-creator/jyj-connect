@@ -35,9 +35,18 @@ export default function FacturacionPage() {
 
   const stats = useMemo(() => {
     return servicios.reduce((acc, s) => {
-      acc.total += s.valorServicio || 0;
-      if (s.estadoPago === 'Pagado') acc.ganancia += (s.valorServicio - (s.costoOperacion || 0));
-      if (s.estadoPago === 'Pendiente' || s.estadoPago === 'Anticipo') acc.cartera += (s.saldo ?? (s.valorServicio - (s.anticipo || 0)));
+      const valor = Number(s.valorServicio) || 0;
+      const costo = Number(s.costoOperacion) || 0;
+      const anticipo = Number(s.anticipo) || 0;
+      const saldo = (s.saldo !== undefined && s.saldo !== null) ? Number(s.saldo) : (valor - anticipo);
+
+      acc.total += valor;
+      if (s.estadoPago === 'Pagado') {
+        acc.ganancia += (valor - costo);
+      }
+      if (s.estadoPago === 'Pendiente' || s.estadoPago === 'Anticipo') {
+        acc.cartera += saldo;
+      }
       return acc;
     }, { total: 0, ganancia: 0, cartera: 0 });
   }, [servicios]);
@@ -49,14 +58,18 @@ export default function FacturacionPage() {
   };
 
   const handleMarcarPagada = (servicio: any) => {
-    updateServicio(servicio.id, { estadoPago: 'Pagado', saldo: 0, anticipo: servicio.valorServicio });
+    const valor = Number(servicio.valorServicio) || 0;
+    updateServicio(servicio.id, { estadoPago: 'Pagado', saldo: 0, anticipo: valor });
     toast({ title: "Servicio Pagado", description: `El servicio ${servicio.consecutivo} ha sido marcado como pagado.` });
   };
 
   const handleSaveAbono = (data: AbonoFormValues) => {
     if (!selected) return;
-    const nuevoAnticipo = (selected.anticipo || 0) + data.valorAbono;
-    const nuevoSaldo = selected.valorServicio - nuevoAnticipo;
+    const valorOriginal = Number(selected.valorServicio) || 0;
+    const anticipoAnterior = Number(selected.anticipo) || 0;
+    const nuevoAnticipo = anticipoAnterior + Number(data.valorAbono);
+    const nuevoSaldo = valorOriginal - nuevoAnticipo;
+    
     updateServicio(selected.id, { 
       anticipo: nuevoAnticipo, 
       saldo: nuevoSaldo, 
@@ -71,12 +84,16 @@ export default function FacturacionPage() {
 
   const handleSaveEdit = (data: FacturacionFormValues) => {
     if (!selected) return;
-    updateServicio(selected.id, { ...data, saldo: data.valorServicio! - (data.anticipo || 0) });
+    const valor = Number(data.valorServicio) || 0;
+    const anticipo = Number(data.anticipo) || 0;
+    const saldo = valor - anticipo;
+    
+    updateServicio(selected.id, { ...data, saldo });
     setIsEditOpen(false);
     toast({ title: "Facturación Actualizada" });
   };
 
-  const filtered = servicios.filter(s => s.cliente.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filtered = servicios.filter(s => s.cliente?.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
     <div className="page-container">
@@ -85,7 +102,6 @@ export default function FacturacionPage() {
         <p className="page-subtitle">Gestión financiera, control de pagos y estado de cuenta.</p>
       </header>
 
-      {/* INDICADORES DE GESTIÓN */}
       <div className="grid gap-6 md:grid-cols-3 mb-8">
         <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none">
           <CardContent className="p-6">
@@ -140,7 +156,7 @@ export default function FacturacionPage() {
                 <TableRow key={s.id} className="hover:bg-muted/30">
                   <TableCell className="p-4 text-sm font-medium">{format(new Date(s.fecha), 'dd/MM/yyyy')}</TableCell>
                   <TableCell className="p-4 text-sm font-bold">{s.cliente}</TableCell>
-                  <TableCell className="p-4 text-sm text-right font-semibold">{currencyFormatter.format(s.valorServicio)}</TableCell>
+                  <TableCell className="p-4 text-sm text-right font-semibold">{currencyFormatter.format(Number(s.valorServicio) || 0)}</TableCell>
                   <TableCell className="p-4 text-center">
                     <Badge variant={s.estadoPago === 'Pagado' ? 'default' : 'outline'} className="text-[10px] font-bold uppercase">{s.estadoPago}</Badge>
                   </TableCell>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Search, PlusCircle, Eye, Edit, MessageSquare } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { format } from 'date-fns';
@@ -37,11 +38,11 @@ export type Servicio = {
   vehiculo: string;
   vehiculoPlaca?: string;
   estado: 'Programado' | 'En Servicio' | 'Finalizado' | 'Cancelado';
-  valorServicio?: number;
-  anticipo?: number;
-  saldo?: number;
+  valorServicio: number;
+  anticipo: number;
+  saldo: number;
   metodoPago: 'Efectivo' | 'Transferencia' | 'Facturacion';
-  costoOperacion?: number;
+  costoOperacion: number;
   estadoPago: 'Pendiente' | 'Anticipo' | 'Pagado' | 'Anulado';
   paradasAdicionales: string[];
   numeroComprobante?: string;
@@ -70,8 +71,8 @@ export default function ServiciosPage() {
   }, []);
 
   const sanitizePhone = (phone: string) => {
-    if (!phone) return 'N/A';
-    let cleaned = phone.replace(/\D/g, ''); 
+    if (!phone) return '';
+    let cleaned = phone.toString().replace(/\D/g, ''); 
     if (cleaned.length === 10) cleaned = '57' + cleaned;
     return cleaned;
   };
@@ -120,7 +121,7 @@ export default function ServiciosPage() {
   const handleSave = async (data: any) => {
     const isNew = !selected;
     const newId = Date.now().toString();
-    const newConsecutivo = `GA-CCT-${servicios.length + 100}`;
+    const newConsecutivo = `GA-CCT-${servicios.length + 101}`;
     
     // Resolución de vehículo
     const vehiculoObj = data.esVehiculoNoRegistrado ? null : vehiculos.find(v => v.id === data.vehiculoId);
@@ -132,23 +133,34 @@ export default function ServiciosPage() {
     const conductorName = conductorObj ? `${conductorObj.nombres} ${conductorObj.apellidos}` : (data.conductorOtro || 'No asignado');
     const conductorPhone = conductorObj ? conductorObj.telefono : (data.conductorTelefonoOtro || 'N/A');
 
-    // PERSISTIR CLIENTE SI ES NUEVO
+    // PERSISTIR CLIENTE
     const storedClientes = localStorage.getItem('clientes');
     const currentClientes = storedClientes ? JSON.parse(storedClientes) : [];
-    const clientExists = currentClientes.some((c: any) => c.nit === data.nitCliente);
+    const clientIndex = currentClientes.findIndex((c: any) => c.nit === data.nitCliente);
     
-    if (!clientExists) {
-      const newCliente = {
+    if (clientIndex === -1) {
+      currentClientes.push({
         id: data.nitCliente,
         razonSocial: data.nombreCliente,
         nit: data.nitCliente,
         telefono: data.telefonoCliente,
         email: data.emailCliente,
         tipo: 'Particular'
+      });
+    } else {
+      currentClientes[clientIndex] = {
+        ...currentClientes[clientIndex],
+        razonSocial: data.nombreCliente,
+        telefono: data.telefonoCliente,
+        email: data.emailCliente
       };
-      const updatedClientes = [...currentClientes, newCliente];
-      localStorage.setItem('clientes', JSON.stringify(updatedClientes));
     }
+    localStorage.setItem('clientes', JSON.stringify(currentClientes));
+
+    const valor = Number(data.valorServicio) || 0;
+    const anticipo = Number(data.anticipo) || 0;
+    const costo = Number(data.costoOperacion) || 0;
+    const saldo = valor - anticipo;
 
     const nuevoServicioData: Servicio = { 
       ...data, 
@@ -165,6 +177,10 @@ export default function ServiciosPage() {
       conductor: conductorName,
       conductorTelefono: conductorPhone,
       estado: selected?.estado || 'Programado',
+      valorServicio: valor,
+      anticipo: anticipo,
+      costoOperacion: costo,
+      saldo: saldo,
       paradasAdicionales: (data.paradasAdicionales || []).map((p: any) => p.direccion)
     };
 
