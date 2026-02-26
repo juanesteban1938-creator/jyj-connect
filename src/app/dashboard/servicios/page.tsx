@@ -103,20 +103,12 @@ export default function ServiciosPage() {
       const anticipo = Number(data.anticipo) || 0;
       const saldo = valor - anticipo;
 
-      // VALIDACIÓN CRÍTICA DE FECHA Y HORA
       const pickupDate = new Date(data.fechaRecogida);
-      if (!isValid(pickupDate)) {
-          throw new Error("La fecha seleccionada no es válida.");
-      }
-      
       const [h, m] = (data.horaRecogida || '00:00').split(':').map(Number);
-      if (isNaN(h) || isNaN(m)) {
-          throw new Error("La hora seleccionada tiene un formato inválido.");
-      }
-      
       pickupDate.setHours(h, m, 0, 0);
+
       if (!isValid(pickupDate)) {
-          throw new Error("El tiempo resultante es inválido.");
+          throw new Error("La fecha u hora seleccionada no es válida.");
       }
 
       const payload: Servicio = { 
@@ -146,12 +138,10 @@ export default function ServiciosPage() {
         notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false
       };
 
-      // 1. LocalStorage
       const updated = selected ? servicios.map(s => s.id === selected.id ? payload : s) : [...servicios, payload];
       setServicios(updated);
       localStorage.setItem('servicios', JSON.stringify(updated));
 
-      // 2. Firestore
       const firestoreData = {
         ...payload,
         horaRecogidaTimestamp: Timestamp.fromDate(pickupDate),
