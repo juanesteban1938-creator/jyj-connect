@@ -80,21 +80,22 @@ export default function ServiciosPage() {
   }, []);
 
   const handleManualNotification = async (s: Servicio) => {
-    try {
-      await enviarNotificacionServicio({
-        clienteNombre: s.cliente,
-        clienteTelefono: s.telefonoCliente,
-        fecha: format(new Date(s.fecha), 'dd/MM/yyyy'),
-        hora: s.hora,
-        origen: s.origen,
-        destino: s.destino,
-        placa: s.vehiculoPlaca || 'N/A',
-        conductor: s.conductor,
-        telefonoConductor: s.conductorTelefono || 'N/A'
-      });
-      toast({ title: "Notificación enviada" });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Error de WhatsApp", description: err.message });
+    const res = await enviarNotificacionServicio({
+      clienteNombre: s.cliente,
+      clienteTelefono: s.telefonoCliente,
+      fecha: format(new Date(s.fecha), 'dd/MM/yyyy'),
+      hora: s.hora,
+      origen: s.origen,
+      destino: s.destino,
+      placa: s.vehiculoPlaca || 'N/A',
+      conductor: s.conductor,
+      telefonoConductor: s.conductorTelefono || 'N/A'
+    });
+    
+    if (!res.success) {
+      toast({ variant: "destructive", title: `Error de WhatsApp: ${res.error}` });
+    } else {
+      toast({ title: "Notificación enviada ✅" });
     }
   };
 
@@ -105,26 +106,30 @@ export default function ServiciosPage() {
     try {
       const isNew = !selected;
       const vehiculoObj = data.esVehiculoNoRegistrado ? null : vehiculos.find(v => v.id === data.vehiculoId);
-      const placaFinal = data.esVehiculoNoRegistrado ? (data.vehiculoOtro || 'N/A') : (vehiculoObj?.placa || 'N/A');
       const conductorObj = data.esConductorNoRegistrado ? null : conductores.find(c => c.id === data.conductorId);
       
+      const cleanPhone = data.telefonoCliente.toString().replace(/\D/g, '');
       const valor = Number(data.valorServicio) || 0;
       const anticipo = Number(data.anticipo) || 0;
       const saldo = valor - anticipo;
 
-      // VALIDACIÓN DE FECHA Y HORA
-      const pickupDate = new Date(data.fechaRecogida);
-      const [h, m] = (data.horaRecogida || '00:00').split(':').map(Number);
-      pickupDate.setHours(h, m, 0, 0);
-
-      if (!isValid(pickupDate)) {
-          throw new Error("La fecha u hora seleccionada no es válida.");
+      // 1. Construir Timestamp de Firestore con validación estricta
+      let horaRecogidaTimestamp = null;
+      if (data.fechaRecogida && data.horaRecogida) {
+        try {
+          const [horas, minutos] = data.horaRecogida.split(':').map(Number);
+          const fechaObj = new Date(data.fechaRecogida);
+          fechaObj.setHours(horas, minutos, 0, 0);
+          if (isValid(fechaObj)) {
+            horaRecogidaTimestamp = Timestamp.fromDate(fechaObj);
+          }
+        } catch (e) {
+          console.error('Error construyendo timestamp:', e);
+        }
       }
 
-      // LIMPIEZA DE TELÉFONO (Solo dígitos)
-      const cleanPhone = data.telefonoCliente.replace(/\D/g, '');
-
-      const payload: Servicio = { 
+      // 2. Preparar Payload
+      const payload: any = {
         id: selected?.id || Date.now().toString(),
         consecutivo: selected?.consecutivo || `GA-CCT-${servicios.length + 101}`,
         cliente: data.nombreCliente,
@@ -137,7 +142,7 @@ export default function ServiciosPage() {
         nitCliente: data.nitCliente,
         emailCliente: data.emailCliente || '',
         vehiculo: data.esVehiculoNoRegistrado ? `OTRO • ${data.vehiculoOtro}` : (vehiculoObj ? `${vehiculoObj.marca} ${vehiculoObj.linea}` : 'N/A'),
-        vehiculoPlaca: placaFinal,
+        vehiculoPlaca: data.esVehiculoNoRegistrado ? data.vehiculoOtro : (vehiculoObj?.placa || 'N/A'),
         conductor: data.esConductorNoRegistrado ? data.conductorOtro : (conductorObj ? `${conductorObj.nombres} ${conductorObj.apellidos}` : 'No asignado'),
         conductorTelefono: data.esConductorNoRegistrado ? data.conductorTelefonoOtro : (conductorObj?.telefono || ''),
         estado: selected?.estado || 'Programado',
@@ -147,38 +152,45 @@ export default function ServiciosPage() {
         saldo: saldo,
         metodoPago: data.metodoPago,
         estadoPago: data.estadoPago,
-        paradasAdicionales: (data.paradasAdicionales || []).map((p: any) => p.direccion),
-        notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false
+        notificacionSalidaEnviada: false, // Siempre false según requerimiento
+        horaRecogidaTimestamp: horaRecogidaTimestamp,
+        updatedAt: serverTimestamp()
       };
 
-      // GUARDADO LOCAL
+      // 3. Guardar en Firestore
+      if (isNew) {
+        payload.createdAt = serverTimestamp();
+        await addDoc(collection(db, 'servicios'), payload);
+      } else {
+        await setDoc(doc(db, 'servicios', payload.id), payload, { merge: true });
+      }
+
+      // 4. Actualizar Estado Local
       const updatedServicios = selected ? servicios.map(s => s.id === selected.id ? payload : s) : [...servicios, payload];
       setServicios(updatedServicios);
       localStorage.setItem('servicios', JSON.stringify(updatedServicios));
 
-      // GUARDADO EN FIRESTORE (Campos exactos solicitados)
-      const firestoreData = {
-        ...payload,
-        estado: isNew ? "Programado" : payload.estado,
-        notificacionSalidaEnviada: isNew ? false : payload.notificacionSalidaEnviada,
-        horaRecogidaTimestamp: Timestamp.fromDate(pickupDate),
-        updatedAt: serverTimestamp()
-      };
+      // 5. Notificación de WhatsApp con error real
+      const resNova = await enviarNotificacionServicio({
+        clienteNombre: payload.cliente,
+        clienteTelefono: payload.telefonoCliente,
+        fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
+        hora: payload.hora,
+        origen: payload.origen,
+        destino: payload.destino,
+        placa: payload.vehiculoPlaca,
+        conductor: payload.conductor,
+        telefonoConductor: payload.conductorTelefono
+      });
 
-      if (isNew) {
-        await addDoc(collection(db, 'servicios'), { 
-          ...firestoreData, 
-          createdAt: serverTimestamp()
-        });
+      if (!resNova.success) {
+        toast({ variant: "destructive", title: `Error de WhatsApp: ${resNova.error}` });
       } else {
-        await setDoc(doc(db, 'servicios', payload.id), firestoreData, { merge: true });
+        toast({ title: "Servicio guardado y notificación enviada a Nova ✅" });
       }
 
-      toast({ title: isNew ? "Servicio creado" : "Servicio actualizado" });
       setIsFormOpen(false);
       setSelected(null);
-      
-      if (isNew) handleManualNotification(payload);
 
     } catch (error: any) {
       console.error(error);

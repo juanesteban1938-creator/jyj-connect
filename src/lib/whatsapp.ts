@@ -1,20 +1,15 @@
-
 /**
  * VIANOVA S.A.S - WhatsApp Bridge Client
- * Módulo de comunicación con el bot Nova.
+ * Versión optimizada para Nova 2025
  */
 
-const WHATSAPP_BOT_URL = 'https://focused-harmony-production.up.railway.app';
-const API_KEY = 'jj-connect-2026';
+const WHATSAPP_BOT_URL = 'https://focused-harmony-production.up.railway.app'
+const API_KEY = 'jj-connect-2026'
 
-/**
- * Limpia y normaliza un número de teléfono para enviarlo al bot.
- * Asegura que solo viajen dígitos.
- */
-function sanitizePhoneNumber(phone: string): string {
-  if (!phone) return '';
-  // Extraer solo dígitos
-  return phone.toString().replace(/\D/g, '');
+function formatPhone(phone: string): string {
+  let clean = phone.toString().replace(/\D/g, '')
+  if (!clean.startsWith('57')) clean = '57' + clean
+  return clean
 }
 
 export async function enviarNotificacionServicio(servicio: {
@@ -28,10 +23,6 @@ export async function enviarNotificacionServicio(servicio: {
   conductor: string
   telefonoConductor: string
 }) {
-  const cleanPhone = sanitizePhoneNumber(servicio.clienteTelefono);
-  
-  console.log('[Nova] Solicitando notificación para:', cleanPhone);
-
   try {
     const response = await fetch(`${WHATSAPP_BOT_URL}/send-service-notification`, {
       method: 'POST',
@@ -41,38 +32,32 @@ export async function enviarNotificacionServicio(servicio: {
       },
       body: JSON.stringify({
         ...servicio,
-        clienteTelefono: cleanPhone 
+        clienteTelefono: formatPhone(servicio.clienteTelefono)
       })
-    });
-    
-    const result = await response.json();
-
-    if (!response.ok) {
-        throw new Error(result.error || `Error: ${response.status}`);
-    }
-
-    return result;
+    })
+    const result = await response.json()
+    if (!response.ok) throw new Error(result.error || 'Error desconocido')
+    return { success: true }
   } catch (error: any) {
-    console.error('[Nova] Error de red o servidor:', error.message);
-    throw error;
+    console.error('[Nova] Error:', error)
+    return { success: false, error: error.message }
   }
 }
 
-export async function obtenerEstadoWhatsApp() {
+export async function obtenerEstadoNova() {
   try {
-    const response = await fetch(`${WHATSAPP_BOT_URL}/status`);
-    if (!response.ok) return { connected: false };
-    return response.json();
-  } catch (error) {
-    return { connected: false, error: 'Nova Server Offline' };
+    const response = await fetch(`${WHATSAPP_BOT_URL}/status`)
+    return await response.json()
+  } catch {
+    return { connected: false }
   }
 }
 
-export async function obtenerQR() {
+export async function obtenerQRNova() {
   try {
-    const response = await fetch(`${WHATSAPP_BOT_URL}/qr`);
-    return response.json();
-  } catch (error) {
-    return { error: 'QR Indisponible' };
+    const response = await fetch(`${WHATSAPP_BOT_URL}/qr`)
+    return await response.json()
+  } catch {
+    return { error: 'No disponible' }
   }
 }

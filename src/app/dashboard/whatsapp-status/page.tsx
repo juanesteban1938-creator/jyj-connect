@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -7,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { RefreshCw, CheckCircle2, AlertCircle, QrCode, XCircle } from 'lucide-react';
-import { obtenerEstadoWhatsApp, obtenerQR } from '@/lib/whatsapp';
+import { obtenerEstadoNova, obtenerQRNova } from '@/lib/whatsapp';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -33,11 +32,11 @@ export default function WhatsAppStatusPage() {
   const checkStatus = async () => {
     setIsLoading(true);
     try {
-      const data = await obtenerEstadoWhatsApp();
+      const data = await obtenerEstadoNova();
       setStatus(data);
       
       if (data && !data.connected) {
-        const qrData = await obtenerQR();
+        const qrData = await obtenerQRNova();
         if (qrData && qrData.qr) {
           setQrCode(qrData.qr);
         } else {
@@ -47,7 +46,7 @@ export default function WhatsAppStatusPage() {
         setQrCode(null);
       }
     } catch (err) {
-      setStatus({ connected: false, error: 'No se pudo conectar con el servidor del bot' });
+      setStatus({ connected: false, error: 'No se pudo conectar con el servidor de Nova' });
     } finally {
       setIsLoading(false);
     }
