@@ -80,7 +80,7 @@ export default function ServiciosPage() {
     const phone = sanitizePhone(s.telefonoCliente);
     const fechaStr = format(new Date(s.fecha), 'dd/MM/yyyy', { locale: es });
 
-    console.log('Enviando notificación manual para placa:', s.vehiculoPlaca);
+    console.log('Nova: Enviando notificación manual para placa:', s.vehiculoPlaca);
 
     try {
       await enviarNotificacionServicio({
@@ -95,7 +95,7 @@ export default function ServiciosPage() {
         telefonoConductor: s.conductorTelefono || 'N/A'
       });
       
-      await addDoc(collection(db, 'notificaciones_whatsapp'), {
+      addDoc(collection(db, 'notificaciones_whatsapp'), {
         fecha: serverTimestamp(),
         clienteNombre: s.cliente,
         clienteTelefono: phone,
@@ -107,7 +107,7 @@ export default function ServiciosPage() {
       toast({ title: "Nova ha enviado la notificación", description: `Se notificó a ${s.cliente} exitosamente.` });
     } catch (err: any) {
       console.error('Error en handleManualNotification:', err);
-      await addDoc(collection(db, 'notificaciones_whatsapp'), {
+      addDoc(collection(db, 'notificaciones_whatsapp'), {
         fecha: serverTimestamp(),
         clienteNombre: s.cliente,
         clienteTelefono: phone,
@@ -121,16 +121,13 @@ export default function ServiciosPage() {
   };
 
   const handleSave = async (data: any) => {
-    let updated;
     const isNew = !selected;
     const newId = Date.now().toString();
     const newConsecutivo = `GA-CCT-${servicios.length + 100}`;
     
-    // Obtener datos reales del vehículo de la lista cargada
     const vehiculoObj = data.esVehiculoNoRegistrado ? null : vehiculos.find(v => v.id === data.vehiculoId);
     const placaReal = vehiculoObj ? vehiculoObj.placa : (data.vehiculoOtro || 'N/A');
     
-    // Obtener datos reales del conductor
     const conductorObj = data.esConductorNoRegistrado ? null : conductores.find(c => c.id === data.conductorId);
     const conductorName = conductorObj ? `${conductorObj.nombres} ${conductorObj.apellidos}` : (data.conductorOtro || 'No asignado');
     const conductorPhone = conductorObj?.telefono || 'N/A';
@@ -155,6 +152,7 @@ export default function ServiciosPage() {
       paradasAdicionales: data.paradasAdicionales.map((p: any) => p.direccion)
     };
 
+    let updated;
     if (selected) {
       updated = servicios.map(s => s.id === selected.id ? nuevoServicioData : s);
     } else {
@@ -170,6 +168,8 @@ export default function ServiciosPage() {
       const phone = sanitizePhone(data.telefonoCliente);
       const fechaStr = format(data.fechaRecogida, 'dd/MM/yyyy', { locale: es });
 
+      console.log('Iniciando envío automático de Nova...');
+
       try {
         await enviarNotificacionServicio({
           clienteNombre: data.nombreCliente,
@@ -183,7 +183,7 @@ export default function ServiciosPage() {
           telefonoConductor: conductorPhone
         });
         
-        await addDoc(collection(db, 'notificaciones_whatsapp'), {
+        addDoc(collection(db, 'notificaciones_whatsapp'), {
           fecha: serverTimestamp(),
           clienteNombre: data.nombreCliente,
           clienteTelefono: phone,
@@ -192,10 +192,10 @@ export default function ServiciosPage() {
           estado: 'enviado'
         });
 
-        toast({ title: "Nova ha notificado al cliente", description: "Se envió el resumen de confirmación." });
+        toast({ title: "Nova ha notificado al cliente", description: "Se envió el resumen de confirmación automáticamente." });
       } catch (err: any) {
         console.error("Error al notificar por WhatsApp automáticamente:", err);
-        await addDoc(collection(db, 'notificaciones_whatsapp'), {
+        addDoc(collection(db, 'notificaciones_whatsapp'), {
           fecha: serverTimestamp(),
           clienteNombre: data.nombreCliente,
           clienteTelefono: phone,

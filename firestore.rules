@@ -1,10 +1,11 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
      * VIANOVA S.A.S. - TRANSPORT MANAGEMENT SYSTEM
-     * SECURITY RULES - v2.1 (Fixing Permission Error)
+     * SECURITY RULES - v2.2 (Added Notification Logs)
      */
 
     function isSignedIn() {

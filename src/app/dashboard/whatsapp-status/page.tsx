@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -18,7 +19,6 @@ export default function WhatsAppStatusPage() {
   const [isLoading, setIsLoading] = useState(false);
   const firestore = useFirestore();
 
-  // Consulta memorizada para el historial de notificaciones
   const logsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(
@@ -55,7 +55,7 @@ export default function WhatsAppStatusPage() {
 
   useEffect(() => {
     checkStatus();
-    const interval = setInterval(checkStatus, 30000); // Check cada 30 segundos
+    const interval = setInterval(checkStatus, 30000); 
     return () => clearInterval(interval);
   }, []);
 
@@ -144,7 +144,7 @@ export default function WhatsAppStatusPage() {
               <TableRow>
                 <TableCell colSpan={4} className="p-8 text-center text-red-500">
                   <AlertCircle className="h-5 w-5 mx-auto mb-2" />
-                  Error al cargar el historial: Los permisos se están actualizando.
+                  Error al cargar el historial: Verifique los permisos de Firestore.
                 </TableCell>
               </TableRow>
             ) : logs?.map((log: any) => (

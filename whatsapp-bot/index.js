@@ -15,7 +15,6 @@ const apiKey = process.env.API_KEY || 'jj-connect-2026';
 let qrCodeBase64 = '';
 let isReady = false;
 
-// Configuración del cliente de WhatsApp con optimizaciones para Railway
 const client = new Client({
     authStrategy: new LocalAuth({
         dataPath: './.wwebjs_auth'
@@ -76,7 +75,6 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
     if (!isReady) return res.status(503).json({ error: 'Bot no conectado' });
 
     try {
-        // SOLUCIÓN AL ERROR LID: Resolver el ID correcto del número
         const numberId = await client.getNumberId(data.clienteTelefono);
         if (!numberId) {
             return res.status(404).json({ error: 'El número proporcionado no está registrado en WhatsApp.' });
@@ -108,10 +106,8 @@ Si tienes alguna pregunta o necesitas hacer algún cambio, no dudes en contactar
 
 _Nova | Asistente Virtual_`;
 
-        // 1. Enviar mensaje de texto
         await client.sendMessage(chatId, textMessage);
 
-        // 2. Generar imagen del resumen con Puppeteer
         const browser = await puppeteer.launch({
             headless: true,
             args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -200,7 +196,6 @@ _Nova | Asistente Virtual_`;
         const screenshot = await cardElement.screenshot({ encoding: 'base64' });
         await browser.close();
 
-        // 3. Enviar imagen del resumen
         const media = new MessageMedia('image/png', screenshot, 'resumen_servicio.png');
         await client.sendMessage(chatId, media);
 
