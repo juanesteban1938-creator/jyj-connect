@@ -15,7 +15,7 @@ const apiKey = process.env.API_KEY || 'jj-connect-2026';
 let qrCodeBase64 = '';
 let isReady = false;
 
-// Configuración del cliente de WhatsApp
+// Configuración del cliente de WhatsApp con optimizaciones para Railway
 const client = new Client({
     authStrategy: new LocalAuth({
         dataPath: './.wwebjs_auth'
@@ -39,7 +39,7 @@ client.on('qr', (qr) => {
         qrCodeBase64 = url;
     });
     isReady = false;
-    console.log('Nuevo QR generado.');
+    console.log('Nuevo QR generado. Escanea en la página de estado.');
 });
 
 client.on('ready', () => {
@@ -76,7 +76,7 @@ app.post('/send-service-notification', authMiddleware, async (req, res) => {
     if (!isReady) return res.status(503).json({ error: 'Bot no conectado' });
 
     try {
-        // Resolver el ID correcto del número (Esto soluciona el error "No LID for user")
+        // SOLUCIÓN AL ERROR LID: Resolver el ID correcto del número
         const numberId = await client.getNumberId(data.clienteTelefono);
         if (!numberId) {
             return res.status(404).json({ error: 'El número proporcionado no está registrado en WhatsApp.' });
@@ -104,7 +104,9 @@ Por favor, estar listo 10 minutos antes de la hora de recogida. 🙏
 Si tienes alguna pregunta o necesitas hacer algún cambio, no dudes en contactarnos.
 
 ¡Gracias por confiar en nosotros! 🌟
-*Transportes Especiales J&J*`;
+*Transportes Especiales J&J*
+
+_Nova | Asistente Virtual_`;
 
         // 1. Enviar mensaje de texto
         await client.sendMessage(chatId, textMessage);
@@ -202,7 +204,7 @@ Si tienes alguna pregunta o necesitas hacer algún cambio, no dudes en contactar
         const media = new MessageMedia('image/png', screenshot, 'resumen_servicio.png');
         await client.sendMessage(chatId, media);
 
-        res.json({ success: true });
+        res.json({ success: true, message: 'Notificación enviada correctamente' });
     } catch (error) {
         console.error('Error enviando notificación avanzada:', error);
         res.status(500).json({ error: error.message });
