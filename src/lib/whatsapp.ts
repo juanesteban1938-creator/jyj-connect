@@ -31,27 +31,38 @@ export async function enviarNotificacionServicio(servicio: {
 
     return await response.json();
   } catch (error) {
-    console.error('Error enviando notificación avanzada:', error);
+    console.warn('Error enviando notificación avanzada:', error);
     throw error;
   }
 }
 
 export async function obtenerEstadoWhatsApp() {
   try {
-    const response = await fetch(`${WHATSAPP_BOT_URL}/status`);
+    const response = await fetch(`${WHATSAPP_BOT_URL}/status`, {
+      mode: 'cors',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    if (!response.ok) return { connected: false };
     return response.json();
   } catch (error) {
-    console.error('Error obteniendo estado de WhatsApp:', error);
+    // Usamos warn para evitar disparar el error overlay de NextJS en desarrollo
+    console.warn('Servidor del bot no disponible actualmente.');
     return { connected: false, error: 'Servidor fuera de línea' };
   }
 }
 
 export async function obtenerQR() {
   try {
-    const response = await fetch(`${WHATSAPP_BOT_URL}/qr`);
+    const response = await fetch(`${WHATSAPP_BOT_URL}/qr`, {
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
     return response.json();
   } catch (error) {
-    console.error('Error obteniendo QR de WhatsApp:', error);
+    console.warn('No se pudo obtener el QR:', error);
     return { error: 'No se pudo obtener el código QR' };
   }
 }
