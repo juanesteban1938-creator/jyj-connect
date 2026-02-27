@@ -38,6 +38,7 @@ export type Servicio = {
   nitCliente: string;
   telefonoCliente: string;
   clienteIniciales: string;
+  clienteNombre?: string;
   emailCliente?: string;
   conductor: string;
   conductorTelefono?: string;
@@ -54,6 +55,7 @@ export type Servicio = {
   numeroComprobante?: string;
   banco?: string;
   notificacionSalidaEnviada: boolean;
+  horaRecogidaTimestamp?: any;
 };
 
 export default function ServiciosPage() {
@@ -84,55 +86,59 @@ export default function ServiciosPage() {
 
     try {
       const isNew = !selected;
-      const vehiculoObj = data.esVehiculoNoRegistrado ? null : vehiculos.find(v => v.id === data.vehiculoId);
-      const conductorObj = data.esConductorNoRegistrado ? null : conductores.find(c => c.id === data.conductorId);
       
-      const cleanPhone = data.telefonoCliente.toString().replace(/\D/g, '');
-      const valor = Number(data.valorServicio) || 0;
-      const anticipo = Number(data.anticipo) || 0;
-      const saldo = valor - anticipo;
+      const formatPhone = (phone: string): string => {
+        let clean = phone.toString().replace(/\D/g, '');
+        if (!clean.startsWith('57')) clean = '57' + clean;
+        return clean;
+      };
 
-      // Construcción del Timestamp compensando UTC-5 de Colombia para Railway (UTC)
+      const telefonoCliente = formatPhone(data.telefonoCliente);
+
+      // Timestamp con zona horaria Colombia (UTC-5)
       let horaRecogidaTimestamp = null;
       if (data.fechaRecogida && data.horaRecogida) {
         try {
-          const [horas, minutos] = data.horaRecogida.split(':').map(Number);
-          const fechaObj = new Date(data.fechaRecogida);
-          // Railway corre en UTC. Colombia es UTC-5. 
-          // Sumamos 5 horas a la hora local para guardar el tiempo UTC absoluto.
-          fechaObj.setUTCHours(horas + 5, minutos, 0, 0);
-          if (isValid(fechaObj)) {
-            horaRecogidaTimestamp = Timestamp.fromDate(fechaObj);
+          const fechaStr = data.fechaRecogida instanceof Date 
+            ? data.fechaRecogida.toISOString().split('T')[0] 
+            : new Date(data.fechaRecogida).toISOString().split('T')[0];
+          
+          // Construcción estricta UTC-5 para Nova
+          const fechaUTC = new Date(`${fechaStr}T${data.horaRecogida}:00-05:00`);
+          if (isValid(fechaUTC)) {
+            horaRecogidaTimestamp = Timestamp.fromDate(fechaUTC);
+            console.log('[Nova] Timestamp guardado:', fechaUTC.toISOString());
           }
         } catch (e) {
-          console.error('Error construyendo timestamp:', e);
+          console.error('[Nova] Error construyendo timestamp:', e);
         }
       }
 
       const payload: any = {
         id: selected?.id || Date.now().toString(),
         consecutivo: selected?.consecutivo || `GA-CCT-${servicios.length + 101}`,
-        cliente: data.nombreCliente,
+        clienteNombre: data.nombreCliente, // Nombre completo para Cron
+        cliente: data.nombreCliente,       // Para UI actual
         clienteIniciales: data.nombreCliente.substring(0, 2).toUpperCase(),
         origen: data.direccionRecogida,
         destino: data.direccionDestino,
-        telefonoCliente: cleanPhone,
+        telefonoCliente: telefonoCliente,
         fecha: data.fechaRecogida instanceof Date ? data.fechaRecogida.toISOString() : new Date(data.fechaRecogida).toISOString(),
         hora: data.horaRecogida,
         nitCliente: data.nitCliente,
         emailCliente: data.emailCliente || '',
-        vehiculo: data.esVehiculoNoRegistrado ? `OTRO • ${data.vehiculoOtro}` : (vehiculoObj ? `${vehiculoObj.marca} ${vehiculoObj.linea}` : 'N/A'),
-        vehiculoPlaca: data.esVehiculoNoRegistrado ? data.vehiculoOtro : (vehiculoObj?.placa || 'N/A'),
-        conductor: data.esConductorNoRegistrado ? data.conductorOtro : (conductorObj ? `${conductorObj.nombres} ${conductorObj.apellidos}` : 'No asignado'),
-        conductorTelefono: data.esConductorNoRegistrado ? data.conductorTelefonoOtro : (conductorObj?.telefono || ''),
-        estado: selected?.estado || 'Programado',
-        valorServicio: valor,
-        anticipo: anticipo,
+        vehiculo: data.esVehiculoNoRegistrado ? `OTRO • ${data.vehiculoOtro}` : (vehiculos.find(v => v.id === data.vehiculoId) ? `${vehiculos.find(v => v.id === data.vehiculoId).marca} ${vehiculos.find(v => v.id === data.vehiculoId).linea}` : 'N/A'),
+        vehiculoPlaca: data.esVehiculoNoRegistrado ? data.vehiculoOtro : (vehiculos.find(v => v.id === data.vehiculoId)?.placa || 'N/A'),
+        conductor: data.esConductorNoRegistrado ? data.conductorOtro : (conductores.find(c => c.id === data.conductorId) ? `${conductores.find(c => c.id === data.conductorId).nombres} ${conductores.find(c => c.id === data.conductorId).apellidos}` : 'No asignado'),
+        conductorTelefono: data.esConductorNoRegistrado ? data.conductorTelefonoOtro : (conductores.find(c => c.id === data.conductorId)?.telefono || ''),
+        estado: 'Programado', // Obligatorio para el Cron de Nova
+        valorServicio: Number(data.valorServicio) || 0,
+        anticipo: Number(data.anticipo) || 0,
         costoOperacion: Number(data.costoOperacion) || 0,
-        saldo: saldo,
+        saldo: (Number(data.valorServicio) || 0) - (Number(data.anticipo) || 0),
         metodoPago: data.metodoPago,
         estadoPago: data.estadoPago,
-        notificacionSalidaEnviada: false, // Siempre false al guardar para que el cron lo tome
+        notificacionSalidaEnviada: false, // Reset para el cron
         horaRecogidaTimestamp: horaRecogidaTimestamp,
         updatedAt: serverTimestamp()
       };
@@ -151,11 +157,11 @@ export default function ServiciosPage() {
       setIsFormOpen(false);
       setSelected(null);
       setIsSaving(false);
-      toast({ title: "Servicio guardado en Firestore ✅" });
+      toast({ title: "Servicio guardado exitosamente ✅" });
 
       // Notificación asíncrona (segundo plano)
       enviarNotificacionServicio({
-        clienteNombre: payload.cliente,
+        clienteNombre: payload.clienteNombre,
         clienteTelefono: payload.telefonoCliente,
         fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
         hora: payload.hora,
@@ -166,7 +172,7 @@ export default function ServiciosPage() {
         telefonoConductor: payload.conductorTelefono
       }).then(res => {
         if (!res.success) {
-          toast({ variant: "destructive", title: `Error WhatsApp Nova: ${res.error}` });
+          toast({ variant: "destructive", title: `Error WhatsApp: ${res.error}` });
         } else {
           toast({ title: "Notificación enviada a Nova ✅" });
         }
@@ -197,7 +203,7 @@ export default function ServiciosPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input placeholder="Buscar por cliente, conductor o placa..." className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          <Input placeholder="Buscar por cliente, conductor o placa..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
         <Button onClick={() => setIsFormOpen(true)} className="btn-action"><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Servicio</Button>
       </div>
@@ -236,7 +242,7 @@ export default function ServiciosPage() {
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className="text-green-600 font-bold" onClick={() => {
                          enviarNotificacionServicio({
-                          clienteNombre: s.cliente,
+                          clienteNombre: s.clienteNombre || s.cliente,
                           clienteTelefono: s.telefonoCliente,
                           fecha: format(new Date(s.fecha), 'dd/MM/yyyy'),
                           hora: s.hora,

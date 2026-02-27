@@ -116,7 +116,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
         const vehiculoMatched = vehiculos.find(v => v.placa === servicio.vehiculoPlaca);
 
         form.reset({
-            nombreCliente: servicio.cliente,
+            nombreCliente: servicio.clienteNombre || servicio.cliente,
             nitCliente: servicio.nitCliente || '',
             telefonoCliente: servicio.telefonoCliente || '',
             emailCliente: servicio.emailCliente || '',
@@ -146,7 +146,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
   const esVehiculoNoRegistrado = form.watch('esVehiculoNoRegistrado');
 
   useEffect(() => {
-    // Solo actualizamos si no estamos en medio de un guardado y el valor realmente cambia
     if (estadoPago === 'Pagado' && !isSaving) {
       const currentAnticipo = form.getValues('anticipo');
       if (currentAnticipo !== valorServicio) {

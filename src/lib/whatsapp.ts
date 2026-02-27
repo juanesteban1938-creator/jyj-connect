@@ -47,7 +47,9 @@ export async function enviarNotificacionServicio(servicio: {
 
 export async function obtenerEstadoNova() {
   try {
-    const response = await fetch(`${WHATSAPP_BOT_URL}/status`)
+    const response = await fetch(`${WHATSAPP_BOT_URL}/status`, {
+      headers: { 'x-api-key': API_KEY }
+    })
     return await response.json()
   } catch {
     return { connected: false }
@@ -56,7 +58,9 @@ export async function obtenerEstadoNova() {
 
 export async function obtenerQRNova() {
   try {
-    const response = await fetch(`${WHATSAPP_BOT_URL}/qr`)
+    const response = await fetch(`${WHATSAPP_BOT_URL}/qr`, {
+      headers: { 'x-api-key': API_KEY }
+    })
     return await response.json()
   } catch {
     return { error: 'No disponible' }
