@@ -62,8 +62,6 @@ const formSchema = z.object({
     costoOperacion: z.coerce.number().optional(),
     estadoPago: z.enum(['Pendiente', 'Anticipo', 'Pagado', 'Anulado']),
     anticipo: z.coerce.number().optional(),
-    numeroComprobante: z.string().optional(),
-    banco: z.string().optional(),
 
 }).refine(data => data.esConductorNoRegistrado ? !!data.conductorOtro : !!data.conductorId, {
     message: 'Debe especificar un conductor',
@@ -123,14 +121,14 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
             telefonoCliente: servicio.telefonoCliente || '',
             emailCliente: servicio.emailCliente || '',
             fechaRecogida: servicio.fecha ? parseISO(servicio.fecha) : new Date(),
-            horaRecogida: servicio.hora || '',
+            horaRecogida: servicio.hora || '00:00',
             direccionRecogida: servicio.origen,
             direccionDestino: servicio.destino,
-            metodoPago: servicio.metodoPago,
-            valorServicio: servicio.valorServicio,
-            costoOperacion: servicio.costoOperacion,
-            estadoPago: servicio.estadoPago,
-            anticipo: servicio.anticipo,
+            metodoPago: servicio.metodoPago || 'Facturacion',
+            valorServicio: servicio.valorServicio || 0,
+            costoOperacion: servicio.costoOperacion || 0,
+            estadoPago: servicio.estadoPago || 'Pendiente',
+            anticipo: servicio.anticipo || 0,
             esConductorNoRegistrado: !conductorMatched,
             conductorId: conductorMatched?.id || '',
             conductorOtro: conductorMatched ? '' : servicio.conductor,
@@ -250,7 +248,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                             <FormLabel>Fecha</FormLabel>
                             <Popover modal={true} open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                                 <PopoverTrigger asChild><Button variant={'outline'} className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? format(field.value, 'dd/MM/yyyy') : <span>Seleccione...</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(date) => { field.onChange(date); setIsCalendarOpen(false); }} initialFocus /></PopoverContent>
+                                <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(date) => { if(date) { field.onChange(date); setIsCalendarOpen(false); } }} initialFocus /></PopoverContent>
                             </Popover>
                             <FormMessage />
                         </FormItem>
@@ -283,14 +281,48 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                     <DollarSign className="h-5 w-5 text-primary"/>
                     <h3 className="text-lg font-semibold">Finanzas</h3>
                 </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <FormField name="valorServicio" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Venta</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormItem>
+                        <FormItem><FormLabel>Venta Servicio</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormItem>
                     )} />
                     <FormField name="anticipo" control={form.control} render={({ field }) => (
                         <FormItem><FormLabel>Anticipo</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormItem>
                     )} />
-                    <FormItem><FormLabel>Saldo</FormLabel><FormControl><Input readOnly disabled className="font-bold" value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(saldo)} /></FormControl></FormItem>
+                    <FormField name="costoOperacion" control={form.control} render={({ field }) => (
+                        <FormItem><FormLabel>Costo Operación</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormItem>
+                    )} />
+                    <FormItem><FormLabel>Saldo Pendiente</FormLabel><FormControl><Input readOnly disabled className="font-bold text-red-600" value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(saldo)} /></FormControl></FormItem>
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <FormField name="estadoPago" control={form.control} render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Estado del Pago</FormLabel>
+                             <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    <SelectItem value="Pendiente">Pendiente</SelectItem>
+                                    <SelectItem value="Anticipo">Anticipo</SelectItem>
+                                    <SelectItem value="Pagado">Pagado</SelectItem>
+                                    <SelectItem value="Anulado">Anulado</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                     <FormField name="metodoPago" control={form.control} render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Método de Pago</FormLabel>
+                             <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    <SelectItem value="Efectivo">Pago en Efectivo</SelectItem>
+                                    <SelectItem value="Transferencia">Transferencia</SelectItem>
+                                    <SelectItem value="Facturacion">A Facturación</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
                 </div>
             </div>
         </div>
@@ -298,7 +330,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
 
       <div className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="ghost" onClick={onCancel} disabled={isSaving}>Cancelar</Button>
-        <Button type="submit" disabled={isSaving}>{isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Guardar'}</Button>
+        <Button type="submit" disabled={isSaving}>{isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Guardar Servicio'}</Button>
       </div>
       </form>
     </Form>

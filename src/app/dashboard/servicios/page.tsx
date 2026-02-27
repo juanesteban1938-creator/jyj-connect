@@ -128,7 +128,7 @@ export default function ServiciosPage() {
         }
       }
 
-      // 2. Preparar Payload
+      // 2. Preparar Payload completo
       const payload: any = {
         id: selected?.id || Date.now().toString(),
         consecutivo: selected?.consecutivo || `GA-CCT-${servicios.length + 101}`,
@@ -152,7 +152,7 @@ export default function ServiciosPage() {
         saldo: saldo,
         metodoPago: data.metodoPago,
         estadoPago: data.estadoPago,
-        notificacionSalidaEnviada: false, // Siempre false según requerimiento
+        notificacionSalidaEnviada: false, 
         horaRecogidaTimestamp: horaRecogidaTimestamp,
         updatedAt: serverTimestamp()
       };

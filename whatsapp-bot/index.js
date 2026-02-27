@@ -1,6 +1,6 @@
 /**
  * VIANOVA S.A.S - WhatsApp Bot Engine (Nova)
- * Versión: 3.7.0 (Sincronización de ID + Tarjetas HD + Clima + Cron)
+ * Versión: 3.8.0 (Síncrono para Railway + resolveWAId simple)
  */
 
 const express = require('express');
@@ -12,7 +12,6 @@ const admin = require('firebase-admin');
 const cron = require('node-cron');
 const fetch = require('node-fetch');
 
-// Configuración de Firebase
 if (!admin.apps.length) {
     admin.initializeApp({
         projectId: process.env.FIREBASE_PROJECT_ID || 'studio-6997056255-a0ecc'
@@ -45,7 +44,7 @@ const client = new Client({
 
 /**
  * RESOLUCIÓN DE ID (SÍNCRONA)
- * Limpia y formatea el número para WhatsApp.
+ * Para mayor estabilidad en Railway, se eliminó getNumberId.
  */
 function resolveWAId(number) {
     let clean = number.toString().replace(/\D/g, '');
@@ -101,7 +100,7 @@ async function generateServiceCard(data) {
                     <div class="value">Placa: ${data.placa} / ${data.conductor}</div>
                 </div>
             </div>
-            <div class="footer">Este es un comprobante digital generado por Nova v3.7</div>
+            <div class="footer">Este es un comprobante digital generado por Nova v3.8</div>
         </div>
     </body>
     </html>
@@ -114,7 +113,6 @@ async function generateServiceCard(data) {
     return buffer.toString('base64');
 }
 
-// EVENTOS DEL CLIENTE
 client.on('qr', (qr) => {
     qrcode.toDataURL(qr, (err, url) => {
         qrCodeBase64 = url;
@@ -128,7 +126,6 @@ client.on('ready', () => {
     console.log('[Nova] Sistema operando correctamente.');
 });
 
-// ENDPOINTS
 app.get('/status', (req, res) => res.json({ connected: isReady }));
 
 app.get('/qr', (req, res) => {
@@ -180,7 +177,6 @@ app.post('/send-departure-notification', async (req, res) => {
     }
 });
 
-// CRON JOB: ESCANEO DE SERVICIOS
 cron.schedule('* * * * *', async () => {
     if (!isReady) return;
     const now = new Date();
@@ -203,6 +199,5 @@ cron.schedule('* * * * *', async () => {
 });
 
 app.listen(port, '0.0.0.0', () => {
-    console.log(`[Nova] Servidor activo en puerto ${port}`);
     client.initialize().catch(err => console.error('[Nova] Error de inicialización:', err));
 });
