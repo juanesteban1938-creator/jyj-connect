@@ -93,6 +93,7 @@ export default function ServiciosPage() {
       const anticipo = Number(data.anticipo) || 0;
       const saldo = valor - anticipo;
 
+      // 1. Construcción segura de horaRecogidaTimestamp
       let horaRecogidaTimestamp = null;
       if (data.fechaRecogida && data.horaRecogida) {
         try {
@@ -107,6 +108,7 @@ export default function ServiciosPage() {
         }
       }
 
+      // 2. Payload exacto para Firestore
       const payload: any = {
         id: selected?.id || Date.now().toString(),
         consecutivo: selected?.consecutivo || `GA-CCT-${servicios.length + 101}`,
@@ -142,6 +144,7 @@ export default function ServiciosPage() {
         await setDoc(doc(db, 'servicios', payload.id), payload, { merge: true });
       }
 
+      // Actualización local
       const updatedServicios = selected ? servicios.map(s => s.id === selected.id ? payload : s) : [...servicios, payload];
       setServicios(updatedServicios);
       localStorage.setItem('servicios', JSON.stringify(updatedServicios));
@@ -151,6 +154,7 @@ export default function ServiciosPage() {
       setIsSaving(false);
       toast({ title: "Servicio guardado ✅" });
 
+      // 3. Notificación a Nova (Segundo plano)
       enviarNotificacionServicio({
         clienteNombre: payload.cliente,
         clienteTelefono: payload.telefonoCliente,
@@ -167,8 +171,6 @@ export default function ServiciosPage() {
         } else {
           toast({ title: "Notificación enviada ✅" });
         }
-      }).catch(err => {
-        console.error("Error al enviar WhatsApp:", err);
       });
 
     } catch (error: any) {

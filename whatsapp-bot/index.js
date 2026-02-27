@@ -1,6 +1,6 @@
 /**
  * VIANOVA S.A.S - WhatsApp Bot Engine (Nova)
- * Versión: 4.2.0 (Síncrono para Railway + resolveWAId simple)
+ * Versión: 4.3.0 (Síncrono para Railway + resolveWAId simple)
  */
 
 const express = require('express');
@@ -99,7 +99,7 @@ async function generateServiceCard(data) {
                     <div class="value">Placa: ${data.placa} / ${data.conductor}</div>
                 </div>
             </div>
-            <div class="footer">Este es un comprobante digital generado por Nova v4.2</div>
+            <div class="footer">Este es un comprobante digital generado por Nova v4.3</div>
         </div>
     </body>
     </html>

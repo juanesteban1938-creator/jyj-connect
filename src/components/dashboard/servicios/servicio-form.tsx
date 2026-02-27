@@ -135,7 +135,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
             conductorTelefonoOtro: conductorMatched ? '' : (servicio.conductorTelefono || ''),
             esVehiculoNoRegistrado: !vehiculoMatched,
             vehiculoId: vehiculoMatched?.id || '',
-            vehiculoOtro: servicio.vehiculoPlaca || ''
+            vehiculoOtro: servicio.vehiculoPlaca || (servicio as any).placa || ''
         });
     }
   }, [servicio, form, conductores, vehiculos]);
@@ -295,37 +295,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                         <FormItem><FormLabel>Costo Operación</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormItem>
                     )} />
                     <FormItem><FormLabel>Saldo Pendiente</FormLabel><FormControl><Input readOnly disabled className="font-bold text-red-600" value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(saldo)} /></FormControl></FormItem>
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <FormField name="estadoPago" control={form.control} render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Estado del Pago</FormLabel>
-                             <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                    <SelectItem value="Pendiente">Pendiente</SelectItem>
-                                    <SelectItem value="Anticipo">Anticipo</SelectItem>
-                                    <SelectItem value="Pagado">Pagado</SelectItem>
-                                    <SelectItem value="Anulado">Anulado</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
-                     <FormField name="metodoPago" control={form.control} render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Método de Pago</FormLabel>
-                             <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                    <SelectItem value="Efectivo">Pago en Efectivo</SelectItem>
-                                    <SelectItem value="Transferencia">Transferencia</SelectItem>
-                                    <SelectItem value="Facturacion">A Facturación</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
                 </div>
             </div>
         </div>
