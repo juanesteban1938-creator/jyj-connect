@@ -30,7 +30,7 @@ import { Calendar } from '@/components/jj-ui/calendar';
 import { Calendar as CalendarIcon, User, Briefcase, MapPin, Mail, Clock, Loader2, DollarSign, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Conductor } from '@/app/dashboard/conductores/page';
@@ -110,7 +110,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
     },
   });
 
-  // Inicialización estable una sola vez
   useEffect(() => {
     if (servicio) {
         const conductorMatched = conductores.find(c => `${c.nombres} ${c.apellidos}` === servicio.conductor);
@@ -144,9 +143,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
   const valorServicio = form.watch('valorServicio') || 0;
   const estadoPago = form.watch('estadoPago');
   const esConductorNoRegistrado = form.watch('esConductorNoRegistrado');
-  const esVehiculoNoRegistrado = form.watch('esVehiculoNoRegistrado');
 
-  // Lógica de anticipo estable
   useEffect(() => {
     if (estadoPago === 'Pagado' && !isSaving) {
       const currentAnticipo = form.getValues('anticipo');
@@ -166,7 +163,18 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
   
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSave)} className="space-y-6">
+      <form 
+        onSubmit={form.handleSubmit(
+          (data) => {
+            console.log('FORM SUBMIT EXITOSO');
+            onSave(data);
+          },
+          (errors) => {
+            console.log('ERRORES DE VALIDACIÓN:', errors);
+          }
+        )} 
+        className="space-y-6"
+      >
         <ScrollArea className="h-[70vh] w-full">
          <div className="space-y-6 p-1">
             <div className="space-y-4">
@@ -232,7 +240,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                                 </FormItem>
                             )}
                         />
-                        {esVehiculoNoRegistrado ? (
+                        {form.watch('esVehiculoNoRegistrado') ? (
                             <FormField name="vehiculoOtro" control={form.control} render={({ field }) => (
                                 <FormItem><FormLabel>Placa Vehículo</FormLabel><FormControl><Input placeholder="XXX-000" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
@@ -309,7 +317,11 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
 
       <div className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="ghost" onClick={onCancel} disabled={isSaving}>Cancelar</Button>
-        <Button type="submit" disabled={isSaving}>
+        <Button 
+          type="submit" 
+          disabled={isSaving}
+          onClick={() => console.log('BOTÓN GUARDAR CLICKEADO')}
+        >
             {isSaving ? (
                 <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
