@@ -1,6 +1,6 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
- * Versión: 4.6.0 (Optimización UTC-5 Colombia)
+ * Versión: 4.8.0 (Optimización UTC-5 Colombia)
  * Empresa: Transportes Especiales J&J
  */
 
@@ -44,7 +44,8 @@ const client = new Client({
 });
 
 /**
- * Resolución síncrona de ID de WhatsApp para compatibilidad Railway
+ * Resolución síncrona de ID de WhatsApp
+ * J&J Connect V2.0 - Identidad Corporativa
  */
 function resolveWAId(number) {
     let clean = number.toString().replace(/\D/g, '');
@@ -101,7 +102,7 @@ async function generateServiceCard(data) {
                         <div class="value">Placa: ${data.placa} / ${data.conductor}</div>
                     </div>
                 </div>
-                <div class="footer">Generado por Nova v4.6 - J&J Connect</div>
+                <div class="footer">Nova Assistant - Transportes Especiales J&J</div>
             </div>
         </body>
         </html>
@@ -129,18 +130,25 @@ client.on('qr', (qr) => {
 client.on('ready', () => {
     isReady = true;
     qrCodeBase64 = '';
-    console.log('[Nova] J&J Connect Bot operando correctamente.');
+    console.log('[Nova] J&J Connect Bot operando para Transportes Especiales J&J.');
 });
 
-app.get('/status', (req, res) => res.json({ connected: isReady }));
+// Middleware de seguridad simple
+const checkApiKey = (req, res, next) => {
+    const key = req.headers['x-api-key'];
+    if (key !== API_KEY) return res.status(401).json({ error: 'No autorizado' });
+    next();
+};
 
-app.get('/qr', (req, res) => {
+app.get('/status', checkApiKey, (req, res) => res.json({ connected: isReady }));
+
+app.get('/qr', checkApiKey, (req, res) => {
     if (isReady) return res.json({ connected: true });
     if (!qrCodeBase64) return res.status(404).json({ error: 'QR no disponible' });
     res.json({ qr: qrCodeBase64 });
 });
 
-app.post('/send-service-notification', async (req, res) => {
+app.post('/send-service-notification', checkApiKey, async (req, res) => {
     const data = req.body;
     if (!isReady) return res.status(503).json({ error: 'Nova no está conectada' });
 
@@ -160,7 +168,7 @@ app.post('/send-service-notification', async (req, res) => {
     }
 });
 
-app.post('/send-departure-notification', async (req, res) => {
+app.post('/send-departure-notification', checkApiKey, async (req, res) => {
     const data = req.body;
     if (!isReady) return res.status(503).json({ error: 'Nova no está conectada' });
 
@@ -174,7 +182,7 @@ app.post('/send-departure-notification', async (req, res) => {
             weatherMsg = `🌡️ *Clima actual:* ${wData.main.temp}°C, ${wData.weather[0].description}.`;
         } catch (e) { weatherMsg = 'Clima no disponible.'; }
 
-        const text = `⚠️ *¡AVISO DE SALIDA!* ⚠️\n\nHola *${data.clienteNombre}*, tu vehículo de *J&J Connect* ya está próximo a iniciar el servicio.\n\n${weatherMsg}\n\n📍 *Seguimiento:* Estamos en camino. Favor estar atento al celular. 🙏`;
+        const text = `⚠️ *¡AVISO DE SALIDA!* ⚠️\n\nHola *${data.clienteNombre}*, tu vehículo de *Transportes Especiales J&J* ya está próximo a iniciar el servicio.\n\n${weatherMsg}\n\n📍 *Seguimiento:* Estamos en camino. Favor estar atento al celular. 🙏`;
         
         await client.sendMessage(jid, text);
         res.json({ success: true });
@@ -183,6 +191,7 @@ app.post('/send-departure-notification', async (req, res) => {
     }
 });
 
+// CRON JOB optimizado para UTC-5 (Colombia)
 cron.schedule('* * * * *', async () => {
     if (!isReady) return;
     const now = new Date();
@@ -200,21 +209,24 @@ cron.schedule('* * * * *', async () => {
             const diffMs = now - horaRecogida;
             const diffMin = diffMs / 60000;
             
-            // Disparar en la ventana de 0 a 2 minutos
+            // Disparar en la ventana de 0 a 2 minutos después de la hora
             if (diffMin >= 0 && diffMin <= 2) {
                 console.log(`[Cron] Disparando para ${s.consecutivo}`);
                 try {
-                    await fetch(`http://localhost:${port}/send-departure-notification`, {
+                    const result = await fetch(`http://localhost:${port}/send-departure-notification`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
                         body: JSON.stringify({
                             clienteTelefono: s.telefonoCliente,
-                            clienteNombre: s.clienteNombre,
+                            clienteNombre: s.clienteNombre || s.cliente,
                             origen: s.origen,
                             destino: s.destino
                         })
                     });
-                    await doc.ref.update({ notificacionSalidaEnviada: true });
+                    
+                    if (result.ok) {
+                        await doc.ref.update({ notificacionSalidaEnviada: true });
+                    }
                 } catch(e) {
                     console.error(`[Cron] Error:`, e.message);
                 }

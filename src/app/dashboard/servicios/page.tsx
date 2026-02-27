@@ -13,7 +13,9 @@ import {
   MessageSquare, 
   Briefcase, 
   User, 
-  Truck 
+  Truck,
+  Clock,
+  MapPin
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -110,7 +112,6 @@ export default function ServiciosPage() {
           const fechaUTC = new Date(`${fechaStr}T${data.horaRecogida}:00-05:00`);
           if (isValid(fechaUTC)) {
             horaRecogidaTimestamp = Timestamp.fromDate(fechaUTC);
-            console.log('[Nova] Timestamp guardado:', fechaUTC.toISOString());
           }
         } catch (e) {
           console.error('[Nova] Error construyendo timestamp:', e);
@@ -146,6 +147,7 @@ export default function ServiciosPage() {
         updatedAt: serverTimestamp()
       };
 
+      // 1. Guardar en Firestore
       if (isNew) {
         payload.createdAt = serverTimestamp();
         await addDoc(collection(db, 'servicios'), payload);
@@ -153,16 +155,17 @@ export default function ServiciosPage() {
         await setDoc(doc(db, 'servicios', payload.id), payload, { merge: true });
       }
 
+      // 2. Actualizar estado local
       const updatedServicios = selected ? servicios.map(s => s.id === selected.id ? payload : s) : [...servicios, payload];
       setServicios(updatedServicios);
       localStorage.setItem('servicios', JSON.stringify(updatedServicios));
 
+      // 3. Cerrar modal y liberar UI inmediatamente
       setIsFormOpen(false);
       setSelected(null);
-      setIsSaving(false);
       toast({ title: "Servicio guardado exitosamente ✅" });
 
-      // Notificación Nova en segundo plano
+      // 4. Notificación Nova en segundo plano (NO BLOQUEANTE)
       enviarNotificacionServicio({
         clienteNombre: payload.clienteNombre,
         clienteTelefono: payload.telefonoCliente,
@@ -174,17 +177,19 @@ export default function ServiciosPage() {
         conductor: payload.conductor,
         telefonoConductor: payload.conductorTelefono
       }).then(res => {
-        if (!res.success) {
-          toast({ variant: "destructive", title: `Error WhatsApp Nova: ${res.error}` });
+        if (res.success) {
+          toast({ title: "Nova notificó al cliente ✅" });
         } else {
-          toast({ title: "Notificación enviada a Nova ✅" });
+          toast({ variant: "destructive", title: "Error WhatsApp Nova", description: res.error });
         }
       });
 
     } catch (error: any) {
-      console.error(error);
-      setIsSaving(false);
+      console.error('Error al guardar servicio:', error);
       toast({ variant: "destructive", title: "Error al guardar", description: error.message });
+    } finally {
+      // SIEMPRE resetear el estado de carga
+      setIsSaving(false);
     }
   };
 
@@ -200,7 +205,7 @@ export default function ServiciosPage() {
     <div className="page-container">
       <header>
         <h1 className="page-title">Gestión de Servicios</h1>
-        <p className="page-subtitle">Administra y supervisa los traslados en tiempo real.</p>
+        <p className="page-subtitle">Administra y supervisa los traslados de Transportes Especiales J&J.</p>
       </header>
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
@@ -255,8 +260,8 @@ export default function ServiciosPage() {
                           conductor: s.conductor,
                           telefonoConductor: s.conductorTelefono || 'N/A'
                         }).then(res => {
-                           if (!res.success) toast({ variant: "destructive", title: `Error WhatsApp Nova: ${res.error}` });
-                           else toast({ title: "Notificación enviada a Nova ✅" });
+                           if (res.success) toast({ title: "Re-notificación enviada a Nova ✅" });
+                           else toast({ variant: "destructive", title: "Error Nova", description: res.error });
                         });
                       }}><MessageSquare className="mr-2 h-4 w-4" /> Re-notificar Nova</DropdownMenuItem>
                     </DropdownMenuContent>

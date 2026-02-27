@@ -30,7 +30,7 @@ import { Calendar } from '@/components/jj-ui/calendar';
 import { Calendar as CalendarIcon, User, Briefcase, MapPin, Mail, Clock, Loader2, DollarSign, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Conductor } from '@/app/dashboard/conductores/page';
@@ -110,6 +110,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
     },
   });
 
+  // Inicialización estable una sola vez
   useEffect(() => {
     if (servicio) {
         const conductorMatched = conductores.find(c => `${c.nombres} ${c.apellidos}` === servicio.conductor);
@@ -145,17 +146,23 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
   const esConductorNoRegistrado = form.watch('esConductorNoRegistrado');
   const esVehiculoNoRegistrado = form.watch('esVehiculoNoRegistrado');
 
+  // Lógica de anticipo estable
   useEffect(() => {
     if (estadoPago === 'Pagado' && !isSaving) {
       const currentAnticipo = form.getValues('anticipo');
       if (currentAnticipo !== valorServicio) {
         form.setValue('anticipo', valorServicio);
       }
+    } else if ((estadoPago === 'Pendiente' || estadoPago === 'Anulado') && !isSaving) {
+        const currentAnticipo = form.getValues('anticipo');
+        if (currentAnticipo !== 0) {
+            form.setValue('anticipo', 0);
+        }
     }
   }, [estadoPago, valorServicio, form, isSaving]);
 
   const anticipo = form.watch('anticipo') || 0;
-  const saldo = valorServicio - anticipo;
+  const saldo = Math.max(0, valorServicio - anticipo);
   
   return (
     <Form {...form}>
@@ -302,7 +309,14 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
 
       <div className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="ghost" onClick={onCancel} disabled={isSaving}>Cancelar</Button>
-        <Button type="submit" disabled={isSaving}>{isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Guardar Servicio'}</Button>
+        <Button type="submit" disabled={isSaving}>
+            {isSaving ? (
+                <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Guardando...
+                </>
+            ) : 'Guardar Servicio'}
+        </Button>
       </div>
       </form>
     </Form>
