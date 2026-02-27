@@ -1,3 +1,4 @@
+'use client';
 /**
  * VIANOVA S.A.S - WhatsApp Bridge Client
  * Versión optimizada para Nova 2025

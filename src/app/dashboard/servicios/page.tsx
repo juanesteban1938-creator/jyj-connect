@@ -16,7 +16,7 @@ import {
   User, 
   Truck 
 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs-ui';
 import { Badge } from '@/components/ui/badge';
 import { format, isValid } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -79,26 +79,6 @@ export default function ServiciosPage() {
     if (c) setConductores(JSON.parse(c));
   }, []);
 
-  const handleManualNotification = async (s: Servicio) => {
-    const res = await enviarNotificacionServicio({
-      clienteNombre: s.cliente,
-      clienteTelefono: s.telefonoCliente,
-      fecha: format(new Date(s.fecha), 'dd/MM/yyyy'),
-      hora: s.hora,
-      origen: s.origen,
-      destino: s.destino,
-      placa: s.vehiculoPlaca || 'N/A',
-      conductor: s.conductor,
-      telefonoConductor: s.conductorTelefono || 'N/A'
-    });
-    
-    if (!res.success) {
-      toast({ variant: "destructive", title: `Error de WhatsApp: ${res.error}` });
-    } else {
-      toast({ title: "Notificación enviada ✅" });
-    }
-  };
-
   const handleSave = async (data: any) => {
     if (isSaving) return;
     setIsSaving(true);
@@ -113,7 +93,6 @@ export default function ServiciosPage() {
       const anticipo = Number(data.anticipo) || 0;
       const saldo = valor - anticipo;
 
-      // 1. Construir Timestamp de Firestore con validación estricta
       let horaRecogidaTimestamp = null;
       if (data.fechaRecogida && data.horaRecogida) {
         try {
@@ -128,7 +107,6 @@ export default function ServiciosPage() {
         }
       }
 
-      // 2. Preparar Payload completo
       const payload: any = {
         id: selected?.id || Date.now().toString(),
         consecutivo: selected?.consecutivo || `GA-CCT-${servicios.length + 101}`,
@@ -152,12 +130,12 @@ export default function ServiciosPage() {
         saldo: saldo,
         metodoPago: data.metodoPago,
         estadoPago: data.estadoPago,
-        notificacionSalidaEnviada: false, 
+        notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false, 
         horaRecogidaTimestamp: horaRecogidaTimestamp,
         updatedAt: serverTimestamp()
       };
 
-      // 3. Guardar en Firestore
+      // 1. Guardar en Firestore y LocalStorage
       if (isNew) {
         payload.createdAt = serverTimestamp();
         await addDoc(collection(db, 'servicios'), payload);
@@ -165,13 +143,18 @@ export default function ServiciosPage() {
         await setDoc(doc(db, 'servicios', payload.id), payload, { merge: true });
       }
 
-      // 4. Actualizar Estado Local
       const updatedServicios = selected ? servicios.map(s => s.id === selected.id ? payload : s) : [...servicios, payload];
       setServicios(updatedServicios);
       localStorage.setItem('servicios', JSON.stringify(updatedServicios));
 
-      // 5. Notificación de WhatsApp con error real
-      const resNova = await enviarNotificacionServicio({
+      // 2. Cerrar de inmediato
+      setIsFormOpen(false);
+      setSelected(null);
+      setIsSaving(false);
+      toast({ title: "Servicio guardado ✅" });
+
+      // 3. Notificación de WhatsApp en segundo plano
+      enviarNotificacionServicio({
         clienteNombre: payload.cliente,
         clienteTelefono: payload.telefonoCliente,
         fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
@@ -181,22 +164,20 @@ export default function ServiciosPage() {
         placa: payload.vehiculoPlaca,
         conductor: payload.conductor,
         telefonoConductor: payload.conductorTelefono
+      }).then(res => {
+        if (!res.success) {
+          toast({ variant: "destructive", title: "Error WhatsApp", description: res.error });
+        } else {
+          toast({ title: "Notificación enviada ✅" });
+        }
+      }).catch(err => {
+        console.error("Error al enviar WhatsApp:", err);
       });
-
-      if (!resNova.success) {
-        toast({ variant: "destructive", title: `Error de WhatsApp: ${resNova.error}` });
-      } else {
-        toast({ title: "Servicio guardado y notificación enviada a Nova ✅" });
-      }
-
-      setIsFormOpen(false);
-      setSelected(null);
 
     } catch (error: any) {
       console.error(error);
-      toast({ variant: "destructive", title: "Error al guardar", description: error.message });
-    } finally {
       setIsSaving(false);
+      toast({ variant: "destructive", title: "Error al guardar", description: error.message });
     }
   };
 
@@ -255,7 +236,22 @@ export default function ServiciosPage() {
                       <DropdownMenuItem onClick={() => { setSelected(s); setIsResumenOpen(true); }}><Eye className="mr-2 h-4 w-4" /> Ver Detalles</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setSelected(s); setIsFormOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-green-600 font-bold" onClick={() => handleManualNotification(s)}><MessageSquare className="mr-2 h-4 w-4" /> Notificar por WhatsApp</DropdownMenuItem>
+                      <DropdownMenuItem className="text-green-600 font-bold" onClick={() => {
+                         enviarNotificacionServicio({
+                          clienteNombre: s.cliente,
+                          clienteTelefono: s.telefonoCliente,
+                          fecha: format(new Date(s.fecha), 'dd/MM/yyyy'),
+                          hora: s.hora,
+                          origen: s.origen,
+                          destino: s.destino,
+                          placa: s.vehiculoPlaca || 'N/A',
+                          conductor: s.conductor,
+                          telefonoConductor: s.conductorTelefono || 'N/A'
+                        }).then(res => {
+                           if (!res.success) toast({ variant: "destructive", title: `Error de WhatsApp: ${res.error}` });
+                           else toast({ title: "Notificación enviada ✅" });
+                        });
+                      }}><MessageSquare className="mr-2 h-4 w-4" /> Notificar por WhatsApp</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
