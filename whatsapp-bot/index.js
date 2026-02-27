@@ -1,6 +1,6 @@
 /**
  * VIANOVA S.A.S - WhatsApp Bot Engine (Nova)
- * Versión: 4.3.0 (Síncrono para Railway + resolveWAId simple)
+ * Versión: 4.5.0 (Optimización Cron + Timezone UTC-5)
  */
 
 const express = require('express');
@@ -42,74 +42,76 @@ const client = new Client({
     }
 });
 
-/**
- * RESOLUCIÓN DE ID (SÍNCRONA)
- */
 function resolveWAId(number) {
     let clean = number.toString().replace(/\D/g, '');
     if (!clean.startsWith('57')) clean = '57' + clean;
     return `${clean}@c.us`;
 }
 
-// Generador de Tarjeta Visual (Puppeteer)
 async function generateServiceCard(data) {
-    const browser = await puppeteer.launch({ 
-        headless: true, 
-        args: ['--no-sandbox', '--disable-setuid-sandbox'] 
-    });
-    const page = await browser.newPage();
-    
-    const htmlContent = `
-    <html>
-    <head>
-        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
-        <style>
-            body { font-family: 'Poppins', sans-serif; margin: 0; background: #fff; width: 600px; height: 800px; }
-            .card { width: 560px; height: 760px; margin: 20px; border-radius: 30px; background: #1a1a1a; color: white; position: relative; overflow: hidden; }
-            .header { background: #f97316; padding: 40px; text-align: center; }
-            .logo { font-size: 32px; font-weight: bold; letter-spacing: 2px; }
-            .content { padding: 40px; }
-            .info-box { background: #333; padding: 20px; border-radius: 20px; margin-bottom: 20px; }
-            .label { color: #f97316; font-size: 14px; text-transform: uppercase; font-weight: bold; }
-            .value { font-size: 20px; margin-top: 5px; }
-            .footer { position: absolute; bottom: 40px; width: 100%; text-align: center; color: #666; font-size: 12px; }
-        </style>
-    </head>
-    <body>
-        <div class="card">
-            <div class="header">
-                <div class="logo">J&J CONNECT</div>
-                <div style="font-size: 14px; opacity: 0.8;">PROGRAMACIÓN DE SERVICIO</div>
+    let browser;
+    try {
+        browser = await puppeteer.launch({ 
+            headless: true, 
+            args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+        });
+        const page = await browser.newPage();
+        
+        const htmlContent = `
+        <html>
+        <head>
+            <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
+            <style>
+                body { font-family: 'Poppins', sans-serif; margin: 0; background: #fff; width: 600px; height: 800px; }
+                .card { width: 560px; height: 760px; margin: 20px; border-radius: 30px; background: #1a1a1a; color: white; position: relative; overflow: hidden; }
+                .header { background: #f97316; padding: 40px; text-align: center; }
+                .logo { font-size: 32px; font-weight: bold; letter-spacing: 2px; }
+                .content { padding: 40px; }
+                .info-box { background: #333; padding: 20px; border-radius: 20px; margin-bottom: 20px; }
+                .label { color: #f97316; font-size: 14px; text-transform: uppercase; font-weight: bold; }
+                .value { font-size: 20px; margin-top: 5px; }
+                .footer { position: absolute; bottom: 40px; width: 100%; text-align: center; color: #666; font-size: 12px; }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <div class="header">
+                    <div class="logo">J&J CONNECT</div>
+                    <div style="font-size: 14px; opacity: 0.8;">PROGRAMACIÓN DE SERVICIO</div>
+                </div>
+                <div class="content">
+                    <div class="info-box">
+                        <div class="label">🗓️ Fecha y Hora</div>
+                        <div class="value">${data.fecha} - ${data.hora}</div>
+                    </div>
+                    <div class="info-box">
+                        <div class="label">📍 Origen</div>
+                        <div class="value">${data.origen}</div>
+                    </div>
+                    <div class="info-box">
+                        <div class="label">🏁 Destino</div>
+                        <div class="value">${data.destino}</div>
+                    </div>
+                    <div class="info-box">
+                        <div class="label">🚐 Vehículo y Conductor</div>
+                        <div class="value">Placa: ${data.placa} / ${data.conductor}</div>
+                    </div>
+                </div>
+                <div class="footer">Generado por Nova v4.5</div>
             </div>
-            <div class="content">
-                <div class="info-box">
-                    <div class="label">🗓️ Fecha y Hora</div>
-                    <div class="value">${data.fecha} - ${data.hora}</div>
-                </div>
-                <div class="info-box">
-                    <div class="label">📍 Origen</div>
-                    <div class="value">${data.origen}</div>
-                </div>
-                <div class="info-box">
-                    <div class="label">🏁 Destino</div>
-                    <div class="value">${data.destino}</div>
-                </div>
-                <div class="info-box">
-                    <div class="label">🚐 Vehículo y Conductor</div>
-                    <div class="value">Placa: ${data.placa} / ${data.conductor}</div>
-                </div>
-            </div>
-            <div class="footer">Este es un comprobante digital generado por Nova v4.3</div>
-        </div>
-    </body>
-    </html>
-    `;
+        </body>
+        </html>
+        `;
 
-    await page.setViewport({ width: 600, height: 800 });
-    await page.setContent(htmlContent);
-    const buffer = await page.screenshot({ type: 'png' });
-    await browser.close();
-    return buffer.toString('base64');
+        await page.setViewport({ width: 600, height: 800 });
+        await page.setContent(htmlContent);
+        const buffer = await page.screenshot({ type: 'png' });
+        await browser.close();
+        return buffer.toString('base64');
+    } catch (err) {
+        if (browser) await browser.close();
+        throw err;
+    }
 }
 
 client.on('qr', (qr) => {
@@ -168,7 +170,7 @@ app.post('/send-departure-notification', async (req, res) => {
             weatherMsg = `🌡️ *Clima actual:* ${wData.main.temp}°C, ${wData.weather[0].description}.`;
         } catch (e) { weatherMsg = 'Clima no disponible.'; }
 
-        const text = `⚠️ *¡AVISO DE SALIDA!* ⚠️\n\nHola *${data.clienteNombre}*, tu vehículo con placa *${data.placa}* ya ha salido hacia el punto de origen.\n\n${weatherMsg}\n\n📍 *Seguimiento:* Estamos en camino. Favor estar atento al celular. 🙏`;
+        const text = `⚠️ *¡AVISO DE SALIDA!* ⚠️\n\nHola *${data.clienteNombre}*, tu vehículo ya está próximo a iniciar el servicio.\n\n${weatherMsg}\n\n📍 *Seguimiento:* Estamos en camino. Favor estar atento al celular. 🙏`;
         
         await client.sendMessage(jid, text);
         res.json({ success: true });
@@ -180,22 +182,47 @@ app.post('/send-departure-notification', async (req, res) => {
 cron.schedule('* * * * *', async () => {
     if (!isReady) return;
     const now = new Date();
-    const tenMinutesLater = new Date(now.getTime() + 10 * 60000);
+    console.log(`[Cron] Revisando: ${now.toISOString()}`);
+    try {
+        const snapshot = await db.collection('servicios')
+            .where('estado', 'in', ['Programado', 'programado'])
+            .where('notificacionSalidaEnviada', '==', false)
+            .get();
 
-    const snapshot = await db.collection('servicios')
-        .where('estado', '==', 'Programado')
-        .where('notificacionSalidaEnviada', '==', false)
-        .where('horaRecogidaTimestamp', '<=', admin.firestore.Timestamp.fromDate(tenMinutesLater))
-        .get();
-
-    snapshot.forEach(async (docSnap) => {
-        const s = docSnap.data();
-        try {
-            const jid = resolveWAId(s.telefonoCliente);
-            await client.sendMessage(jid, `🚨 *NOTIFICACIÓN AUTOMÁTICA:* Su servicio *${s.consecutivo}* está próximo a iniciar (en 10 minutos). El vehículo *${s.vehiculoPlaca}* está en camino.`);
-            await docSnap.ref.update({ notificacionSalidaEnviada: true });
-        } catch (e) { console.error(`[Cron] Error en servicio ${s.id}:`, e); }
-    });
+        for (const doc of snapshot.docs) {
+            const s = doc.data();
+            if (!s.horaRecogidaTimestamp) {
+                console.log(`[Cron] Sin timestamp: ${s.consecutivo}`);
+                continue;
+            }
+            const horaRecogida = s.horaRecogidaTimestamp.toDate();
+            const diffMs = now - horaRecogida;
+            const diffMin = diffMs / 60000;
+            console.log(`[Cron] Servicio ${s.consecutivo}: diff=${diffMin.toFixed(2)} min`);
+            
+            if (diffMin >= 0 && diffMin <= 2) {
+                console.log(`[Cron] ¡Disparando para ${s.consecutivo}!`);
+                try {
+                    await fetch(`http://localhost:${port}/send-departure-notification`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+                        body: JSON.stringify({
+                            clienteTelefono: s.telefonoCliente || s.clienteTelefono,
+                            clienteNombre: s.clienteNombre || s.cliente,
+                            origen: s.origen,
+                            destino: s.destino
+                        })
+                    });
+                    await doc.ref.update({ notificacionSalidaEnviada: true });
+                    console.log(`[Cron] ✅ Enviado y marcado.`);
+                } catch(e) {
+                    console.error(`[Cron] Error:`, e.message);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('[Cron] Error general:', error.message);
+    }
 });
 
 app.listen(port, '0.0.0.0', () => {

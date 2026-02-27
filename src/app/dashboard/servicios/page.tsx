@@ -11,7 +11,6 @@ import {
   Eye, 
   Edit, 
   MessageSquare, 
-  Loader2, 
   Briefcase, 
   User, 
   Truck 
@@ -93,13 +92,15 @@ export default function ServiciosPage() {
       const anticipo = Number(data.anticipo) || 0;
       const saldo = valor - anticipo;
 
-      // 1. Construcción segura de horaRecogidaTimestamp
+      // Construcción del Timestamp compensando UTC-5 de Colombia para Railway (UTC)
       let horaRecogidaTimestamp = null;
       if (data.fechaRecogida && data.horaRecogida) {
         try {
           const [horas, minutos] = data.horaRecogida.split(':').map(Number);
           const fechaObj = new Date(data.fechaRecogida);
-          fechaObj.setHours(horas, minutos, 0, 0);
+          // Railway corre en UTC. Colombia es UTC-5. 
+          // Sumamos 5 horas a la hora local para guardar el tiempo UTC absoluto.
+          fechaObj.setUTCHours(horas + 5, minutos, 0, 0);
           if (isValid(fechaObj)) {
             horaRecogidaTimestamp = Timestamp.fromDate(fechaObj);
           }
@@ -108,7 +109,6 @@ export default function ServiciosPage() {
         }
       }
 
-      // 2. Payload exacto para Firestore
       const payload: any = {
         id: selected?.id || Date.now().toString(),
         consecutivo: selected?.consecutivo || `GA-CCT-${servicios.length + 101}`,
@@ -117,7 +117,7 @@ export default function ServiciosPage() {
         origen: data.direccionRecogida,
         destino: data.direccionDestino,
         telefonoCliente: cleanPhone,
-        fecha: data.fechaRecogida.toISOString(),
+        fecha: data.fechaRecogida instanceof Date ? data.fechaRecogida.toISOString() : new Date(data.fechaRecogida).toISOString(),
         hora: data.horaRecogida,
         nitCliente: data.nitCliente,
         emailCliente: data.emailCliente || '',
@@ -132,7 +132,7 @@ export default function ServiciosPage() {
         saldo: saldo,
         metodoPago: data.metodoPago,
         estadoPago: data.estadoPago,
-        notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false, 
+        notificacionSalidaEnviada: false, // Siempre false al guardar para que el cron lo tome
         horaRecogidaTimestamp: horaRecogidaTimestamp,
         updatedAt: serverTimestamp()
       };
@@ -144,7 +144,6 @@ export default function ServiciosPage() {
         await setDoc(doc(db, 'servicios', payload.id), payload, { merge: true });
       }
 
-      // Actualización local
       const updatedServicios = selected ? servicios.map(s => s.id === selected.id ? payload : s) : [...servicios, payload];
       setServicios(updatedServicios);
       localStorage.setItem('servicios', JSON.stringify(updatedServicios));
@@ -152,9 +151,9 @@ export default function ServiciosPage() {
       setIsFormOpen(false);
       setSelected(null);
       setIsSaving(false);
-      toast({ title: "Servicio guardado ✅" });
+      toast({ title: "Servicio guardado en Firestore ✅" });
 
-      // 3. Notificación a Nova (Segundo plano)
+      // Notificación asíncrona (segundo plano)
       enviarNotificacionServicio({
         clienteNombre: payload.cliente,
         clienteTelefono: payload.telefonoCliente,
@@ -167,9 +166,9 @@ export default function ServiciosPage() {
         telefonoConductor: payload.conductorTelefono
       }).then(res => {
         if (!res.success) {
-          toast({ variant: "destructive", title: `Error de WhatsApp: ${res.error}` });
+          toast({ variant: "destructive", title: `Error WhatsApp Nova: ${res.error}` });
         } else {
-          toast({ title: "Notificación enviada ✅" });
+          toast({ title: "Notificación enviada a Nova ✅" });
         }
       });
 
@@ -198,7 +197,7 @@ export default function ServiciosPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar por cliente, conductor o placa..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          <input placeholder="Buscar por cliente, conductor o placa..." className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
         <Button onClick={() => setIsFormOpen(true)} className="btn-action"><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Servicio</Button>
       </div>
@@ -247,10 +246,10 @@ export default function ServiciosPage() {
                           conductor: s.conductor,
                           telefonoConductor: s.conductorTelefono || 'N/A'
                         }).then(res => {
-                           if (!res.success) toast({ variant: "destructive", title: `Error de WhatsApp: ${res.error}` });
-                           else toast({ title: "Notificación enviada ✅" });
+                           if (!res.success) toast({ variant: "destructive", title: `Error WhatsApp: ${res.error}` });
+                           else toast({ title: "Notificación enviada a Nova ✅" });
                         });
-                      }}><MessageSquare className="mr-2 h-4 w-4" /> Notificar por WhatsApp</DropdownMenuItem>
+                      }}><MessageSquare className="mr-2 h-4 w-4" /> Re-notificar Nova</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>

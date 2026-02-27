@@ -135,7 +135,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
             conductorTelefonoOtro: conductorMatched ? '' : (servicio.conductorTelefono || ''),
             esVehiculoNoRegistrado: !vehiculoMatched,
             vehiculoId: vehiculoMatched?.id || '',
-            vehiculoOtro: servicio.vehiculoPlaca || (servicio as any).placa || ''
+            vehiculoOtro: servicio.vehiculoPlaca || servicio.placa || ''
         });
     }
   }, [servicio, form, conductores, vehiculos]);
@@ -146,13 +146,14 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
   const esVehiculoNoRegistrado = form.watch('esVehiculoNoRegistrado');
 
   useEffect(() => {
-    if (estadoPago === 'Pagado') {
+    // Solo actualizamos si no estamos en medio de un guardado y el valor realmente cambia
+    if (estadoPago === 'Pagado' && !isSaving) {
       const currentAnticipo = form.getValues('anticipo');
       if (currentAnticipo !== valorServicio) {
         form.setValue('anticipo', valorServicio);
       }
     }
-  }, [estadoPago, valorServicio, form]);
+  }, [estadoPago, valorServicio, form, isSaving]);
 
   const anticipo = form.watch('anticipo') || 0;
   const saldo = valorServicio - anticipo;
@@ -261,7 +262,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                             <FormLabel>Hora de Recogida</FormLabel>
                             <FormControl>
                                 <div className="relative">
-                                    <Input type="time" {...field} className="w-full pl-10" />
+                                    <input type="time" {...field} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-10" />
                                     <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 </div>
                             </FormControl>
