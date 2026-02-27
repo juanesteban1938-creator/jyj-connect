@@ -26,7 +26,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Calendar } from '@/jj-calendar';
+import { Calendar } from '@/components/jj-ui/calendar';
 import { Calendar as CalendarIcon, User, Briefcase, MapPin, Mail, Clock, Loader2, DollarSign, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
@@ -110,7 +110,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
     },
   });
 
-  // Efecto estable para inicialización
   useEffect(() => {
     if (servicio) {
         const conductorMatched = conductores.find(c => `${c.nombres} ${c.apellidos}` === servicio.conductor);
@@ -146,7 +145,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
   const esConductorNoRegistrado = form.watch('esConductorNoRegistrado');
   const esVehiculoNoRegistrado = form.watch('esVehiculoNoRegistrado');
 
-  // Lógica financiera estable sin bucles
   useEffect(() => {
     if (estadoPago === 'Pagado') {
       const currentAnticipo = form.getValues('anticipo');

@@ -16,7 +16,7 @@ import {
   User, 
   Truck 
 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs-ui';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { format, isValid } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -135,7 +135,6 @@ export default function ServiciosPage() {
         updatedAt: serverTimestamp()
       };
 
-      // 1. Guardar en Firestore y LocalStorage
       if (isNew) {
         payload.createdAt = serverTimestamp();
         await addDoc(collection(db, 'servicios'), payload);
@@ -147,13 +146,11 @@ export default function ServiciosPage() {
       setServicios(updatedServicios);
       localStorage.setItem('servicios', JSON.stringify(updatedServicios));
 
-      // 2. Cerrar de inmediato
       setIsFormOpen(false);
       setSelected(null);
       setIsSaving(false);
       toast({ title: "Servicio guardado ✅" });
 
-      // 3. Notificación de WhatsApp en segundo plano
       enviarNotificacionServicio({
         clienteNombre: payload.cliente,
         clienteTelefono: payload.telefonoCliente,
@@ -166,7 +163,7 @@ export default function ServiciosPage() {
         telefonoConductor: payload.conductorTelefono
       }).then(res => {
         if (!res.success) {
-          toast({ variant: "destructive", title: "Error WhatsApp", description: res.error });
+          toast({ variant: "destructive", title: `Error de WhatsApp: ${res.error}` });
         } else {
           toast({ title: "Notificación enviada ✅" });
         }

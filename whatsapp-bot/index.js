@@ -1,6 +1,6 @@
 /**
  * VIANOVA S.A.S - WhatsApp Bot Engine (Nova)
- * Versión: 4.1.0 (Síncrono para Railway + resolveWAId + Puppeteer + Clima)
+ * Versión: 4.2.0 (Síncrono para Railway + resolveWAId simple)
  */
 
 const express = require('express');
@@ -43,7 +43,7 @@ const client = new Client({
 });
 
 /**
- * RESOLUCIÓN DE ID (SÍNCRONA PARA RAILWAY)
+ * RESOLUCIÓN DE ID (SÍNCRONA)
  */
 function resolveWAId(number) {
     let clean = number.toString().replace(/\D/g, '');
@@ -99,7 +99,7 @@ async function generateServiceCard(data) {
                     <div class="value">Placa: ${data.placa} / ${data.conductor}</div>
                 </div>
             </div>
-            <div class="footer">Este es un comprobante digital generado por Nova v4.1</div>
+            <div class="footer">Este es un comprobante digital generado por Nova v4.2</div>
         </div>
     </body>
     </html>
