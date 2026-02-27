@@ -1,6 +1,6 @@
 /**
  * VIANOVA S.A.S - WhatsApp Bot Engine (Nova)
- * Versión: 3.8.0 (Síncrono para Railway + resolveWAId simple)
+ * Versión: 4.1.0 (Síncrono para Railway + resolveWAId + Puppeteer + Clima)
  */
 
 const express = require('express');
@@ -43,8 +43,7 @@ const client = new Client({
 });
 
 /**
- * RESOLUCIÓN DE ID (SÍNCRONA)
- * Para mayor estabilidad en Railway, se eliminó getNumberId.
+ * RESOLUCIÓN DE ID (SÍNCRONA PARA RAILWAY)
  */
 function resolveWAId(number) {
     let clean = number.toString().replace(/\D/g, '');
@@ -100,7 +99,7 @@ async function generateServiceCard(data) {
                     <div class="value">Placa: ${data.placa} / ${data.conductor}</div>
                 </div>
             </div>
-            <div class="footer">Este es un comprobante digital generado por Nova v3.8</div>
+            <div class="footer">Este es un comprobante digital generado por Nova v4.1</div>
         </div>
     </body>
     </html>
@@ -115,6 +114,7 @@ async function generateServiceCard(data) {
 
 client.on('qr', (qr) => {
     qrcode.toDataURL(qr, (err, url) => {
+        if (err) return console.error('Error QR:', err);
         qrCodeBase64 = url;
     });
     isReady = false;
@@ -188,12 +188,12 @@ cron.schedule('* * * * *', async () => {
         .where('horaRecogidaTimestamp', '<=', admin.firestore.Timestamp.fromDate(tenMinutesLater))
         .get();
 
-    snapshot.forEach(async (doc) => {
-        const s = doc.data();
+    snapshot.forEach(async (docSnap) => {
+        const s = docSnap.data();
         try {
             const jid = resolveWAId(s.telefonoCliente);
             await client.sendMessage(jid, `🚨 *NOTIFICACIÓN AUTOMÁTICA:* Su servicio *${s.consecutivo}* está próximo a iniciar (en 10 minutos). El vehículo *${s.vehiculoPlaca}* está en camino.`);
-            await doc.ref.update({ notificacionSalidaEnviada: true });
+            await docSnap.ref.update({ notificacionSalidaEnviada: true });
         } catch (e) { console.error(`[Cron] Error en servicio ${s.id}:`, e); }
     });
 });

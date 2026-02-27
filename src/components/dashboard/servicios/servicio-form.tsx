@@ -121,7 +121,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
             telefonoCliente: servicio.telefonoCliente || '',
             emailCliente: servicio.emailCliente || '',
             fechaRecogida: servicio.fecha ? parseISO(servicio.fecha) : new Date(),
-            horaRecogida: servicio.hora || '00:00',
+            horaRecogida: servicio.hora || '',
             direccionRecogida: servicio.origen,
             direccionDestino: servicio.destino,
             metodoPago: servicio.metodoPago || 'Facturacion',
@@ -135,7 +135,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
             conductorTelefonoOtro: conductorMatched ? '' : (servicio.conductorTelefono || ''),
             esVehiculoNoRegistrado: !vehiculoMatched,
             vehiculoId: vehiculoMatched?.id || '',
-            vehiculoOtro: servicio.vehiculoPlaca || servicio.vehiculo || ''
+            vehiculoOtro: servicio.vehiculoPlaca || ''
         });
     }
   }, [servicio, form, conductores, vehiculos]);
