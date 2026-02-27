@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -86,7 +87,10 @@ export default function ServiciosPage() {
     if (isSaving) return;
     setIsSaving(true);
 
+    console.log('1. Iniciando guardado...');
+
     try {
+      console.log('2. Construyendo datos...');
       const isNew = !selected;
       
       const formatPhone = (phone: string): string => {
@@ -95,11 +99,10 @@ export default function ServiciosPage() {
         return clean;
       };
 
-      const telefonoCliente = formatPhone(data.telefonoCliente);
+      const telPurificado = formatPhone(data.telefonoCliente);
 
       /**
        * CONSTRUCCIÓN DE TIMESTAMP UTC-5 (COLOMBIA)
-       * Nova busca servicios programados comparando el tiempo UTC.
        */
       let horaRecogidaTimestamp = null;
       if (data.fechaRecogida && data.horaRecogida) {
@@ -108,7 +111,6 @@ export default function ServiciosPage() {
             ? data.fechaRecogida.toISOString().split('T')[0] 
             : new Date(data.fechaRecogida).toISOString().split('T')[0];
           
-          // Construcción estricta UTC-5 para Nova
           const fechaUTC = new Date(`${fechaStr}T${data.horaRecogida}:00-05:00`);
           if (isValid(fechaUTC)) {
             horaRecogidaTimestamp = Timestamp.fromDate(fechaUTC);
@@ -126,7 +128,7 @@ export default function ServiciosPage() {
         clienteIniciales: data.nombreCliente.substring(0, 2).toUpperCase(),
         origen: data.direccionRecogida,
         destino: data.direccionDestino,
-        telefonoCliente: telefonoCliente,
+        telefonoCliente: telPurificado,
         fecha: data.fechaRecogida instanceof Date ? data.fechaRecogida.toISOString() : new Date(data.fechaRecogida).toISOString(),
         hora: data.horaRecogida,
         nitCliente: data.nitCliente,
@@ -147,48 +149,53 @@ export default function ServiciosPage() {
         updatedAt: serverTimestamp()
       };
 
-      // 1. Guardar en Firestore
+      console.log('3. Guardando en Firestore...');
       if (isNew) {
         payload.createdAt = serverTimestamp();
         await addDoc(collection(db, 'servicios'), payload);
       } else {
         await setDoc(doc(db, 'servicios', payload.id), payload, { merge: true });
       }
+      console.log('4. Firestore OK');
 
-      // 2. Actualizar estado local
+      // Actualizar localmente
       const updatedServicios = selected ? servicios.map(s => s.id === selected.id ? payload : s) : [...servicios, payload];
       setServicios(updatedServicios);
       localStorage.setItem('servicios', JSON.stringify(updatedServicios));
 
-      // 3. Cerrar modal y liberar UI inmediatamente
+      // 5. Liberar UI
+      setIsSaving(false);
       setIsFormOpen(false);
       setSelected(null);
+      console.log('5. Modal cerrado');
       toast({ title: "Servicio guardado exitosamente ✅" });
 
-      // 4. Notificación Nova en segundo plano (NO BLOQUEANTE)
-      enviarNotificacionServicio({
-        clienteNombre: payload.clienteNombre,
-        clienteTelefono: payload.telefonoCliente,
-        fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
-        hora: payload.hora,
-        origen: payload.origen,
-        destino: payload.destino,
-        placa: payload.vehiculoPlaca,
-        conductor: payload.conductor,
-        telefonoConductor: payload.conductorTelefono
-      }).then(res => {
-        if (res.success) {
-          toast({ title: "Nova notificó al cliente ✅" });
-        } else {
-          toast({ variant: "destructive", title: "Error WhatsApp Nova", description: res.error });
-        }
-      });
+      // 6. WhatsApp completamente separado y sin await
+      setTimeout(() => {
+        enviarNotificacionServicio({
+          clienteNombre: payload.clienteNombre,
+          clienteTelefono: payload.telefonoCliente,
+          fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
+          hora: payload.hora,
+          origen: payload.origen,
+          destino: payload.destino,
+          placa: payload.vehiculoPlaca,
+          conductor: payload.conductor,
+          telefonoConductor: payload.conductorTelefono
+        })
+        .then(res => {
+          console.log('6. WhatsApp:', res);
+          if (res.success) toast({ title: "Nova notificó al cliente ✅" });
+          else toast({ variant: "destructive", title: "Error WhatsApp", description: res.error });
+        })
+        .catch(e => {
+          console.error('6. WhatsApp error:', e);
+        });
+      }, 100);
 
     } catch (error: any) {
-      console.error('Error al guardar servicio:', error);
+      console.error('ERROR en paso:', error);
       toast({ variant: "destructive", title: "Error al guardar", description: error.message });
-    } finally {
-      // SIEMPRE resetear el estado de carga
       setIsSaving(false);
     }
   };
