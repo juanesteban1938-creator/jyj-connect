@@ -1,6 +1,7 @@
 /**
- * VIANOVA S.A.S - WhatsApp Bot Engine (Nova)
- * Versión: 4.5.0 (Optimización Cron + Timezone UTC-5)
+ * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
+ * Versión: 4.6.0 (Optimización UTC-5 Colombia)
+ * Empresa: Transportes Especiales J&J
  */
 
 const express = require('express');
@@ -14,7 +15,7 @@ const fetch = require('node-fetch');
 
 if (!admin.apps.length) {
     admin.initializeApp({
-        projectId: process.env.FIREBASE_PROJECT_ID || 'studio-6997056255-a0ecc'
+        projectId: process.env.FIREBASE_PROJECT_ID || 'jj-connect-18988325-5ab9e'
     });
 }
 const db = admin.firestore();
@@ -42,6 +43,9 @@ const client = new Client({
     }
 });
 
+/**
+ * Resolución síncrona de ID de WhatsApp para compatibilidad Railway
+ */
 function resolveWAId(number) {
     let clean = number.toString().replace(/\D/g, '');
     if (!clean.startsWith('57')) clean = '57' + clean;
@@ -97,7 +101,7 @@ async function generateServiceCard(data) {
                         <div class="value">Placa: ${data.placa} / ${data.conductor}</div>
                     </div>
                 </div>
-                <div class="footer">Generado por Nova v4.5</div>
+                <div class="footer">Generado por Nova v4.6 - J&J Connect</div>
             </div>
         </body>
         </html>
@@ -125,7 +129,7 @@ client.on('qr', (qr) => {
 client.on('ready', () => {
     isReady = true;
     qrCodeBase64 = '';
-    console.log('[Nova] Sistema operando correctamente.');
+    console.log('[Nova] J&J Connect Bot operando correctamente.');
 });
 
 app.get('/status', (req, res) => res.json({ connected: isReady }));
@@ -146,7 +150,7 @@ app.post('/send-service-notification', async (req, res) => {
         const media = new MessageMedia('image/png', imageBase64, 'servicio.png');
 
         await client.sendMessage(jid, media);
-        const msg = `¡Hola, *${data.clienteNombre}*! 👋 Soy *Nova*.\n\nTu servicio ha sido programado con éxito. Arriba te envío la tarjeta con los detalles. 🚐💨`;
+        const msg = `¡Hola, *${data.clienteNombre}*! 👋 Soy *Nova*, asistente de *Transportes Especiales J&J*.\n\nTu servicio ha sido programado con éxito. Arriba te envío la tarjeta con los detalles. 🚐💨`;
         await client.sendMessage(jid, msg);
 
         res.json({ success: true });
@@ -170,7 +174,7 @@ app.post('/send-departure-notification', async (req, res) => {
             weatherMsg = `🌡️ *Clima actual:* ${wData.main.temp}°C, ${wData.weather[0].description}.`;
         } catch (e) { weatherMsg = 'Clima no disponible.'; }
 
-        const text = `⚠️ *¡AVISO DE SALIDA!* ⚠️\n\nHola *${data.clienteNombre}*, tu vehículo ya está próximo a iniciar el servicio.\n\n${weatherMsg}\n\n📍 *Seguimiento:* Estamos en camino. Favor estar atento al celular. 🙏`;
+        const text = `⚠️ *¡AVISO DE SALIDA!* ⚠️\n\nHola *${data.clienteNombre}*, tu vehículo de *J&J Connect* ya está próximo a iniciar el servicio.\n\n${weatherMsg}\n\n📍 *Seguimiento:* Estamos en camino. Favor estar atento al celular. 🙏`;
         
         await client.sendMessage(jid, text);
         res.json({ success: true });
@@ -182,46 +186,42 @@ app.post('/send-departure-notification', async (req, res) => {
 cron.schedule('* * * * *', async () => {
     if (!isReady) return;
     const now = new Date();
-    console.log(`[Cron] Revisando: ${now.toISOString()}`);
     try {
         const snapshot = await db.collection('servicios')
-            .where('estado', 'in', ['Programado', 'programado'])
+            .where('estado', '==', 'Programado')
             .where('notificacionSalidaEnviada', '==', false)
             .get();
 
         for (const doc of snapshot.docs) {
             const s = doc.data();
-            if (!s.horaRecogidaTimestamp) {
-                console.log(`[Cron] Sin timestamp: ${s.consecutivo}`);
-                continue;
-            }
+            if (!s.horaRecogidaTimestamp) continue;
+            
             const horaRecogida = s.horaRecogidaTimestamp.toDate();
             const diffMs = now - horaRecogida;
             const diffMin = diffMs / 60000;
-            console.log(`[Cron] Servicio ${s.consecutivo}: diff=${diffMin.toFixed(2)} min`);
             
+            // Disparar en la ventana de 0 a 2 minutos
             if (diffMin >= 0 && diffMin <= 2) {
-                console.log(`[Cron] ¡Disparando para ${s.consecutivo}!`);
+                console.log(`[Cron] Disparando para ${s.consecutivo}`);
                 try {
                     await fetch(`http://localhost:${port}/send-departure-notification`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
                         body: JSON.stringify({
-                            clienteTelefono: s.telefonoCliente || s.clienteTelefono,
-                            clienteNombre: s.clienteNombre || s.cliente,
+                            clienteTelefono: s.telefonoCliente,
+                            clienteNombre: s.clienteNombre,
                             origen: s.origen,
                             destino: s.destino
                         })
                     });
                     await doc.ref.update({ notificacionSalidaEnviada: true });
-                    console.log(`[Cron] ✅ Enviado y marcado.`);
                 } catch(e) {
                     console.error(`[Cron] Error:`, e.message);
                 }
             }
         }
     } catch (error) {
-        console.error('[Cron] Error general:', error.message);
+        console.error('[Cron] Error:', error.message);
     }
 });
 

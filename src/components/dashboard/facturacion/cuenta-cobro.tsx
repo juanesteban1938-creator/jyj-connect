@@ -30,7 +30,7 @@ export function CuentaCobro({ servicio }: Props) {
 
     useEffect(() => {
         if (servicio && servicio.consecutivo) {
-            QRCode.toDataURL(`Validación VIANOVA: ${servicio.consecutivo}`, { 
+            QRCode.toDataURL(`Validación J&J Connect: ${servicio.consecutivo}`, { 
                 errorCorrectionLevel: 'H', 
                 width: 100, 
                 margin: 1 
@@ -199,7 +199,7 @@ export function CuentaCobro({ servicio }: Props) {
 
                     {/* PAGO */}
                     <section className="mb-10" style={{ pageBreakInside: 'avoid' }}>
-                        <p className="text-sm font-medium">Por favor, realize su transferancie a Cuenta-Ahorros 99642554661 de Bancolombia de Bancombia</p>
+                        <p className="text-sm font-medium">Por favor, realize su transferancie a Cuenta-Ahorros 99642554661 de Bancolombia.</p>
                     </section>
 
                     {/* FIRMA */}
@@ -207,6 +207,7 @@ export function CuentaCobro({ servicio }: Props) {
                         <Image src="https://i.ibb.co/qYMKZWVt/firma-cxc.png" alt="Firma" width={150} height={44} className="object-contain mb-2" style={{ height: '44px', width: 'auto' }} />
                         <div className="w-72 border-t border-black pt-2">
                             <p className="font-bold text-sm uppercase">Juan Esteban Ovalle Pineda</p>
+                            <p className="text-xs">Transportes Especiales J&J</p>
                         </div>
                     </section>
                 </div>

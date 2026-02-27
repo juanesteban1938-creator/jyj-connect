@@ -1,11 +1,10 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * VIANOVA S.A.S. - TRANSPORT MANAGEMENT SYSTEM
-     * SECURITY RULES - v2.3 (Added Services Collection)
+     * TRANSPORTES ESPECIALES J&J - J&J CONNECT V2.0
+     * SECURITY RULES - v2.5
      */
 
     function isSignedIn() {
@@ -14,7 +13,6 @@ service cloud.firestore {
 
     /** 
      * @description Historial de notificaciones de WhatsApp. 
-     * Acceso abierto para lectura y creación para permitir el monitoreo de Nova.
      */
     match /notificaciones_whatsapp/{notificacionId} {
       allow read, create: if true;
@@ -44,7 +42,6 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Regla por defecto: denegar todo lo demás
     match /{document=**} {
       allow read, write: if false;
     }

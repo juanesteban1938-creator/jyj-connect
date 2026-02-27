@@ -95,7 +95,10 @@ export default function ServiciosPage() {
 
       const telefonoCliente = formatPhone(data.telefonoCliente);
 
-      // Timestamp con zona horaria Colombia (UTC-5)
+      /**
+       * CONSTRUCCIÓN DE TIMESTAMP UTC-5 (COLOMBIA)
+       * Nova busca servicios programados comparando el tiempo UTC.
+       */
       let horaRecogidaTimestamp = null;
       if (data.fechaRecogida && data.horaRecogida) {
         try {
@@ -117,8 +120,8 @@ export default function ServiciosPage() {
       const payload: any = {
         id: selected?.id || Date.now().toString(),
         consecutivo: selected?.consecutivo || `GA-CCT-${servicios.length + 101}`,
-        clienteNombre: data.nombreCliente, // Nombre completo para Cron
-        cliente: data.nombreCliente,       // Para UI actual
+        clienteNombre: data.nombreCliente,
+        cliente: data.nombreCliente,
         clienteIniciales: data.nombreCliente.substring(0, 2).toUpperCase(),
         origen: data.direccionRecogida,
         destino: data.direccionDestino,
@@ -131,14 +134,14 @@ export default function ServiciosPage() {
         vehiculoPlaca: data.esVehiculoNoRegistrado ? data.vehiculoOtro : (vehiculos.find(v => v.id === data.vehiculoId)?.placa || 'N/A'),
         conductor: data.esConductorNoRegistrado ? data.conductorOtro : (conductores.find(c => c.id === data.conductorId) ? `${conductores.find(c => c.id === data.conductorId).nombres} ${conductores.find(c => c.id === data.conductorId).apellidos}` : 'No asignado'),
         conductorTelefono: data.esConductorNoRegistrado ? data.conductorTelefonoOtro : (conductores.find(c => c.id === data.conductorId)?.telefono || ''),
-        estado: 'Programado', // Obligatorio para el Cron de Nova
+        estado: 'Programado',
         valorServicio: Number(data.valorServicio) || 0,
         anticipo: Number(data.anticipo) || 0,
         costoOperacion: Number(data.costoOperacion) || 0,
         saldo: (Number(data.valorServicio) || 0) - (Number(data.anticipo) || 0),
         metodoPago: data.metodoPago,
         estadoPago: data.estadoPago,
-        notificacionSalidaEnviada: false, // Reset para el cron
+        notificacionSalidaEnviada: false,
         horaRecogidaTimestamp: horaRecogidaTimestamp,
         updatedAt: serverTimestamp()
       };
@@ -159,7 +162,7 @@ export default function ServiciosPage() {
       setIsSaving(false);
       toast({ title: "Servicio guardado exitosamente ✅" });
 
-      // Notificación asíncrona (segundo plano)
+      // Notificación Nova en segundo plano
       enviarNotificacionServicio({
         clienteNombre: payload.clienteNombre,
         clienteTelefono: payload.telefonoCliente,
@@ -172,7 +175,7 @@ export default function ServiciosPage() {
         telefonoConductor: payload.conductorTelefono
       }).then(res => {
         if (!res.success) {
-          toast({ variant: "destructive", title: `Error WhatsApp: ${res.error}` });
+          toast({ variant: "destructive", title: `Error WhatsApp Nova: ${res.error}` });
         } else {
           toast({ title: "Notificación enviada a Nova ✅" });
         }
@@ -252,7 +255,7 @@ export default function ServiciosPage() {
                           conductor: s.conductor,
                           telefonoConductor: s.conductorTelefono || 'N/A'
                         }).then(res => {
-                           if (!res.success) toast({ variant: "destructive", title: `Error WhatsApp: ${res.error}` });
+                           if (!res.success) toast({ variant: "destructive", title: `Error WhatsApp Nova: ${res.error}` });
                            else toast({ title: "Notificación enviada a Nova ✅" });
                         });
                       }}><MessageSquare className="mr-2 h-4 w-4" /> Re-notificar Nova</DropdownMenuItem>
