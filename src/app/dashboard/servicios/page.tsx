@@ -24,7 +24,7 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
-import { useFirestore } from '@/firebase';
+import { useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, addDoc, serverTimestamp, Timestamp, doc, setDoc } from 'firebase/firestore';
 
 export type Servicio = {
@@ -146,25 +146,41 @@ export default function ServiciosPage() {
         updatedAt: serverTimestamp()
       };
 
-      console.log('3. Guardando en Firestore...');
+      console.log('3. Guardando en Firestore (Non-blocking)...');
+      // PATRÓN CRÍTICO: NO usar await para evitar bloqueos por red
       if (isNew) {
         payload.createdAt = serverTimestamp();
-        await addDoc(collection(db, 'servicios'), payload);
+        addDoc(collection(db, 'servicios'), payload).catch(async (err) => {
+          const permissionError = new FirestorePermissionError({
+            path: 'servicios',
+            operation: 'create',
+            requestResourceData: payload,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
       } else {
-        await setDoc(doc(db, 'servicios', payload.id), payload, { merge: true });
+        setDoc(doc(db, 'servicios', payload.id), payload, { merge: true }).catch(async (err) => {
+          const permissionError = new FirestorePermissionError({
+            path: `servicios/${payload.id}`,
+            operation: 'update',
+            requestResourceData: payload,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
       }
-      console.log('4. Firestore OK');
+      
+      console.log('4. Firestore Iniciado (Optimista)');
 
-      // Actualizar localmente
+      // Actualizar localmente de inmediato para que la UI sea fluida
       const updatedServicios = selected ? servicios.map(s => s.id === selected.id ? payload : s) : [...servicios, payload];
       setServicios(updatedServicios);
       localStorage.setItem('servicios', JSON.stringify(updatedServicios));
 
-      // 5. Liberar UI
+      // 5. Liberar UI de inmediato
       setIsSaving(false);
       setIsFormOpen(false);
       setSelected(null);
-      console.log('5. Modal cerrado');
+      console.log('5. Modal cerrado y UI liberada');
       toast({ title: "Servicio guardado exitosamente ✅" });
 
       // 6. WhatsApp completamente separado y sin await
@@ -191,8 +207,8 @@ export default function ServiciosPage() {
       }, 100);
 
     } catch (error: any) {
-      console.error('ERROR en paso:', error);
-      toast({ variant: "destructive", title: "Error al guardar", description: error.message });
+      console.error('ERROR en proceso local:', error);
+      toast({ variant: "destructive", title: "Error local", description: error.message });
       setIsSaving(false);
     }
   };
