@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -27,7 +28,7 @@ import {
 } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/jj-ui/calendar';
-import { Calendar as CalendarIcon, User, Briefcase, MapPin, Mail, Clock, Loader2, DollarSign, Phone } from 'lucide-react';
+import { Calendar as CalendarIcon, User, Briefcase, MapPin, Clock, Loader2, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { useState, useEffect } from 'react';
@@ -35,7 +36,7 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Conductor } from '@/app/dashboard/conductores/page';
 import type { Vehiculo } from '@/app/dashboard/vehiculos/page';
-import type { Servicio } from '@/app/dashboard/servicios/page';
+import type { Servicio } from '@/lib/types';
 
 const formSchema = z.object({
     nombreCliente: z.string().min(1, 'El nombre es requerido'),
@@ -142,7 +143,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
 
   const valorServicio = form.watch('valorServicio') || 0;
   const estadoPago = form.watch('estadoPago');
-  const esConductorNoRegistrado = form.watch('esConductorNoRegistrado');
 
   useEffect(() => {
     if (estadoPago === 'Pagado' && !isSaving) {
@@ -164,15 +164,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
   return (
     <Form {...form}>
       <form 
-        onSubmit={form.handleSubmit(
-          (data) => {
-            console.log('FORM SUBMIT EXITOSO');
-            onSave(data);
-          },
-          (errors) => {
-            console.log('ERRORES DE VALIDACIÓN:', errors);
-          }
-        )} 
+        onSubmit={form.handleSubmit(onSave, (errors) => console.log('[Nova] Errores:', errors))} 
         className="space-y-6"
       >
         <ScrollArea className="h-[70vh] w-full">
@@ -214,7 +206,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                                 </FormItem>
                             )}
                         />
-                        {esConductorNoRegistrado ? (
+                        {form.watch('esConductorNoRegistrado') ? (
                             <div className="space-y-3">
                                 <FormField name="conductorOtro" control={form.control} render={({ field }) => (
                                     <FormItem><FormLabel>Nombre Conductor</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
@@ -317,11 +309,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
 
       <div className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="ghost" onClick={onCancel} disabled={isSaving}>Cancelar</Button>
-        <Button 
-          type="submit" 
-          disabled={isSaving}
-          onClick={() => console.log('BOTÓN GUARDAR CLICKEADO')}
-        >
+        <Button type="submit" disabled={isSaving}>
             {isSaving ? (
                 <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

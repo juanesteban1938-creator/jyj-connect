@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -26,37 +27,7 @@ import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-serv
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
 import { useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, addDoc, serverTimestamp, Timestamp, doc, setDoc } from 'firebase/firestore';
-
-export type Servicio = {
-  id: string;
-  consecutivo: string;
-  hora: string;
-  fecha: string;
-  origen: string;
-  destino: string;
-  cliente: string;
-  nitCliente: string;
-  telefonoCliente: string;
-  clienteIniciales: string;
-  clienteNombre?: string;
-  emailCliente?: string;
-  conductor: string;
-  conductorTelefono?: string;
-  vehiculo: string;
-  vehiculoPlaca?: string;
-  estado: 'Programado' | 'En Servicio' | 'Finalizado' | 'Cancelado';
-  valorServicio: number;
-  anticipo: number;
-  saldo: number;
-  metodoPago: 'Efectivo' | 'Transferencia' | 'Facturacion';
-  costoOperacion: number;
-  estadoPago: 'Pendiente' | 'Anticipo' | 'Pagado' | 'Anulado';
-  paradasAdicionales: string[];
-  numeroComprobante?: string;
-  banco?: string;
-  notificacionSalidaEnviada: boolean;
-  horaRecogidaTimestamp?: any;
-};
+import type { Servicio } from '@/lib/types';
 
 export default function ServiciosPage() {
   const [servicios, setServicios] = useState<Servicio[]>([]);
@@ -84,10 +55,7 @@ export default function ServiciosPage() {
     if (isSaving) return;
     setIsSaving(true);
 
-    console.log('1. Iniciando guardado...');
-
     try {
-      console.log('2. Construyendo datos...');
       const isNew = !selected;
       
       const formatPhone = (phone: string): string => {
@@ -98,9 +66,7 @@ export default function ServiciosPage() {
 
       const telPurificado = formatPhone(data.telefonoCliente);
 
-      /**
-       * CONSTRUCCIÓN DE TIMESTAMP UTC-5 (COLOMBIA)
-       */
+      // Construcción de Timestamp UTC-5 (Colombia)
       let horaRecogidaTimestamp = null;
       if (data.fechaRecogida && data.horaRecogida) {
         try {
@@ -108,6 +74,7 @@ export default function ServiciosPage() {
             ? data.fechaRecogida.toISOString().split('T')[0] 
             : new Date(data.fechaRecogida).toISOString().split('T')[0];
           
+          // Se asume -05:00 para forzar la zona horaria de Colombia
           const fechaUTC = new Date(`${fechaStr}T${data.horaRecogida}:00-05:00`);
           if (isValid(fechaUTC)) {
             horaRecogidaTimestamp = Timestamp.fromDate(fechaUTC);
@@ -146,44 +113,38 @@ export default function ServiciosPage() {
         updatedAt: serverTimestamp()
       };
 
-      console.log('3. Guardando en Firestore (Non-blocking)...');
-      // PATRÓN CRÍTICO: NO usar await para evitar bloqueos por red
+      // Escritura No Bloqueante en Firestore
       if (isNew) {
         payload.createdAt = serverTimestamp();
         addDoc(collection(db, 'servicios'), payload).catch(async (err) => {
-          const permissionError = new FirestorePermissionError({
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: 'servicios',
             operation: 'create',
             requestResourceData: payload,
-          });
-          errorEmitter.emit('permission-error', permissionError);
+          }));
         });
       } else {
         setDoc(doc(db, 'servicios', payload.id), payload, { merge: true }).catch(async (err) => {
-          const permissionError = new FirestorePermissionError({
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: `servicios/${payload.id}`,
             operation: 'update',
             requestResourceData: payload,
-          });
-          errorEmitter.emit('permission-error', permissionError);
+          }));
         });
       }
       
-      console.log('4. Firestore Iniciado (Optimista)');
-
-      // Actualizar localmente de inmediato para que la UI sea fluida
+      // Actualizar localmente de inmediato
       const updatedServicios = selected ? servicios.map(s => s.id === selected.id ? payload : s) : [...servicios, payload];
       setServicios(updatedServicios);
       localStorage.setItem('servicios', JSON.stringify(updatedServicios));
 
-      // 5. Liberar UI de inmediato
+      // Liberar UI de inmediato
       setIsSaving(false);
       setIsFormOpen(false);
       setSelected(null);
-      console.log('5. Modal cerrado y UI liberada');
       toast({ title: "Servicio guardado exitosamente ✅" });
 
-      // 6. WhatsApp completamente separado y sin await
+      // Notificación Nova en segundo plano
       setTimeout(() => {
         enviarNotificacionServicio({
           clienteNombre: payload.clienteNombre,
@@ -197,18 +158,15 @@ export default function ServiciosPage() {
           telefonoConductor: payload.conductorTelefono
         })
         .then(res => {
-          console.log('6. WhatsApp:', res);
           if (res.success) toast({ title: "Nova notificó al cliente ✅" });
           else toast({ variant: "destructive", title: "Error WhatsApp", description: res.error });
         })
-        .catch(e => {
-          console.error('6. WhatsApp error:', e);
-        });
+        .catch(console.error);
       }, 100);
 
     } catch (error: any) {
-      console.error('ERROR en proceso local:', error);
-      toast({ variant: "destructive", title: "Error local", description: error.message });
+      console.error('[Nova] Error guardado:', error);
+      toast({ variant: "destructive", title: "Error", description: error.message });
       setIsSaving(false);
     }
   };
@@ -231,7 +189,12 @@ export default function ServiciosPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar por cliente, conductor o placa..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          <input 
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-9"
+            placeholder="Buscar por cliente, conductor o placa..." 
+            value={searchTerm} 
+            onChange={e => setSearchTerm(e.target.value)} 
+          />
         </div>
         <Button onClick={() => setIsFormOpen(true)} className="btn-action"><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Servicio</Button>
       </div>
@@ -281,7 +244,6 @@ export default function ServiciosPage() {
                           telefonoConductor: s.conductorTelefono || 'N/A'
                         }).then(res => {
                            if (res.success) toast({ title: "Re-notificación enviada a Nova ✅" });
-                           else toast({ variant: "destructive", title: "Error Nova", description: res.error });
                         });
                       }}><MessageSquare className="mr-2 h-4 w-4" /> Re-notificar Nova</DropdownMenuItem>
                     </DropdownMenuContent>

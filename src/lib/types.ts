@@ -1,0 +1,31 @@
+
+export type Servicio = {
+  id: string;
+  consecutivo: string;
+  hora: string;
+  fecha: string;
+  origen: string;
+  destino: string;
+  cliente: string;
+  nitCliente: string;
+  telefonoCliente: string;
+  clienteIniciales: string;
+  clienteNombre?: string;
+  emailCliente?: string;
+  conductor: string;
+  conductorTelefono?: string;
+  vehiculo: string;
+  vehiculoPlaca?: string;
+  estado: 'Programado' | 'En Servicio' | 'Finalizado' | 'Cancelado';
+  valorServicio: number;
+  anticipo: number;
+  saldo: number;
+  metodoPago: 'Efectivo' | 'Transferencia' | 'Facturacion';
+  costoOperacion: number;
+  estadoPago: 'Pendiente' | 'Anticipo' | 'Pagado' | 'Anulado';
+  paradasAdicionales?: string[];
+  numeroComprobante?: string;
+  banco?: string;
+  notificacionSalidaEnviada: boolean;
+  horaRecogidaTimestamp?: any;
+};
