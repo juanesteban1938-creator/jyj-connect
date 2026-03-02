@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -59,14 +58,13 @@ export default function ServiciosPage() {
       const isNew = !selected;
       
       const formatPhone = (phone: string): string => {
-        let clean = phone.toString().replace(/\D/g, '');
+        let clean = String(phone || '').replace(/\D/g, '');
         if (!clean.startsWith('57')) clean = '57' + clean;
         return clean;
       };
 
       const telPurificado = formatPhone(data.telefonoCliente);
 
-      // Construcción de Timestamp UTC-5 (Colombia)
       let horaRecogidaTimestamp = null;
       if (data.fechaRecogida && data.horaRecogida) {
         try {
@@ -74,7 +72,6 @@ export default function ServiciosPage() {
             ? data.fechaRecogida.toISOString().split('T')[0] 
             : new Date(data.fechaRecogida).toISOString().split('T')[0];
           
-          // Se asume -05:00 para forzar la zona horaria de Colombia
           const fechaUTC = new Date(`${fechaStr}T${data.horaRecogida}:00-05:00`);
           if (isValid(fechaUTC)) {
             horaRecogidaTimestamp = Timestamp.fromDate(fechaUTC);
@@ -113,7 +110,6 @@ export default function ServiciosPage() {
         updatedAt: serverTimestamp()
       };
 
-      // Escritura No Bloqueante en Firestore
       if (isNew) {
         payload.createdAt = serverTimestamp();
         addDoc(collection(db, 'servicios'), payload).catch(async (err) => {
@@ -133,18 +129,15 @@ export default function ServiciosPage() {
         });
       }
       
-      // Actualizar localmente de inmediato
       const updatedServicios = selected ? servicios.map(s => s.id === selected.id ? payload : s) : [...servicios, payload];
       setServicios(updatedServicios);
       localStorage.setItem('servicios', JSON.stringify(updatedServicios));
 
-      // Liberar UI de inmediato
       setIsSaving(false);
       setIsFormOpen(false);
       setSelected(null);
       toast({ title: "Servicio guardado exitosamente ✅" });
 
-      // Notificación Nova en segundo plano con Logs de Depuración
       setTimeout(() => {
         console.log('=== DEBUG WHATSAPP ===');
         console.log('clienteTelefono:', payload.telefonoCliente);
@@ -178,9 +171,9 @@ export default function ServiciosPage() {
   };
 
   const filtered = servicios.filter(s => {
-    const isMatch = s.cliente?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                    s.conductor?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                    s.vehiculoPlaca?.toLowerCase().includes(searchTerm.toLowerCase());
+    const isMatch = (s.cliente || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                    (s.conductor || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                    (s.vehiculoPlaca || '').toLowerCase().includes(searchTerm.toLowerCase());
     const isTabMatch = activeTab === 'activos' ? (s.estado === 'Programado' || s.estado === 'En Servicio') : (s.estado === 'Finalizado' || s.estado === 'Cancelado');
     return isMatch && isTabMatch;
   });

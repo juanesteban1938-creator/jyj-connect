@@ -1,7 +1,9 @@
 'use client';
+
 /**
- * J&J CONNECT V2.0 - WhatsApp Bridge Client
- * Versión optimizada para Nova - Transportes Especiales J&J
+ * J&J CONNECT V2.0 - WhatsApp Bridge
+ * Empresa: Transportes Especiales J&J
+ * Asistente: Nova
  */
 
 const WHATSAPP_BOT_URL = 'https://focused-harmony-production.up.railway.app'
@@ -9,7 +11,7 @@ const API_KEY = 'jj-connect-2026'
 
 export async function enviarNotificacionServicio(servicio: {
   clienteNombre: string
-  clienteTelefono: string
+  clienteTelefono: string | number
   fecha: string
   hora: string
   origen: string
@@ -18,13 +20,24 @@ export async function enviarNotificacionServicio(servicio: {
   conductor: string
   telefonoConductor: string
 }) {
-  const telefono = String(servicio.clienteTelefono || '').replace(/\D/g, '')
-  if (!telefono || telefono.length < 7) {
-    return { success: false, error: 'Teléfono del cliente inválido o vacío' }
-  }
-  const telefonoFormateado = telefono.startsWith('57') ? telefono : `57${telefono}`
-
   try {
+    // Conversión segura a string para evitar el error ".replace is not a function"
+    const rawValue = servicio.clienteTelefono;
+    const phoneStr = (rawValue !== null && rawValue !== undefined) ? String(rawValue) : '';
+    
+    // Limpieza de caracteres no numéricos
+    let telefono = phoneStr.replace(/\D/g, '');
+
+    if (!telefono || telefono.length < 7) {
+      console.error('[Nova] Teléfono inválido detectado:', telefono);
+      return { success: false, error: 'Teléfono del cliente inválido o vacío' }
+    }
+
+    // Asegurar código de país 57 (Colombia)
+    if (!telefono.startsWith('57')) {
+      telefono = '57' + telefono;
+    }
+
     const response = await fetch(`${WHATSAPP_BOT_URL}/send-service-notification`, {
       method: 'POST',
       headers: {
@@ -32,20 +45,25 @@ export async function enviarNotificacionServicio(servicio: {
         'x-api-key': API_KEY
       },
       body: JSON.stringify({
-        ...servicio,
-        clienteTelefono: telefonoFormateado
+        clienteNombre: servicio.clienteNombre,
+        clienteTelefono: telefono,
+        fecha: servicio.fecha,
+        hora: servicio.hora,
+        origen: servicio.origen,
+        destino: servicio.destino,
+        placa: servicio.placa,
+        conductor: servicio.conductor,
+        telefonoConductor: servicio.telefonoConductor
       })
     })
+
+    const result = await response.json()
+    if (!response.ok) throw new Error(result.error || 'Error en el servidor de Nova')
     
-    if (!response.ok) {
-        const result = await response.json().catch(() => ({ error: 'Error de red' }));
-        throw new Error(result.error || `HTTP ${response.status}`);
-    }
-    
-    return { success: true };
+    return { success: true }
   } catch (error: any) {
-    console.error('[Nova] Error:', error);
-    return { success: false, error: error.message };
+    console.error('[Nova] Error en Bridge:', error.message)
+    return { success: false, error: error.message }
   }
 }
 
@@ -53,10 +71,10 @@ export async function obtenerEstadoNova() {
   try {
     const response = await fetch(`${WHATSAPP_BOT_URL}/status`, {
         headers: { 'x-api-key': API_KEY }
-    });
-    return await response.json();
+    })
+    return await response.json()
   } catch {
-    return { connected: false };
+    return { connected: false }
   }
 }
 
@@ -64,9 +82,9 @@ export async function obtenerQRNova() {
   try {
     const response = await fetch(`${WHATSAPP_BOT_URL}/qr`, {
         headers: { 'x-api-key': API_KEY }
-    });
-    return await response.json();
+    })
+    return await response.json()
   } catch {
-    return { error: 'No disponible' };
+    return { error: 'No disponible' }
   }
 }
