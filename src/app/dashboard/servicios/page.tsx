@@ -144,8 +144,14 @@ export default function ServiciosPage() {
       setSelected(null);
       toast({ title: "Servicio guardado exitosamente ✅" });
 
-      // Notificación Nova en segundo plano
+      // Notificación Nova en segundo plano con Logs de Depuración
       setTimeout(() => {
+        console.log('=== DEBUG WHATSAPP ===');
+        console.log('clienteTelefono:', payload.telefonoCliente);
+        console.log('tipo:', typeof payload.telefonoCliente);
+        console.log('cliente completo:', JSON.stringify(payload));
+        console.log('=====================');
+
         enviarNotificacionServicio({
           clienteNombre: payload.clienteNombre,
           clienteTelefono: payload.telefonoCliente,
