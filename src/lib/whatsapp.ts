@@ -7,12 +7,6 @@
 const WHATSAPP_BOT_URL = 'https://focused-harmony-production.up.railway.app'
 const API_KEY = 'jj-connect-2026'
 
-function formatPhone(phone: string): string {
-  let clean = phone.toString().replace(/\D/g, '')
-  if (!clean.startsWith('57')) clean = '57' + clean
-  return clean
-}
-
 export async function enviarNotificacionServicio(servicio: {
   clienteNombre: string
   clienteTelefono: string
@@ -24,6 +18,12 @@ export async function enviarNotificacionServicio(servicio: {
   conductor: string
   telefonoConductor: string
 }) {
+  const telefono = String(servicio.clienteTelefono || '').replace(/\D/g, '')
+  if (!telefono || telefono.length < 7) {
+    return { success: false, error: 'Teléfono del cliente inválido o vacío' }
+  }
+  const telefonoFormateado = telefono.startsWith('57') ? telefono : `57${telefono}`
+
   try {
     const response = await fetch(`${WHATSAPP_BOT_URL}/send-service-notification`, {
       method: 'POST',
@@ -33,7 +33,7 @@ export async function enviarNotificacionServicio(servicio: {
       },
       body: JSON.stringify({
         ...servicio,
-        clienteTelefono: formatPhone(servicio.clienteTelefono)
+        clienteTelefono: telefonoFormateado
       })
     })
     
