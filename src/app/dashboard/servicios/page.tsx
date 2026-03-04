@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -53,18 +54,24 @@ export default function ServiciosPage() {
   const handleSave = async (data: any) => {
     if (isSaving) return;
     setIsSaving(true);
+    console.log('1. Iniciando guardado...');
 
     try {
+      console.log('2. Construyendo datos...');
       const isNew = !selected;
       
-      const formatPhone = (phone: string): string => {
-        let clean = String(phone || '').replace(/\D/g, '');
-        if (!clean.startsWith('57')) clean = '57' + clean;
-        return clean;
+      // Limpiar teléfono a 10 dígitos exactos
+      const cleanPhoneTo10Digits = (phone: string): string => {
+        let cleaned = String(phone || '').replace(/\D/g, '');
+        if (cleaned.startsWith('57') && cleaned.length === 12) {
+          cleaned = cleaned.substring(2);
+        }
+        return cleaned;
       };
 
-      const telPurificado = formatPhone(data.telefonoCliente);
+      const telDiezDigitos = cleanPhoneTo10Digits(data.telefonoCliente);
 
+      // Construcción precisa del Timestamp para el Bot
       let horaRecogidaTimestamp = null;
       if (data.fechaRecogida && data.horaRecogida) {
         try {
@@ -72,6 +79,7 @@ export default function ServiciosPage() {
             ? data.fechaRecogida.toISOString().split('T')[0] 
             : new Date(data.fechaRecogida).toISOString().split('T')[0];
           
+          // Colombia es UTC-5
           const fechaUTC = new Date(`${fechaStr}T${data.horaRecogida}:00-05:00`);
           if (isValid(fechaUTC)) {
             horaRecogidaTimestamp = Timestamp.fromDate(fechaUTC);
@@ -89,7 +97,7 @@ export default function ServiciosPage() {
         clienteIniciales: data.nombreCliente.substring(0, 2).toUpperCase(),
         origen: data.direccionRecogida,
         destino: data.direccionDestino,
-        telefonoCliente: telPurificado,
+        telefonoCliente: telDiezDigitos, // 10 dígitos en Firestore
         fecha: data.fechaRecogida instanceof Date ? data.fechaRecogida.toISOString() : new Date(data.fechaRecogida).toISOString(),
         hora: data.horaRecogida,
         nitCliente: data.nitCliente,
@@ -98,18 +106,20 @@ export default function ServiciosPage() {
         vehiculoPlaca: data.esVehiculoNoRegistrado ? data.vehiculoOtro : (vehiculos.find(v => v.id === data.vehiculoId)?.placa || 'N/A'),
         conductor: data.esConductorNoRegistrado ? data.conductorOtro : (conductores.find(c => c.id === data.conductorId) ? `${conductores.find(c => c.id === data.conductorId).nombres} ${conductores.find(c => c.id === data.conductorId).apellidos}` : 'No asignado'),
         conductorTelefono: data.esConductorNoRegistrado ? data.conductorTelefonoOtro : (conductores.find(c => c.id === data.conductorId)?.telefono || ''),
-        estado: 'Programado',
+        estado: 'Programado', // Asegurar estado programado
         valorServicio: Number(data.valorServicio) || 0,
         anticipo: Number(data.anticipo) || 0,
         costoOperacion: Number(data.costoOperacion) || 0,
         saldo: (Number(data.valorServicio) || 0) - (Number(data.anticipo) || 0),
         metodoPago: data.metodoPago,
         estadoPago: data.estadoPago,
-        notificacionSalidaEnviada: false,
-        horaRecogidaTimestamp: horaRecogidaTimestamp,
+        notificacionSalidaEnviada: false, // Reset para el bot
+        horaRecogidaTimestamp: horaRecogidaTimestamp, // Timestamp de Firestore
         updatedAt: serverTimestamp()
       };
 
+      console.log('3. Guardando en Firestore...');
+      // Escritura NO BLOQUEANTE para evitar congelamientos
       if (isNew) {
         payload.createdAt = serverTimestamp();
         addDoc(collection(db, 'servicios'), payload).catch(async (err) => {
@@ -129,6 +139,7 @@ export default function ServiciosPage() {
         });
       }
       
+      console.log('4. Firestore Iniciado');
       const updatedServicios = selected ? servicios.map(s => s.id === selected.id ? payload : s) : [...servicios, payload];
       setServicios(updatedServicios);
       localStorage.setItem('servicios', JSON.stringify(updatedServicios));
@@ -136,8 +147,10 @@ export default function ServiciosPage() {
       setIsSaving(false);
       setIsFormOpen(false);
       setSelected(null);
+      console.log('5. Modal cerrado y estado liberado');
       toast({ title: "Servicio guardado exitosamente ✅" });
 
+      // WhatsApp completamente separado
       setTimeout(() => {
         enviarNotificacionServicio({
           clienteNombre: payload.clienteNombre,
@@ -151,13 +164,14 @@ export default function ServiciosPage() {
           telefonoConductor: payload.conductorTelefono
         })
         .then(res => {
+          console.log('6. WhatsApp:', res);
           if (res.success) toast({ title: "Nova notificó al cliente ✅" });
         })
-        .catch(console.error);
+        .catch(e => console.error('6. WhatsApp error:', e));
       }, 100);
 
     } catch (error: any) {
-      console.error('[Nova] Error guardado:', error);
+      console.error('ERROR en proceso:', error);
       toast({ variant: "destructive", title: "Error", description: error.message });
       setIsSaving(false);
     }
