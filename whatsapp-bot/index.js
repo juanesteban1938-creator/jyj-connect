@@ -1,7 +1,8 @@
+
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 2.1.0 (Estabilidad Mejorada)
+ * Versión: 2.1.1 (Colección 'services')
  */
 
 const express = require('express');
@@ -151,7 +152,6 @@ client.on('disconnected', (reason) => {
     isReady = false;
     authStatus = 'Desconectado.';
     console.log('[Nova] Cliente desconectado:', reason);
-    // Intentar reinicializar
     client.initialize().catch(console.error);
 });
 
@@ -236,7 +236,7 @@ cron.schedule('* * * * *', async () => {
     if (!isReady) return;
     const now = new Date();
     try {
-        const snapshot = await db.collection('servicios')
+        const snapshot = await db.collection('services')
             .where('estado', 'in', ['Programado', 'programado'])
             .where('notificacionSalidaEnviada', '==', false)
             .get();

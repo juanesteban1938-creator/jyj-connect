@@ -77,7 +77,7 @@
       "schema": { "$ref": "#/backend/entities/CuentaCobro" },
       "description": "Colección de cuentas de cobro."
     },
-    "/servicios/{servicioId}": {
+    "/services/{servicioId}": {
       "schema": { "$ref": "#/backend/entities/Servicio" },
       "description": "Colección de servicios para el bot."
     },

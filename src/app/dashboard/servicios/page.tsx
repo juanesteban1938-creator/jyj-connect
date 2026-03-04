@@ -117,11 +117,11 @@ export default function ServiciosPage() {
       (payload as any).createdAt = serverTimestamp();
     }
 
-    // OPERACIÓN DE FIRESTORE NO BLOQUEANTE (SIN AWAIT)
-    setDoc(doc(db, 'servicios', servicioId), payload, { merge: true })
+    // OPERACIÓN DE FIRESTORE NO BLOQUEANTE EN COLECCIÓN 'services'
+    setDoc(doc(db, 'services', servicioId), payload, { merge: true })
       .catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
-          path: `servicios/${servicioId}`,
+          path: `services/${servicioId}`,
           operation: 'write',
           requestResourceData: payload,
         });
@@ -153,8 +153,8 @@ export default function ServiciosPage() {
         telefonoConductor: payload.conductorTelefono || 'N/A'
       }).then((resultado) => {
         if (resultado.success) {
-          // Actualización silenciosa del campo notificacionEnviada
-          updateDoc(doc(db, 'servicios', servicioId), { notificacionEnviada: true })
+          // Actualización silenciosa del campo notificacionEnviada en 'services'
+          updateDoc(doc(db, 'services', servicioId), { notificacionEnviada: true })
             .catch(() => console.error('[Nova] No se pudo marcar como notificado en Firestore'));
           
           setServicios(prev => prev.map(s => s.id === servicioId ? { ...s, notificacionEnviada: true } : s));
