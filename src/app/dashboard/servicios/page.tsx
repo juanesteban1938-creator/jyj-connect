@@ -57,8 +57,8 @@ export default function ServiciosPage() {
 
     try {
       const isNew = !selected;
-      const yaNotificado = selected?.notificacionEnviada === true;
       const servicioId = selected?.id || Date.now().toString();
+      const yaNotificado = selected?.notificacionEnviada === true;
       
       console.log('=== DEBUG NOTIFICACION ===');
       console.log('ID Documento:', servicioId);
@@ -116,27 +116,27 @@ export default function ServiciosPage() {
         horaRecogidaTimestamp: horaRecogidaTimestamp,
       };
 
-      // Guardar en Firestore siempre (usamos setDoc para asegurar ID coincidente)
+      // 1. Guardar en Firestore siempre
       const docRef = doc(db, 'servicios', servicioId);
       if (isNew) {
         (payload as any).createdAt = serverTimestamp();
       }
       await setDoc(docRef, payload, { merge: true });
 
-      // Actualizar estado local y localStorage
+      // 2. Actualizar estado local y localStorage
       const updatedServicios = isNew ? [...servicios, payload] : servicios.map(s => s.id === payload.id ? payload : s);
       setServicios(updatedServicios);
       localStorage.setItem('servicios', JSON.stringify(updatedServicios));
 
+      // 3. Cerrar modal y limpiar inmediatamente para no bloquear la UI
       setIsFormOpen(false);
       setSelected(null);
       setIsSaving(false);
       toast({ title: "Servicio guardado exitosamente ✅" });
 
-      // Solo notificar si NO ha sido enviado previamente
+      // 4. WhatsApp solo si no ha sido notificado (en segundo plano)
       if (!yaNotificado) {
-        console.log('[Nova] Intentando envío de WhatsApp...');
-        const resultado = await enviarNotificacionServicio({
+        enviarNotificacionServicio({
           clienteNombre: payload.clienteNombre || payload.cliente,
           clienteTelefono: payload.telefonoCliente,
           fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
@@ -146,22 +146,26 @@ export default function ServiciosPage() {
           placa: payload.vehiculoPlaca || 'N/A',
           conductor: payload.conductor,
           telefonoConductor: payload.conductorTelefono || 'N/A'
+        }).then(async (resultado) => {
+          if (resultado.success) {
+            // Actualizar Firestore para que notificacionEnviada sea true
+            await updateDoc(docRef, { notificacionEnviada: true });
+            
+            // Actualizar estado local para reflejar el cambio en la lista
+            setServicios(prev => prev.map(s => s.id === servicioId ? { ...s, notificacionEnviada: true } : s));
+            
+            // Actualizar localStorage
+            const latestServicios = JSON.parse(localStorage.getItem('servicios') || '[]');
+            localStorage.setItem('servicios', JSON.stringify(latestServicios.map((s: any) => s.id === servicioId ? { ...s, notificacionEnviada: true } : s)));
+
+            console.log('✅ notificacionEnviada guardada como true en Firestore para:', servicioId);
+            toast({ title: "Nova notificó al cliente ✅" });
+          } else {
+            console.error('[Nova] Falló notificación:', resultado.error);
+          }
+        }).catch(err => {
+          console.error('[Nova] Error crítico notificando:', err);
         });
-
-        if (resultado.success) {
-          // Actualizar Firestore para que notificacionEnviada sea true
-          await updateDoc(docRef, { notificacionEnviada: true });
-          
-          // Actualizar estado local para reflejar el cambio
-          setServicios(prev => prev.map(s => s.id === servicioId ? { ...s, notificacionEnviada: true } : s));
-          
-          // Actualizar localStorage
-          const latestServicios = JSON.parse(localStorage.getItem('servicios') || '[]');
-          localStorage.setItem('servicios', JSON.stringify(latestServicios.map((s: any) => s.id === servicioId ? { ...s, notificacionEnviada: true } : s)));
-
-          console.log('✅ notificacionEnviada guardada como true en Firestore para:', servicioId);
-          toast({ title: "Nova notificó al cliente ✅" });
-        }
       }
 
     } catch (error: any) {
