@@ -57,8 +57,15 @@ export default function ServiciosPage() {
 
     try {
       const isNew = !selected;
+      // Capturamos el estado de notificación antes de cualquier cambio
       const yaNotificado = selected?.notificacionEnviada === true;
       
+      console.log('=== DEBUG NOTIFICACION ===');
+      console.log('ID Servicio:', selected?.id || 'NUEVO');
+      console.log('Consecutivo:', selected?.consecutivo || 'NUEVO');
+      console.log('¿Ya estaba notificado?:', yaNotificado);
+      console.log('==========================');
+
       const cleanPhoneTo12Digits = (phone: string): string => {
         let cleaned = String(phone || '').replace(/\D/g, '');
         const last10 = cleaned.slice(-10);
@@ -82,6 +89,7 @@ export default function ServiciosPage() {
         }
       }
 
+      // El payload debe heredar el estado de notificación si estamos editando
       const payload: Servicio = {
         id: selected?.id || Date.now().toString(),
         consecutivo: selected?.consecutivo || `GA-CCT-${servicios.length + 101}`,
@@ -106,8 +114,8 @@ export default function ServiciosPage() {
         saldo: (Number(data.valorServicio) || 0) - (Number(data.anticipo) || 0),
         metodoPago: data.metodoPago,
         estadoPago: data.estadoPago,
-        notificacionEnviada: yaNotificado,
-        notificacionSalidaEnviada: false,
+        notificacionEnviada: yaNotificado, // Mantenemos el estado actual
+        notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false,
         horaRecogidaTimestamp: horaRecogidaTimestamp,
       };
 
@@ -139,7 +147,9 @@ export default function ServiciosPage() {
       setSelected(null);
       toast({ title: "Servicio guardado exitosamente ✅" });
 
+      // Solo disparamos la notificación si NO ha sido enviado previamente
       if (!yaNotificado) {
+        console.log('[Nova] El servicio es nuevo o no ha sido notificado. Enviando a WhatsApp...');
         setTimeout(() => {
           enviarNotificacionServicio({
             clienteNombre: payload.clienteNombre || payload.cliente,
@@ -158,13 +168,15 @@ export default function ServiciosPage() {
               const finalizedPayload = { ...payload, notificacionEnviada: true };
               
               setServicios(prev => prev.map(s => s.id === finalizedPayload.id ? finalizedPayload : s));
-              localStorage.setItem('servicios', JSON.stringify(isNew ? [...servicios, finalizedPayload] : servicios.map(s => s.id === finalizedPayload.id ? finalizedPayload : s)));
+              localStorage.setItem('servicios', JSON.stringify(updatedServicios.map(s => s.id === finalizedPayload.id ? finalizedPayload : s)));
               
               updateDoc(doc(db, 'servicios', finalizedPayload.id), { notificacionEnviada: true }).catch(e => console.error('Error updating notificacionEnviada:', e));
             }
           })
           .catch(e => console.error('[Nova] WhatsApp error:', e));
         }, 100);
+      } else {
+        console.log('[Nova] El servicio ya fue notificado. Omitiendo envío de WhatsApp.');
       }
 
     } catch (error: any) {
