@@ -60,16 +60,15 @@ export default function ServiciosPage() {
       console.log('2. Construyendo datos...');
       const isNew = !selected;
       
-      // Limpiar teléfono a 10 dígitos exactos
-      const cleanPhoneTo10Digits = (phone: string): string => {
+      // Limpiar teléfono y asegurar 12 dígitos (prefijo 57 + 10 dígitos) para el Bot
+      const cleanPhoneTo12Digits = (phone: string): string => {
         let cleaned = String(phone || '').replace(/\D/g, '');
-        if (cleaned.startsWith('57') && cleaned.length === 12) {
-          cleaned = cleaned.substring(2);
-        }
-        return cleaned;
+        // Tomamos los últimos 10 dígitos para evitar errores con prefijos previos y forzamos el 57
+        const last10 = cleaned.slice(-10);
+        return '57' + last10;
       };
 
-      const telDiezDigitos = cleanPhoneTo10Digits(data.telefonoCliente);
+      const telefonoDoceDigitos = cleanPhoneTo12Digits(data.telefonoCliente);
 
       // Construcción precisa del Timestamp para el Bot
       let horaRecogidaTimestamp = null;
@@ -97,7 +96,7 @@ export default function ServiciosPage() {
         clienteIniciales: data.nombreCliente.substring(0, 2).toUpperCase(),
         origen: data.direccionRecogida,
         destino: data.direccionDestino,
-        telefonoCliente: telDiezDigitos, // 10 dígitos en Firestore
+        telefonoCliente: telefonoDoceDigitos, // SIEMPRE 12 dígitos (57 + número) para el Bot en Railway
         fecha: data.fechaRecogida instanceof Date ? data.fechaRecogida.toISOString() : new Date(data.fechaRecogida).toISOString(),
         hora: data.horaRecogida,
         nitCliente: data.nitCliente,
@@ -139,7 +138,7 @@ export default function ServiciosPage() {
         });
       }
       
-      console.log('4. Firestore Iniciado');
+      console.log('4. Firestore OK (No bloqueante)');
       const updatedServicios = selected ? servicios.map(s => s.id === selected.id ? payload : s) : [...servicios, payload];
       setServicios(updatedServicios);
       localStorage.setItem('servicios', JSON.stringify(updatedServicios));
@@ -147,7 +146,7 @@ export default function ServiciosPage() {
       setIsSaving(false);
       setIsFormOpen(false);
       setSelected(null);
-      console.log('5. Modal cerrado y estado liberado');
+      console.log('5. Interfaz liberada');
       toast({ title: "Servicio guardado exitosamente ✅" });
 
       // WhatsApp completamente separado
