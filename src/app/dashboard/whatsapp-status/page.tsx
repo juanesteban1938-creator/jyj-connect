@@ -32,10 +32,15 @@ export default function WhatsAppStatusPage() {
   const checkStatus = useCallback(async () => {
     setIsLoading(true);
     try {
+      // DEBUG: Log directo de la respuesta del servidor
+      console.log('=== [DEBUG NOVA] Consultando Estado ===');
       const data = await obtenerEstadoNova();
+      console.log('Status response:', JSON.stringify(data));
+      
       setStatus(data);
       
       if (data && data.connected === false) {
+        console.log('[Nova] No conectado, solicitando QR...');
         const qrRes = await obtenerQRNova();
         if (qrRes && qrRes.qr) {
           setQrCode(qrRes.qr);
@@ -45,17 +50,19 @@ export default function WhatsAppStatusPage() {
       } else {
         setQrCode(null);
       }
-    } catch (err) {
-      console.error('[Nova Status Page] Error:', err);
+    } catch (err: any) {
+      console.error('[Nova Status Page] Error de conexión:', err);
       setStatus({ connected: false, error: 'No se pudo conectar con el servidor de Nova' });
     } finally {
       setIsLoading(false);
+      console.log('=== [DEBUG NOVA] Consulta Finalizada ===');
     }
   }, []);
 
   useEffect(() => {
     checkStatus();
-    const interval = setInterval(checkStatus, 15000); // Actualización cada 15 segundos
+    // Actualización cada 15 segundos para no saturar pero mantener sincronía
+    const interval = setInterval(checkStatus, 15000); 
     return () => clearInterval(interval);
   }, [checkStatus]);
 
@@ -128,7 +135,7 @@ export default function WhatsAppStatusPage() {
               ) : (
                 <div className="h-[250px] w-[250px] flex flex-col items-center justify-center bg-muted/30 rounded-lg border-2 border-dashed">
                   <PhoneIncoming className="h-12 w-12 opacity-20 mb-2" />
-                  <p className="text-xs text-muted-foreground">Generando código QR...</p>
+                  <p className="text-xs text-muted-foreground font-bold">Generando código QR...</p>
                 </div>
               )}
             </CardContent>
