@@ -1,6 +1,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
+ * Versión: 2.1.0 (Estabilidad Mejorada)
  */
 
 const express = require('express');
@@ -29,6 +30,7 @@ const WEATHER_KEY = process.env.OPENWEATHER_API_KEY || '2e28a9be1c50b694b288c3a5
 
 let qrCodeBase64 = ''; 
 let isReady = false;
+let authStatus = 'Iniciando...';
 
 const client = new Client({
     authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
@@ -37,7 +39,8 @@ const client = new Client({
         args: [
             '--no-sandbox', 
             '--disable-setuid-sandbox', 
-            '--disable-dev-shm-usage'
+            '--disable-dev-shm-usage',
+            '--disable-gpu'
         ]
     }
 });
@@ -114,20 +117,42 @@ async function generateServiceCard(data) {
     }
 }
 
+// EVENTOS DE WHATSAPP
 client.on('qr', async (qr) => {
     isReady = false;
-    console.log('[Nova] Generando nuevo código QR para Transportes Especiales J&J...');
+    authStatus = 'Esperando escaneo QR...';
+    console.log('[Nova] Nuevo QR generado.');
     try {
         qrCodeBase64 = await qrcode.toDataURL(qr);
     } catch(e) {
-        console.error('[Nova] Error generando QR:', e.message);
+        console.error('[Nova] Error QR:', e.message);
     }
+});
+
+client.on('authenticated', () => {
+    authStatus = 'Autenticado, sincronizando...';
+    console.log('[Nova] Autenticación exitosa.');
+});
+
+client.on('auth_failure', (msg) => {
+    isReady = false;
+    authStatus = 'Fallo de autenticación.';
+    console.error('[Nova] Fallo de autenticación:', msg);
 });
 
 client.on('ready', () => {
     isReady = true;
     qrCodeBase64 = '';
+    authStatus = 'Listo para operar.';
     console.log('[Nova] J&J Connect Bot operando correctamente.');
+});
+
+client.on('disconnected', (reason) => {
+    isReady = false;
+    authStatus = 'Desconectado.';
+    console.log('[Nova] Cliente desconectado:', reason);
+    // Intentar reinicializar
+    client.initialize().catch(console.error);
 });
 
 const checkApiKey = (req, res, next) => {
@@ -137,13 +162,31 @@ const checkApiKey = (req, res, next) => {
 };
 
 app.get('/status', checkApiKey, (req, res) => {
-    res.json({ connected: isReady });
+    res.json({ 
+        connected: isReady, 
+        status: authStatus 
+    });
 });
 
 app.get('/qr', checkApiKey, (req, res) => {
     if (isReady) return res.json({ connected: true });
-    if (!qrCodeBase64) return res.status(404).json({ error: 'Código QR no disponible aún' });
+    if (!qrCodeBase64) return res.status(404).json({ error: 'QR no generado' });
     res.json({ qr: qrCodeBase64 }); 
+});
+
+app.post('/restart', checkApiKey, async (req, res) => {
+    console.log('[Nova] Solicitud de reinicio de sesión...');
+    try {
+        await client.logout();
+        await client.destroy();
+        isReady = false;
+        qrCodeBase64 = '';
+        authStatus = 'Reiniciando...';
+        client.initialize();
+        res.json({ success: true, message: 'Reinicio iniciado' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 app.post('/send-service-notification', checkApiKey, async (req, res) => {
@@ -234,5 +277,6 @@ cron.schedule('* * * * *', async () => {
 });
 
 app.listen(port, '0.0.0.0', () => {
+    console.log(`[Nova Server] Puerto: ${port}`);
     client.initialize().catch(err => console.error('[Nova] Error de inicialización:', err));
 });

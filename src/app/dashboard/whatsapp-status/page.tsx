@@ -5,18 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { RefreshCw, CheckCircle2, AlertCircle, PhoneIncoming, XCircle, QrCode } from 'lucide-react';
+import { RefreshCw, CheckCircle2, AlertCircle, PhoneIncoming, XCircle, QrCode, Power } from 'lucide-react';
 import { obtenerEstadoNova, obtenerQRNova } from '@/lib/whatsapp';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
 import Image from 'next/image';
+import { useToast } from '@/hooks/use-toast';
 
 export default function WhatsAppStatusPage() {
-  const [status, setStatus] = useState<{ connected: boolean; error?: string } | null>(null);
+  const [status, setStatus] = useState<{ connected: boolean; status?: string; error?: string } | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const firestore = useFirestore();
+  const { toast } = useToast();
 
   const logsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -33,6 +35,7 @@ export default function WhatsAppStatusPage() {
     setIsLoading(true);
     try {
       const data = await obtenerEstadoNova();
+      console.log('Status response:', JSON.stringify(data));
       setStatus(data);
       
       if (data && data.connected === false) {
@@ -53,6 +56,25 @@ export default function WhatsAppStatusPage() {
     }
   }, []);
 
+  const handleRestart = async () => {
+    if (!confirm('¿Seguro que deseas reiniciar la sesión? Esto cerrará la vinculación actual.')) return;
+    setIsLoading(true);
+    try {
+      const response = await fetch('https://focused-harmony-production.up.railway.app/restart', {
+        method: 'POST',
+        headers: { 'x-api-key': 'jj-connect-2026' }
+      });
+      if (response.ok) {
+        toast({ title: "Reiniciando Nova", description: "Espera unos segundos para generar un nuevo código." });
+        setTimeout(checkStatus, 5000);
+      }
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al reiniciar" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     checkStatus();
     const interval = setInterval(checkStatus, 15000); 
@@ -72,17 +94,28 @@ export default function WhatsAppStatusPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Estado de Conexión</CardTitle>
-                <CardDescription>Monitoreo en tiempo real de J&J Connect.</CardDescription>
+                <CardDescription>{status?.status || 'Consultando servidor...'}</CardDescription>
               </div>
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={checkStatus} 
-                disabled={isLoading}
-                className={isLoading ? "animate-spin" : ""}
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={handleRestart} 
+                    title="Reiniciar Sesión"
+                    className="text-red-600 border-red-200 hover:bg-red-50"
+                >
+                    <Power className="h-4 w-4" />
+                </Button>
+                <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={checkStatus} 
+                    disabled={isLoading}
+                    className={isLoading ? "animate-spin" : ""}
+                >
+                    <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -97,7 +130,7 @@ export default function WhatsAppStatusPage() {
                 <div className="text-center">
                   <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
                   <Badge variant="destructive" className="font-bold uppercase">DESCONECTADO</Badge>
-                  <p className="mt-4 text-sm text-muted-foreground font-medium">La sesión de WhatsApp no está activa. Escanea el código QR para vincular.</p>
+                  <p className="mt-4 text-sm text-muted-foreground font-medium">La sesión no está activa. Si tu teléfono dice "Vinculado", intenta reiniciar la sesión con el botón superior rojo.</p>
                 </div>
               )}
             </div>
@@ -121,9 +154,6 @@ export default function WhatsAppStatusPage() {
                     className="rounded-lg"
                     unoptimized
                   />
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5">
-                    <QrCode className="h-32 w-32" />
-                  </div>
                 </div>
               ) : (
                 <div className="h-[250px] w-[250px] flex flex-col items-center justify-center bg-muted/30 rounded-lg border-2 border-dashed">
