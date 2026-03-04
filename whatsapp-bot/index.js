@@ -136,7 +136,9 @@ const checkApiKey = (req, res, next) => {
     next();
 };
 
-app.get('/status', checkApiKey, (req, res) => res.json({ connected: isReady }));
+app.get('/status', checkApiKey, (req, res) => {
+    res.json({ connected: isReady });
+});
 
 app.get('/qr', checkApiKey, (req, res) => {
     if (isReady) return res.json({ connected: true });

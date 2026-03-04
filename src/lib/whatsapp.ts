@@ -67,8 +67,17 @@ export async function obtenerEstadoNova() {
     const response = await fetch(`${WHATSAPP_BOT_URL}/status`, {
       headers: { 'x-api-key': API_KEY },
     });
-    return await response.json();
-  } catch {
+    
+    if (!response.ok) {
+        console.warn('[Nova Status] Servidor respondió con error:', response.status);
+        return { connected: false };
+    }
+    
+    const data = await response.json();
+    console.log('[Nova Status] Estado actual:', data);
+    return data;
+  } catch (error) {
+    console.error('[Nova Status] Error de conexión:', error);
     return { connected: false };
   }
 }
@@ -78,6 +87,9 @@ export async function obtenerQRNova() {
     const response = await fetch(`${WHATSAPP_BOT_URL}/qr`, {
       headers: { 'x-api-key': API_KEY },
     });
+    
+    if (!response.ok) return { error: 'No disponible' };
+    
     return await response.json(); // Devuelve { qr: '...' } o { connected: true }
   } catch {
     return { error: 'No disponible' };

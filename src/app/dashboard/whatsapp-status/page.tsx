@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,13 +29,13 @@ export default function WhatsAppStatusPage() {
 
   const { data: logs, isLoading: logsLoading, error: logsError } = useCollection(logsQuery);
 
-  const checkStatus = async () => {
+  const checkStatus = useCallback(async () => {
     setIsLoading(true);
     try {
       const data = await obtenerEstadoNova();
       setStatus(data);
       
-      if (data && !data.connected) {
+      if (data && data.connected === false) {
         const qrRes = await obtenerQRNova();
         if (qrRes && qrRes.qr) {
           setQrCode(qrRes.qr);
@@ -46,23 +46,24 @@ export default function WhatsAppStatusPage() {
         setQrCode(null);
       }
     } catch (err) {
+      console.error('[Nova Status Page] Error:', err);
       setStatus({ connected: false, error: 'No se pudo conectar con el servidor de Nova' });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     checkStatus();
-    const interval = setInterval(checkStatus, 20000); 
+    const interval = setInterval(checkStatus, 15000); // Actualización cada 15 segundos
     return () => clearInterval(interval);
-  }, []);
+  }, [checkStatus]);
 
   return (
     <div className="page-container">
       <header>
         <h1 className="page-title">Estado de Nova (Asistente Virtual)</h1>
-        <p className="page-subtitle">Sincroniza WhatsApp y monitorea el historial de notificaciones.</p>
+        <p className="page-subtitle">Sincroniza WhatsApp y monitorea el historial de notificaciones de Transportes Especiales J&J.</p>
       </header>
 
       <div className="grid gap-6 md:grid-cols-2 mb-8">
@@ -71,7 +72,7 @@ export default function WhatsAppStatusPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Estado de Conexión</CardTitle>
-                <CardDescription>Monitoreo del bot de mensajería J&J.</CardDescription>
+                <CardDescription>Monitoreo del bot de mensajería J&J Connect.</CardDescription>
               </div>
               <Button 
                 variant="outline" 
@@ -86,7 +87,7 @@ export default function WhatsAppStatusPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center justify-center p-8 bg-muted/20 rounded-lg">
-              {status?.connected ? (
+              {status?.connected === true ? (
                 <div className="text-center">
                   <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
                   <Badge className="bg-green-100 text-green-800 border-green-200 font-bold uppercase">CONECTADA</Badge>
@@ -96,14 +97,14 @@ export default function WhatsAppStatusPage() {
                 <div className="text-center">
                   <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
                   <Badge variant="destructive" className="font-bold uppercase">DESCONECTADO</Badge>
-                  <p className="mt-4 text-sm text-muted-foreground font-medium">La sesión de WhatsApp no está activa. Escanea el código QR.</p>
+                  <p className="mt-4 text-sm text-muted-foreground font-medium">La sesión de WhatsApp no está activa. Escanea el código QR para vincular.</p>
                 </div>
               )}
             </div>
           </CardContent>
         </Card>
 
-        {!status?.connected && (
+        {status?.connected === false && (
           <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none border-primary/20">
             <CardHeader>
               <CardTitle>Vincular Dispositivo</CardTitle>
@@ -118,6 +119,7 @@ export default function WhatsAppStatusPage() {
                     width={250} 
                     height={250} 
                     className="rounded-lg"
+                    unoptimized
                   />
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5">
                     <QrCode className="h-32 w-32" />
