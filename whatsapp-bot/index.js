@@ -1,6 +1,5 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
- * Versión: 5.0.0 (Pairing Code Mode)
  * Empresa: Transportes Especiales J&J
  */
 
@@ -11,6 +10,7 @@ const puppeteer = require('puppeteer');
 const admin = require('firebase-admin');
 const cron = require('node-cron');
 const fetch = require('node-fetch');
+const qrcode = require('qrcode');
 
 if (!admin.apps.length) {
     admin.initializeApp({
@@ -27,7 +27,7 @@ const port = process.env.PORT || 3001;
 const API_KEY = process.env.API_KEY || 'jj-connect-2026';
 const WEATHER_KEY = process.env.OPENWEATHER_API_KEY || '2e28a9be1c50b694b288c3a505f0d866';
 
-let pairingCode = ''; 
+let qrCodeBase64 = ''; 
 let isReady = false;
 
 const client = new Client({
@@ -42,9 +42,6 @@ const client = new Client({
     }
 });
 
-/**
- * Resolución síncrona de ID de WhatsApp
- */
 function resolveWAId(number) {
     let clean = number.toString().replace(/\D/g, '');
     if (!clean.startsWith('57')) clean = '57' + clean;
@@ -117,25 +114,19 @@ async function generateServiceCard(data) {
     }
 }
 
-/**
- * Evento de vinculación (Modo Pairing Code)
- */
-client.on('qr', async () => {
+client.on('qr', async (qr) => {
     isReady = false;
-    console.log('[Nova] Solicitando código de vinculación para Transportes Especiales J&J...');
+    console.log('[Nova] Generando nuevo código QR para Transportes Especiales J&J...');
     try {
-        // Número oficial de la empresa
-        const code = await client.requestPairingCode('573142889955'); 
-        console.log('[Nova] Código de vinculación generado:', code);
-        pairingCode = code; 
+        qrCodeBase64 = await qrcode.toDataURL(qr);
     } catch(e) {
-        console.error('[Nova] Error solicitando código:', e.message);
+        console.error('[Nova] Error generando QR:', e.message);
     }
 });
 
 client.on('ready', () => {
     isReady = true;
-    pairingCode = '';
+    qrCodeBase64 = '';
     console.log('[Nova] J&J Connect Bot operando correctamente.');
 });
 
@@ -149,8 +140,8 @@ app.get('/status', checkApiKey, (req, res) => res.json({ connected: isReady }));
 
 app.get('/qr', checkApiKey, (req, res) => {
     if (isReady) return res.json({ connected: true });
-    if (!pairingCode) return res.status(404).json({ error: 'Código no disponible aún' });
-    res.json({ code: pairingCode }); 
+    if (!qrCodeBase64) return res.status(404).json({ error: 'Código QR no disponible aún' });
+    res.json({ qr: qrCodeBase64 }); 
 });
 
 app.post('/send-service-notification', checkApiKey, async (req, res) => {

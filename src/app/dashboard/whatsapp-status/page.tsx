@@ -5,15 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { RefreshCw, CheckCircle2, AlertCircle, PhoneIncoming, XCircle, KeyRound } from 'lucide-react';
+import { RefreshCw, CheckCircle2, AlertCircle, PhoneIncoming, XCircle, QrCode } from 'lucide-react';
 import { obtenerEstadoNova, obtenerQRNova } from '@/lib/whatsapp';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
+import Image from 'next/image';
 
 export default function WhatsAppStatusPage() {
   const [status, setStatus] = useState<{ connected: boolean; error?: string } | null>(null);
-  const [pairingCode, setPairingCode] = useState<string | null>(null);
+  const [qrCode, setQrCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const firestore = useFirestore();
 
@@ -35,14 +36,14 @@ export default function WhatsAppStatusPage() {
       setStatus(data);
       
       if (data && !data.connected) {
-        const res = await obtenerQRNova();
-        if (res && res.code) {
-          setPairingCode(res.code);
+        const qrRes = await obtenerQRNova();
+        if (qrRes && qrRes.qr) {
+          setQrCode(qrRes.qr);
         } else {
-          setPairingCode(null);
+          setQrCode(null);
         }
       } else {
-        setPairingCode(null);
+        setQrCode(null);
       }
     } catch (err) {
       setStatus({ connected: false, error: 'No se pudo conectar con el servidor de Nova' });
@@ -95,7 +96,7 @@ export default function WhatsAppStatusPage() {
                 <div className="text-center">
                   <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
                   <Badge variant="destructive" className="font-bold uppercase">DESCONECTADO</Badge>
-                  <p className="mt-4 text-sm text-muted-foreground font-medium">La sesión de WhatsApp no está activa. Vincula con el código.</p>
+                  <p className="mt-4 text-sm text-muted-foreground font-medium">La sesión de WhatsApp no está activa. Escanea el código QR.</p>
                 </div>
               )}
             </div>
@@ -105,27 +106,27 @@ export default function WhatsAppStatusPage() {
         {!status?.connected && (
           <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none border-primary/20">
             <CardHeader>
-              <CardTitle>Vincular con Código</CardTitle>
-              <CardDescription>Abre WhatsApp {'>'} Dispositivos vinculados {'>'} Vincular con el número de teléfono.</CardDescription>
+              <CardTitle>Vincular Dispositivo</CardTitle>
+              <CardDescription>Escanea este código desde WhatsApp {'>'} Dispositivos vinculados.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col items-center justify-center h-full pb-10">
-              {pairingCode ? (
-                <div className="p-8 bg-white border-4 border-primary rounded-xl shadow-xl text-center w-full max-w-sm">
-                  <div className="bg-primary/5 p-4 rounded-full w-fit mx-auto mb-4">
-                    <KeyRound className="h-8 w-8 text-primary" />
+              {qrCode ? (
+                <div className="relative p-4 bg-white border-2 border-primary/20 rounded-xl shadow-inner">
+                  <Image 
+                    src={qrCode} 
+                    alt="QR Code" 
+                    width={250} 
+                    height={250} 
+                    className="rounded-lg"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5">
+                    <QrCode className="h-32 w-32" />
                   </div>
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase mb-3 tracking-widest">Código de Vinculación</p>
-                  <div className="text-5xl font-mono font-bold tracking-[0.2em] text-primary select-all py-4">
-                    {pairingCode}
-                  </div>
-                  <p className="mt-6 text-[11px] text-muted-foreground leading-relaxed px-4">
-                    Ingresa este código en tu celular para activar a <strong>Nova</strong> como asistente de Transportes Especiales J&J.
-                  </p>
                 </div>
               ) : (
-                <div className="h-[200px] w-full flex flex-col items-center justify-center bg-muted/30 rounded-lg border-2 border-dashed">
+                <div className="h-[250px] w-[250px] flex flex-col items-center justify-center bg-muted/30 rounded-lg border-2 border-dashed">
                   <PhoneIncoming className="h-12 w-12 opacity-20 mb-2" />
-                  <p className="text-xs text-muted-foreground">Generando código de vinculación...</p>
+                  <p className="text-xs text-muted-foreground">Generando código QR...</p>
                 </div>
               )}
             </CardContent>
