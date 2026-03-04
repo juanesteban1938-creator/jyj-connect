@@ -69,13 +69,11 @@ export async function obtenerEstadoNova() {
     });
     
     if (!response.ok) {
-        console.warn('[Nova Status] Servidor respondió con error:', response.status);
         return { connected: false };
     }
     
     const data = await response.json();
-    console.log('[Nova Status] Estado actual:', data);
-    return data;
+    return data; // Devuelve { connected: boolean }
   } catch (error) {
     console.error('[Nova Status] Error de conexión:', error);
     return { connected: false };
@@ -90,7 +88,7 @@ export async function obtenerQRNova() {
     
     if (!response.ok) return { error: 'No disponible' };
     
-    return await response.json(); // Devuelve { qr: '...' } o { connected: true }
+    return await response.json(); // Devuelve { qr: 'base64...' } o { connected: true }
   } catch {
     return { error: 'No disponible' };
   }

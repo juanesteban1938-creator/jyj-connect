@@ -32,15 +32,10 @@ export default function WhatsAppStatusPage() {
   const checkStatus = useCallback(async () => {
     setIsLoading(true);
     try {
-      // DEBUG: Log directo de la respuesta del servidor
-      console.log('=== [DEBUG NOVA] Consultando Estado ===');
       const data = await obtenerEstadoNova();
-      console.log('Status response:', JSON.stringify(data));
-      
       setStatus(data);
       
       if (data && data.connected === false) {
-        console.log('[Nova] No conectado, solicitando QR...');
         const qrRes = await obtenerQRNova();
         if (qrRes && qrRes.qr) {
           setQrCode(qrRes.qr);
@@ -51,17 +46,15 @@ export default function WhatsAppStatusPage() {
         setQrCode(null);
       }
     } catch (err: any) {
-      console.error('[Nova Status Page] Error de conexión:', err);
-      setStatus({ connected: false, error: 'No se pudo conectar con el servidor de Nova' });
+      console.error('[Nova Status Page] Error:', err);
+      setStatus({ connected: false, error: 'No se pudo conectar con el servidor' });
     } finally {
       setIsLoading(false);
-      console.log('=== [DEBUG NOVA] Consulta Finalizada ===');
     }
   }, []);
 
   useEffect(() => {
     checkStatus();
-    // Actualización cada 15 segundos para no saturar pero mantener sincronía
     const interval = setInterval(checkStatus, 15000); 
     return () => clearInterval(interval);
   }, [checkStatus]);
@@ -79,7 +72,7 @@ export default function WhatsAppStatusPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Estado de Conexión</CardTitle>
-                <CardDescription>Monitoreo del bot de mensajería J&J Connect.</CardDescription>
+                <CardDescription>Monitoreo en tiempo real de J&J Connect.</CardDescription>
               </div>
               <Button 
                 variant="outline" 
