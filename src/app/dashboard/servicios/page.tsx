@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -116,69 +115,60 @@ export default function ServiciosPage() {
         horaRecogidaTimestamp: horaRecogidaTimestamp,
       };
 
-      // 1. Guardar en Firestore
-      console.log('=== DEBUG FIRESTORE ===');
-      console.log('Intentando setDoc con ID:', servicioId);
-      console.log('db:', db ? 'Disponible' : 'No disponible');
-      console.log('payload:', JSON.stringify(payload));
-
-      const docRef = doc(db, 'servicios', servicioId);
       if (isNew) {
         (payload as any).createdAt = serverTimestamp();
       }
-      
-      await setDoc(docRef, payload, { merge: true });
-      console.log('✅ setDoc exitoso');
 
-      // 2. Actualizar estado local y localStorage
-      const updatedServicios = isNew ? [...servicios, payload] : servicios.map(s => s.id === payload.id ? payload : s);
-      setServicios(updatedServicios);
-      localStorage.setItem('servicios', JSON.stringify(updatedServicios));
+      console.log('=== DEBUG FIRESTORE ===');
+      console.log('ID:', servicioId);
+      console.log('db disponible:', !!db);
 
-      // 3. Cerrar modal y limpiar inmediatamente para no bloquear la UI
-      console.log('Cerrando modal...');
-      setIsFormOpen(false);
-      setSelected(null);
-      setIsSaving(false);
-      toast({ title: "Servicio guardado exitosamente ✅" });
+      try {
+        console.log('Ejecutando setDoc...');
+        await setDoc(doc(db, 'servicios', servicioId), payload, { merge: true });
+        console.log('✅ setDoc exitoso');
+        
+        // Actualizar estado local y localStorage
+        const updatedServicios = isNew ? [...servicios, payload] : servicios.map(s => s.id === payload.id ? payload : s);
+        setServicios(updatedServicios);
+        localStorage.setItem('servicios', JSON.stringify(updatedServicios));
 
-      // 4. WhatsApp solo si no ha sido notificado (en segundo plano)
-      if (!yaNotificado) {
-        console.log('Iniciando envío de WhatsApp...');
-        enviarNotificacionServicio({
-          clienteNombre: payload.clienteNombre || payload.cliente,
-          clienteTelefono: payload.telefonoCliente,
-          fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
-          hora: payload.hora,
-          origen: payload.origen,
-          destino: payload.destino,
-          placa: payload.vehiculoPlaca || 'N/A',
-          conductor: payload.conductor,
-          telefonoConductor: payload.conductorTelefono || 'N/A'
-        }).then(async (resultado) => {
-          if (resultado.success) {
-            // Actualizar Firestore para que notificacionEnviada sea true
-            await updateDoc(docRef, { notificacionEnviada: true });
-            
-            // Actualizar estado local para reflejar el cambio en la lista
-            setServicios(prev => prev.map(s => s.id === servicioId ? { ...s, notificacionEnviada: true } : s));
-            
-            // Actualizar localStorage
-            const latestServicios = JSON.parse(localStorage.getItem('servicios') || '[]');
-            localStorage.setItem('servicios', JSON.stringify(latestServicios.map((s: any) => s.id === servicioId ? { ...s, notificacionEnviada: true } : s)));
+        setIsSaving(false);
+        setIsFormOpen(false);
+        setSelected(null);
+        toast({ title: "Servicio guardado exitosamente ✅" });
 
-            console.log('✅ notificacionEnviada guardada como true en Firestore para:', servicioId);
-            toast({ title: "Nova notificó al cliente ✅" });
-          } else {
-            console.error('[Nova] Falló notificación:', resultado.error);
-          }
-        }).catch(err => {
-          console.error('[Nova] Error crítico notificando:', err);
-        });
+        // WhatsApp solo si no ha sido notificado (en segundo plano)
+        if (!yaNotificado) {
+          console.log('Iniciando envío de WhatsApp...');
+          enviarNotificacionServicio({
+            clienteNombre: payload.clienteNombre || payload.cliente,
+            clienteTelefono: payload.telefonoCliente,
+            fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
+            hora: payload.hora,
+            origen: payload.origen,
+            destino: payload.destino,
+            placa: payload.vehiculoPlaca || 'N/A',
+            conductor: payload.conductor,
+            telefonoConductor: payload.conductorTelefono || 'N/A'
+          }).then(async (resultado) => {
+            if (resultado.success) {
+              await updateDoc(doc(db, 'servicios', servicioId), { notificacionEnviada: true });
+              setServicios(prev => prev.map(s => s.id === servicioId ? { ...s, notificacionEnviada: true } : s));
+              console.log('✅ notificacionEnviada guardada como true');
+              toast({ title: "Nova notificó al cliente ✅" });
+            }
+          }).catch(err => console.error('[Nova] Error notificando:', err));
+        }
+
+      } catch (firestoreError: any) {
+        console.error('❌ Error Firestore:', firestoreError.code, firestoreError.message);
+        setIsSaving(false);
+        toast({ variant: "destructive", title: "Error Firestore", description: firestoreError.message });
       }
 
     } catch (error: any) {
-      console.error('ERROR en guardado:', error);
+      console.error('ERROR general en guardado:', error);
       toast({ variant: "destructive", title: "Error", description: error.message });
       setIsSaving(false);
     }
