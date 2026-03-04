@@ -139,12 +139,6 @@ export default function ServiciosPage() {
       toast({ title: "Servicio guardado exitosamente ✅" });
 
       setTimeout(() => {
-        console.log('=== DEBUG WHATSAPP ===');
-        console.log('clienteTelefono:', payload.telefonoCliente);
-        console.log('tipo:', typeof payload.telefonoCliente);
-        console.log('cliente completo:', JSON.stringify(payload));
-        console.log('=====================');
-
         enviarNotificacionServicio({
           clienteNombre: payload.clienteNombre,
           clienteTelefono: payload.telefonoCliente,
@@ -158,7 +152,6 @@ export default function ServiciosPage() {
         })
         .then(res => {
           if (res.success) toast({ title: "Nova notificó al cliente ✅" });
-          else toast({ variant: "destructive", title: "Error WhatsApp", description: res.error });
         })
         .catch(console.error);
       }, 100);

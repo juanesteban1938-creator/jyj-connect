@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { RefreshCw, CheckCircle2, AlertCircle, PhoneIncoming, XCircle } from 'lucide-react';
+import { RefreshCw, CheckCircle2, AlertCircle, PhoneIncoming, XCircle, KeyRound } from 'lucide-react';
 import { obtenerEstadoNova, obtenerQRNova } from '@/lib/whatsapp';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
@@ -111,8 +111,11 @@ export default function WhatsAppStatusPage() {
             <CardContent className="flex flex-col items-center justify-center h-full pb-10">
               {pairingCode ? (
                 <div className="p-8 bg-white border-4 border-primary rounded-xl shadow-xl text-center w-full max-w-sm">
+                  <div className="bg-primary/5 p-4 rounded-full w-fit mx-auto mb-4">
+                    <KeyRound className="h-8 w-8 text-primary" />
+                  </div>
                   <p className="text-[10px] font-bold text-muted-foreground uppercase mb-3 tracking-widest">Código de Vinculación</p>
-                  <div className="text-5xl font-mono font-bold tracking-[0.2em] text-primary select-all">
+                  <div className="text-5xl font-mono font-bold tracking-[0.2em] text-primary select-all py-4">
                     {pairingCode}
                   </div>
                   <p className="mt-6 text-[11px] text-muted-foreground leading-relaxed px-4">
@@ -122,7 +125,7 @@ export default function WhatsAppStatusPage() {
               ) : (
                 <div className="h-[200px] w-full flex flex-col items-center justify-center bg-muted/30 rounded-lg border-2 border-dashed">
                   <PhoneIncoming className="h-12 w-12 opacity-20 mb-2" />
-                  <p className="text-xs text-muted-foreground">Generando código...</p>
+                  <p className="text-xs text-muted-foreground">Generando código de vinculación...</p>
                 </div>
               )}
             </CardContent>

@@ -27,7 +27,7 @@ const port = process.env.PORT || 3001;
 const API_KEY = process.env.API_KEY || 'jj-connect-2026';
 const WEATHER_KEY = process.env.OPENWEATHER_API_KEY || '2e28a9be1c50b694b288c3a505f0d866';
 
-let qrCodeBase64 = ''; // Ahora guardará el código de vinculación
+let pairingCode = ''; 
 let isReady = false;
 
 const client = new Client({
@@ -44,7 +44,6 @@ const client = new Client({
 
 /**
  * Resolución síncrona de ID de WhatsApp
- * J&J Connect V2.0 - Identidad Corporativa
  */
 function resolveWAId(number) {
     let clean = number.toString().replace(/\D/g, '');
@@ -121,14 +120,14 @@ async function generateServiceCard(data) {
 /**
  * Evento de vinculación (Modo Pairing Code)
  */
-client.on('qr', async (qr) => {
+client.on('qr', async () => {
     isReady = false;
     console.log('[Nova] Solicitando código de vinculación para Transportes Especiales J&J...');
     try {
-        // Solicitar código para el número oficial de la empresa
+        // Número oficial de la empresa
         const code = await client.requestPairingCode('573142889955'); 
         console.log('[Nova] Código de vinculación generado:', code);
-        qrCodeBase64 = code; 
+        pairingCode = code; 
     } catch(e) {
         console.error('[Nova] Error solicitando código:', e.message);
     }
@@ -136,7 +135,7 @@ client.on('qr', async (qr) => {
 
 client.on('ready', () => {
     isReady = true;
-    qrCodeBase64 = '';
+    pairingCode = '';
     console.log('[Nova] J&J Connect Bot operando correctamente.');
 });
 
@@ -150,8 +149,8 @@ app.get('/status', checkApiKey, (req, res) => res.json({ connected: isReady }));
 
 app.get('/qr', checkApiKey, (req, res) => {
     if (isReady) return res.json({ connected: true });
-    if (!qrCodeBase64) return res.status(404).json({ error: 'Código no disponible aún' });
-    res.json({ code: qrCodeBase64 }); 
+    if (!pairingCode) return res.status(404).json({ error: 'Código no disponible aún' });
+    res.json({ code: pairingCode }); 
 });
 
 app.post('/send-service-notification', checkApiKey, async (req, res) => {
@@ -197,7 +196,6 @@ app.post('/send-departure-notification', checkApiKey, async (req, res) => {
     }
 });
 
-// CRON JOB para notificaciones automáticas (UTC-5 Colombia)
 cron.schedule('* * * * *', async () => {
     if (!isReady) return;
     const now = new Date();
@@ -215,7 +213,6 @@ cron.schedule('* * * * *', async () => {
             const diffMs = now - horaRecogida;
             const diffMin = diffMs / 60000;
             
-            // Disparar en la ventana de 0 a 2 minutos después de la hora
             if (diffMin >= 0 && diffMin <= 2) {
                 console.log(`[Cron] Notificando salida para ${s.consecutivo}`);
                 try {
