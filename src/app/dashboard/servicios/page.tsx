@@ -116,12 +116,19 @@ export default function ServiciosPage() {
         horaRecogidaTimestamp: horaRecogidaTimestamp,
       };
 
-      // 1. Guardar en Firestore siempre
+      // 1. Guardar en Firestore
+      console.log('=== DEBUG FIRESTORE ===');
+      console.log('Intentando setDoc con ID:', servicioId);
+      console.log('db:', db ? 'Disponible' : 'No disponible');
+      console.log('payload:', JSON.stringify(payload));
+
       const docRef = doc(db, 'servicios', servicioId);
       if (isNew) {
         (payload as any).createdAt = serverTimestamp();
       }
+      
       await setDoc(docRef, payload, { merge: true });
+      console.log('✅ setDoc exitoso');
 
       // 2. Actualizar estado local y localStorage
       const updatedServicios = isNew ? [...servicios, payload] : servicios.map(s => s.id === payload.id ? payload : s);
@@ -129,6 +136,7 @@ export default function ServiciosPage() {
       localStorage.setItem('servicios', JSON.stringify(updatedServicios));
 
       // 3. Cerrar modal y limpiar inmediatamente para no bloquear la UI
+      console.log('Cerrando modal...');
       setIsFormOpen(false);
       setSelected(null);
       setIsSaving(false);
@@ -136,6 +144,7 @@ export default function ServiciosPage() {
 
       // 4. WhatsApp solo si no ha sido notificado (en segundo plano)
       if (!yaNotificado) {
+        console.log('Iniciando envío de WhatsApp...');
         enviarNotificacionServicio({
           clienteNombre: payload.clienteNombre || payload.cliente,
           clienteTelefono: payload.telefonoCliente,
