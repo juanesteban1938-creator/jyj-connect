@@ -26,6 +26,7 @@ export type Servicio = {
   paradasAdicionales?: string[];
   numeroComprobante?: string;
   banco?: string;
+  notificacionEnviada: boolean;
   notificacionSalidaEnviada: boolean;
   horaRecogidaTimestamp?: any;
 };

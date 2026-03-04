@@ -26,7 +26,7 @@ import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
 import { useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, addDoc, serverTimestamp, Timestamp, doc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, Timestamp, doc, setDoc, updateDoc } from 'firebase/firestore';
 import type { Servicio } from '@/lib/types';
 
 export default function ServiciosPage() {
@@ -54,31 +54,25 @@ export default function ServiciosPage() {
   const handleSave = async (data: any) => {
     if (isSaving) return;
     setIsSaving(true);
-    console.log('1. Iniciando guardado...');
 
     try {
-      console.log('2. Construyendo datos...');
       const isNew = !selected;
+      const yaNotificado = selected?.notificacionEnviada === true;
       
-      // Limpiar teléfono y asegurar 12 dígitos (prefijo 57 + 10 dígitos) para el Bot
       const cleanPhoneTo12Digits = (phone: string): string => {
         let cleaned = String(phone || '').replace(/\D/g, '');
-        // Tomamos los últimos 10 dígitos para evitar errores con prefijos previos y forzamos el 57
         const last10 = cleaned.slice(-10);
         return '57' + last10;
       };
 
       const telefonoDoceDigitos = cleanPhoneTo12Digits(data.telefonoCliente);
 
-      // Construcción precisa del Timestamp para el Bot
       let horaRecogidaTimestamp = null;
       if (data.fechaRecogida && data.horaRecogida) {
         try {
           const fechaStr = data.fechaRecogida instanceof Date 
             ? data.fechaRecogida.toISOString().split('T')[0] 
             : new Date(data.fechaRecogida).toISOString().split('T')[0];
-          
-          // Colombia es UTC-5
           const fechaUTC = new Date(`${fechaStr}T${data.horaRecogida}:00-05:00`);
           if (isValid(fechaUTC)) {
             horaRecogidaTimestamp = Timestamp.fromDate(fechaUTC);
@@ -88,7 +82,7 @@ export default function ServiciosPage() {
         }
       }
 
-      const payload: any = {
+      const payload: Servicio = {
         id: selected?.id || Date.now().toString(),
         consecutivo: selected?.consecutivo || `GA-CCT-${servicios.length + 101}`,
         clienteNombre: data.nombreCliente,
@@ -96,7 +90,7 @@ export default function ServiciosPage() {
         clienteIniciales: data.nombreCliente.substring(0, 2).toUpperCase(),
         origen: data.direccionRecogida,
         destino: data.direccionDestino,
-        telefonoCliente: telefonoDoceDigitos, // SIEMPRE 12 dígitos (57 + número) para el Bot en Railway
+        telefonoCliente: telefonoDoceDigitos,
         fecha: data.fechaRecogida instanceof Date ? data.fechaRecogida.toISOString() : new Date(data.fechaRecogida).toISOString(),
         hora: data.horaRecogida,
         nitCliente: data.nitCliente,
@@ -105,22 +99,20 @@ export default function ServiciosPage() {
         vehiculoPlaca: data.esVehiculoNoRegistrado ? data.vehiculoOtro : (vehiculos.find(v => v.id === data.vehiculoId)?.placa || 'N/A'),
         conductor: data.esConductorNoRegistrado ? data.conductorOtro : (conductores.find(c => c.id === data.conductorId) ? `${conductores.find(c => c.id === data.conductorId).nombres} ${conductores.find(c => c.id === data.conductorId).apellidos}` : 'No asignado'),
         conductorTelefono: data.esConductorNoRegistrado ? data.conductorTelefonoOtro : (conductores.find(c => c.id === data.conductorId)?.telefono || ''),
-        estado: 'Programado', // Asegurar estado programado
+        estado: 'Programado',
         valorServicio: Number(data.valorServicio) || 0,
         anticipo: Number(data.anticipo) || 0,
         costoOperacion: Number(data.costoOperacion) || 0,
         saldo: (Number(data.valorServicio) || 0) - (Number(data.anticipo) || 0),
         metodoPago: data.metodoPago,
         estadoPago: data.estadoPago,
-        notificacionSalidaEnviada: false, // Reset para el bot
-        horaRecogidaTimestamp: horaRecogidaTimestamp, // Timestamp de Firestore
-        updatedAt: serverTimestamp()
+        notificacionEnviada: yaNotificado,
+        notificacionSalidaEnviada: false,
+        horaRecogidaTimestamp: horaRecogidaTimestamp,
       };
 
-      console.log('3. Guardando en Firestore...');
-      // Escritura NO BLOQUEANTE para evitar congelamientos
       if (isNew) {
-        payload.createdAt = serverTimestamp();
+        (payload as any).createdAt = serverTimestamp();
         addDoc(collection(db, 'servicios'), payload).catch(async (err) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: 'servicios',
@@ -138,36 +130,42 @@ export default function ServiciosPage() {
         });
       }
       
-      console.log('4. Firestore OK (No bloqueante)');
-      const updatedServicios = selected ? servicios.map(s => s.id === selected.id ? payload : s) : [...servicios, payload];
+      const updatedServicios = isNew ? [...servicios, payload] : servicios.map(s => s.id === payload.id ? payload : s);
       setServicios(updatedServicios);
       localStorage.setItem('servicios', JSON.stringify(updatedServicios));
 
       setIsSaving(false);
       setIsFormOpen(false);
       setSelected(null);
-      console.log('5. Interfaz liberada');
       toast({ title: "Servicio guardado exitosamente ✅" });
 
-      // WhatsApp completamente separado
-      setTimeout(() => {
-        enviarNotificacionServicio({
-          clienteNombre: payload.clienteNombre,
-          clienteTelefono: payload.telefonoCliente,
-          fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
-          hora: payload.hora,
-          origen: payload.origen,
-          destino: payload.destino,
-          placa: payload.vehiculoPlaca,
-          conductor: payload.conductor,
-          telefonoConductor: payload.conductorTelefono
-        })
-        .then(res => {
-          console.log('6. WhatsApp:', res);
-          if (res.success) toast({ title: "Nova notificó al cliente ✅" });
-        })
-        .catch(e => console.error('6. WhatsApp error:', e));
-      }, 100);
+      if (!yaNotificado) {
+        setTimeout(() => {
+          enviarNotificacionServicio({
+            clienteNombre: payload.clienteNombre || payload.cliente,
+            clienteTelefono: payload.telefonoCliente,
+            fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
+            hora: payload.hora,
+            origen: payload.origen,
+            destino: payload.destino,
+            placa: payload.vehiculoPlaca || 'N/A',
+            conductor: payload.conductor,
+            telefonoConductor: payload.conductorTelefono || 'N/A'
+          })
+          .then(res => {
+            if (res.success) {
+              toast({ title: "Nova notificó al cliente ✅" });
+              const finalizedPayload = { ...payload, notificacionEnviada: true };
+              
+              setServicios(prev => prev.map(s => s.id === finalizedPayload.id ? finalizedPayload : s));
+              localStorage.setItem('servicios', JSON.stringify(isNew ? [...servicios, finalizedPayload] : servicios.map(s => s.id === finalizedPayload.id ? finalizedPayload : s)));
+              
+              updateDoc(doc(db, 'servicios', finalizedPayload.id), { notificacionEnviada: true }).catch(e => console.error('Error updating notificacionEnviada:', e));
+            }
+          })
+          .catch(e => console.error('[Nova] WhatsApp error:', e));
+        }, 100);
+      }
 
     } catch (error: any) {
       console.error('ERROR en proceso:', error);
