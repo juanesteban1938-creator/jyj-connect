@@ -1,12 +1,11 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
- * Versión: 4.8.0 (Optimización UTC-5 Colombia)
+ * Versión: 5.0.0 (Pairing Code Mode)
  * Empresa: Transportes Especiales J&J
  */
 
 const express = require('express');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
-const qrcode = require('qrcode');
 const cors = require('cors');
 const puppeteer = require('puppeteer');
 const admin = require('firebase-admin');
@@ -28,7 +27,7 @@ const port = process.env.PORT || 3001;
 const API_KEY = process.env.API_KEY || 'jj-connect-2026';
 const WEATHER_KEY = process.env.OPENWEATHER_API_KEY || '2e28a9be1c50b694b288c3a505f0d866';
 
-let qrCodeBase64 = '';
+let qrCodeBase64 = ''; // Ahora guardará el código de vinculación
 let isReady = false;
 
 const client = new Client({
@@ -119,21 +118,28 @@ async function generateServiceCard(data) {
     }
 }
 
-client.on('qr', (qr) => {
-    qrcode.toDataURL(qr, (err, url) => {
-        if (err) return console.error('Error QR:', err);
-        qrCodeBase64 = url;
-    });
+/**
+ * Evento de vinculación (Modo Pairing Code)
+ */
+client.on('qr', async (qr) => {
     isReady = false;
+    console.log('[Nova] Solicitando código de vinculación para Transportes Especiales J&J...');
+    try {
+        // Solicitar código para el número oficial de la empresa
+        const code = await client.requestPairingCode('573142889955'); 
+        console.log('[Nova] Código de vinculación generado:', code);
+        qrCodeBase64 = code; 
+    } catch(e) {
+        console.error('[Nova] Error solicitando código:', e.message);
+    }
 });
 
 client.on('ready', () => {
     isReady = true;
     qrCodeBase64 = '';
-    console.log('[Nova] J&J Connect Bot operando para Transportes Especiales J&J.');
+    console.log('[Nova] J&J Connect Bot operando correctamente.');
 });
 
-// Middleware de seguridad simple
 const checkApiKey = (req, res, next) => {
     const key = req.headers['x-api-key'];
     if (key !== API_KEY) return res.status(401).json({ error: 'No autorizado' });
@@ -144,8 +150,8 @@ app.get('/status', checkApiKey, (req, res) => res.json({ connected: isReady }));
 
 app.get('/qr', checkApiKey, (req, res) => {
     if (isReady) return res.json({ connected: true });
-    if (!qrCodeBase64) return res.status(404).json({ error: 'QR no disponible' });
-    res.json({ qr: qrCodeBase64 });
+    if (!qrCodeBase64) return res.status(404).json({ error: 'Código no disponible aún' });
+    res.json({ code: qrCodeBase64 }); 
 });
 
 app.post('/send-service-notification', checkApiKey, async (req, res) => {
@@ -191,13 +197,13 @@ app.post('/send-departure-notification', checkApiKey, async (req, res) => {
     }
 });
 
-// CRON JOB optimizado para UTC-5 (Colombia)
+// CRON JOB para notificaciones automáticas (UTC-5 Colombia)
 cron.schedule('* * * * *', async () => {
     if (!isReady) return;
     const now = new Date();
     try {
         const snapshot = await db.collection('servicios')
-            .where('estado', '==', 'Programado')
+            .where('estado', 'in', ['Programado', 'programado'])
             .where('notificacionSalidaEnviada', '==', false)
             .get();
 
@@ -211,13 +217,13 @@ cron.schedule('* * * * *', async () => {
             
             // Disparar en la ventana de 0 a 2 minutos después de la hora
             if (diffMin >= 0 && diffMin <= 2) {
-                console.log(`[Cron] Disparando para ${s.consecutivo}`);
+                console.log(`[Cron] Notificando salida para ${s.consecutivo}`);
                 try {
                     const result = await fetch(`http://localhost:${port}/send-departure-notification`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
                         body: JSON.stringify({
-                            clienteTelefono: s.telefonoCliente,
+                            clienteTelefono: s.telefonoCliente || s.clienteTelefono,
                             clienteNombre: s.clienteNombre || s.cliente,
                             origen: s.origen,
                             destino: s.destino
@@ -233,7 +239,7 @@ cron.schedule('* * * * *', async () => {
             }
         }
     } catch (error) {
-        console.error('[Cron] Error:', error.message);
+        console.error('[Cron] Error general:', error.message);
     }
 });
 

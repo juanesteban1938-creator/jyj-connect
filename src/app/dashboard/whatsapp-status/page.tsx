@@ -5,16 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { RefreshCw, CheckCircle2, AlertCircle, QrCode, XCircle } from 'lucide-react';
+import { RefreshCw, CheckCircle2, AlertCircle, PhoneIncoming, XCircle } from 'lucide-react';
 import { obtenerEstadoNova, obtenerQRNova } from '@/lib/whatsapp';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 
 export default function WhatsAppStatusPage() {
   const [status, setStatus] = useState<{ connected: boolean; error?: string } | null>(null);
-  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const firestore = useFirestore();
 
@@ -36,14 +35,14 @@ export default function WhatsAppStatusPage() {
       setStatus(data);
       
       if (data && !data.connected) {
-        const qrData = await obtenerQRNova();
-        if (qrData && qrData.qr) {
-          setQrCode(qrData.qr);
+        const res = await obtenerQRNova();
+        if (res && res.code) {
+          setPairingCode(res.code);
         } else {
-          setQrCode(null);
+          setPairingCode(null);
         }
       } else {
-        setQrCode(null);
+        setPairingCode(null);
       }
     } catch (err) {
       setStatus({ connected: false, error: 'No se pudo conectar con el servidor de Nova' });
@@ -54,7 +53,7 @@ export default function WhatsAppStatusPage() {
 
   useEffect(() => {
     checkStatus();
-    const interval = setInterval(checkStatus, 30000); 
+    const interval = setInterval(checkStatus, 20000); 
     return () => clearInterval(interval);
   }, []);
 
@@ -96,7 +95,7 @@ export default function WhatsAppStatusPage() {
                 <div className="text-center">
                   <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
                   <Badge variant="destructive" className="font-bold uppercase">DESCONECTADO</Badge>
-                  <p className="mt-4 text-sm text-muted-foreground font-medium">La sesión de WhatsApp no está activa. Escanea el código QR.</p>
+                  <p className="mt-4 text-sm text-muted-foreground font-medium">La sesión de WhatsApp no está activa. Vincula con el código.</p>
                 </div>
               )}
             </div>
@@ -106,17 +105,24 @@ export default function WhatsAppStatusPage() {
         {!status?.connected && (
           <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none border-primary/20">
             <CardHeader>
-              <CardTitle>Vincular WhatsApp</CardTitle>
-              <CardDescription>Abre WhatsApp en tu teléfono {'>'} Dispositivos vinculados.</CardDescription>
+              <CardTitle>Vincular con Código</CardTitle>
+              <CardDescription>Abre WhatsApp {'>'} Dispositivos vinculados {'>'} Vincular con el número de teléfono.</CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col items-center justify-center">
-              {qrCode ? (
-                <div className="p-4 bg-white border-4 border-primary rounded-xl shadow-xl">
-                  <img src={qrCode} alt="QR" width={240} height={240} className="rounded-lg" />
+            <CardContent className="flex flex-col items-center justify-center h-full pb-10">
+              {pairingCode ? (
+                <div className="p-8 bg-white border-4 border-primary rounded-xl shadow-xl text-center w-full max-w-sm">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase mb-3 tracking-widest">Código de Vinculación</p>
+                  <div className="text-5xl font-mono font-bold tracking-[0.2em] text-primary select-all">
+                    {pairingCode}
+                  </div>
+                  <p className="mt-6 text-[11px] text-muted-foreground leading-relaxed px-4">
+                    Ingresa este código en tu celular para activar a <strong>Nova</strong> como asistente de Transportes Especiales J&J.
+                  </p>
                 </div>
               ) : (
-                <div className="h-[240px] w-[240px] flex items-center justify-center bg-muted/30 rounded-lg border-2 border-dashed">
-                  <QrCode className="h-12 w-12 opacity-20" />
+                <div className="h-[200px] w-full flex flex-col items-center justify-center bg-muted/30 rounded-lg border-2 border-dashed">
+                  <PhoneIncoming className="h-12 w-12 opacity-20 mb-2" />
+                  <p className="text-xs text-muted-foreground">Generando código...</p>
                 </div>
               )}
             </CardContent>
@@ -143,7 +149,7 @@ export default function WhatsAppStatusPage() {
               <TableRow>
                 <TableCell colSpan={4} className="p-8 text-center text-red-500">
                   <AlertCircle className="h-5 w-5 mx-auto mb-2" />
-                  Error al cargar el historial: Verifique los permisos de Firestore.
+                  Error al cargar el historial.
                 </TableCell>
               </TableRow>
             ) : logs?.map((log: any) => (
@@ -174,11 +180,6 @@ export default function WhatsAppStatusPage() {
             {(!logs || logs.length === 0) && !logsLoading && !logsError && (
               <TableRow>
                 <TableCell colSpan={4} className="p-8 text-center text-muted-foreground">No hay registros de notificaciones.</TableCell>
-              </TableRow>
-            )}
-            {logsLoading && (
-              <TableRow>
-                <TableCell colSpan={4} className="p-8 text-center text-muted-foreground animate-pulse">Cargando historial...</TableCell>
               </TableRow>
             )}
           </TableBody>
