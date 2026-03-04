@@ -25,8 +25,8 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
-import { useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, addDoc, serverTimestamp, Timestamp, doc, setDoc, updateDoc } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
+import { doc, setDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import type { Servicio } from '@/lib/types';
 
 export default function ServiciosPage() {
@@ -57,14 +57,12 @@ export default function ServiciosPage() {
 
     try {
       const isNew = !selected;
-      // Capturamos el estado de notificación antes de cualquier cambio
       const yaNotificado = selected?.notificacionEnviada === true;
+      const servicioId = selected?.id || Date.now().toString();
       
       console.log('=== DEBUG NOTIFICACION ===');
-      console.log('ID Servicio:', selected?.id || 'NUEVO');
-      console.log('Consecutivo:', selected?.consecutivo || 'NUEVO');
+      console.log('ID Documento:', servicioId);
       console.log('¿Ya estaba notificado?:', yaNotificado);
-      console.log('==========================');
 
       const cleanPhoneTo12Digits = (phone: string): string => {
         let cleaned = String(phone || '').replace(/\D/g, '');
@@ -89,9 +87,8 @@ export default function ServiciosPage() {
         }
       }
 
-      // El payload debe heredar el estado de notificación si estamos editando
       const payload: Servicio = {
-        id: selected?.id || Date.now().toString(),
+        id: servicioId,
         consecutivo: selected?.consecutivo || `GA-CCT-${servicios.length + 101}`,
         clienteNombre: data.nombreCliente,
         cliente: data.nombreCliente,
@@ -114,73 +111,61 @@ export default function ServiciosPage() {
         saldo: (Number(data.valorServicio) || 0) - (Number(data.anticipo) || 0),
         metodoPago: data.metodoPago,
         estadoPago: data.estadoPago,
-        notificacionEnviada: yaNotificado, // Mantenemos el estado actual
+        notificacionEnviada: yaNotificado,
         notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false,
         horaRecogidaTimestamp: horaRecogidaTimestamp,
       };
 
+      // Guardar en Firestore siempre (usamos setDoc para asegurar ID coincidente)
+      const docRef = doc(db, 'servicios', servicioId);
       if (isNew) {
         (payload as any).createdAt = serverTimestamp();
-        addDoc(collection(db, 'servicios'), payload).catch(async (err) => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: 'servicios',
-            operation: 'create',
-            requestResourceData: payload,
-          }));
-        });
-      } else {
-        setDoc(doc(db, 'servicios', payload.id), payload, { merge: true }).catch(async (err) => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: `servicios/${payload.id}`,
-            operation: 'update',
-            requestResourceData: payload,
-          }));
-        });
       }
-      
+      await setDoc(docRef, payload, { merge: true });
+
+      // Actualizar estado local y localStorage
       const updatedServicios = isNew ? [...servicios, payload] : servicios.map(s => s.id === payload.id ? payload : s);
       setServicios(updatedServicios);
       localStorage.setItem('servicios', JSON.stringify(updatedServicios));
 
-      setIsSaving(false);
       setIsFormOpen(false);
       setSelected(null);
+      setIsSaving(false);
       toast({ title: "Servicio guardado exitosamente ✅" });
 
-      // Solo disparamos la notificación si NO ha sido enviado previamente
+      // Solo notificar si NO ha sido enviado previamente
       if (!yaNotificado) {
-        console.log('[Nova] El servicio es nuevo o no ha sido notificado. Enviando a WhatsApp...');
-        setTimeout(() => {
-          enviarNotificacionServicio({
-            clienteNombre: payload.clienteNombre || payload.cliente,
-            clienteTelefono: payload.telefonoCliente,
-            fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
-            hora: payload.hora,
-            origen: payload.origen,
-            destino: payload.destino,
-            placa: payload.vehiculoPlaca || 'N/A',
-            conductor: payload.conductor,
-            telefonoConductor: payload.conductorTelefono || 'N/A'
-          })
-          .then(res => {
-            if (res.success) {
-              toast({ title: "Nova notificó al cliente ✅" });
-              const finalizedPayload = { ...payload, notificacionEnviada: true };
-              
-              setServicios(prev => prev.map(s => s.id === finalizedPayload.id ? finalizedPayload : s));
-              localStorage.setItem('servicios', JSON.stringify(updatedServicios.map(s => s.id === finalizedPayload.id ? finalizedPayload : s)));
-              
-              updateDoc(doc(db, 'servicios', finalizedPayload.id), { notificacionEnviada: true }).catch(e => console.error('Error updating notificacionEnviada:', e));
-            }
-          })
-          .catch(e => console.error('[Nova] WhatsApp error:', e));
-        }, 100);
-      } else {
-        console.log('[Nova] El servicio ya fue notificado. Omitiendo envío de WhatsApp.');
+        console.log('[Nova] Intentando envío de WhatsApp...');
+        const resultado = await enviarNotificacionServicio({
+          clienteNombre: payload.clienteNombre || payload.cliente,
+          clienteTelefono: payload.telefonoCliente,
+          fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
+          hora: payload.hora,
+          origen: payload.origen,
+          destino: payload.destino,
+          placa: payload.vehiculoPlaca || 'N/A',
+          conductor: payload.conductor,
+          telefonoConductor: payload.conductorTelefono || 'N/A'
+        });
+
+        if (resultado.success) {
+          // Actualizar Firestore para que notificacionEnviada sea true
+          await updateDoc(docRef, { notificacionEnviada: true });
+          
+          // Actualizar estado local para reflejar el cambio
+          setServicios(prev => prev.map(s => s.id === servicioId ? { ...s, notificacionEnviada: true } : s));
+          
+          // Actualizar localStorage
+          const latestServicios = JSON.parse(localStorage.getItem('servicios') || '[]');
+          localStorage.setItem('servicios', JSON.stringify(latestServicios.map((s: any) => s.id === servicioId ? { ...s, notificacionEnviada: true } : s)));
+
+          console.log('✅ notificacionEnviada guardada como true en Firestore para:', servicioId);
+          toast({ title: "Nova notificó al cliente ✅" });
+        }
       }
 
     } catch (error: any) {
-      console.error('ERROR en proceso:', error);
+      console.error('ERROR en guardado:', error);
       toast({ variant: "destructive", title: "Error", description: error.message });
       setIsSaving(false);
     }
