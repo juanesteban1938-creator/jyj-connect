@@ -61,6 +61,7 @@ export default function ServiciosPage() {
     const servicioId = selected?.id || Date.now().toString();
     const yaNotificado = selected?.notificacionEnviada === true;
     
+    // Función para limpiar y asegurar 12 dígitos (57 + 10 dígitos)
     const cleanPhoneTo12Digits = (phone: string): string => {
       let cleaned = String(phone || '').replace(/\D/g, '');
       const last10 = cleaned.slice(-10);
@@ -69,30 +70,33 @@ export default function ServiciosPage() {
 
     const telefonoDoceDigitos = cleanPhoneTo12Digits(data.telefonoCliente);
 
+    // Construcción del Timestamp para el bot de Railway
     let horaRecogidaTimestamp = null;
     if (data.fechaRecogida && data.horaRecogida) {
       try {
         const fechaStr = data.fechaRecogida instanceof Date 
           ? data.fechaRecogida.toISOString().split('T')[0] 
           : new Date(data.fechaRecogida).toISOString().split('T')[0];
+        // Forzamos zona horaria de Colombia (-05:00) para el bot
         const fechaUTC = new Date(`${fechaStr}T${data.horaRecogida}:00-05:00`);
         if (isValid(fechaUTC)) {
           horaRecogidaTimestamp = Timestamp.fromDate(fechaUTC);
         }
       } catch (e) {
-        console.error('[Nova] Error construyendo timestamp:', e);
+        console.error('[J&J] Error construyendo timestamp:', e);
       }
     }
 
+    // OBJETO COMPLETO QUE SE GUARDA EN FIRESTORE
     const payload: Servicio = {
       id: servicioId,
-      consecutivo: selected?.consecutivo || `GA-CCT-${servicios.length + 101}`,
+      consecutivo: selected?.consecutivo || `JJ-${servicios.length + 1001}`,
       clienteNombre: data.nombreCliente,
       cliente: data.nombreCliente,
       clienteIniciales: data.nombreCliente.substring(0, 2).toUpperCase(),
       origen: data.direccionRecogida,
       destino: data.direccionDestino,
-      telefonoCliente: telefonoDoceDigitos,
+      telefonoCliente: telefonoDoceDigitos, // 12 DÍGITOS REQUERIDOS POR EL BOT
       fecha: data.fechaRecogida instanceof Date ? data.fechaRecogida.toISOString() : new Date(data.fechaRecogida).toISOString(),
       hora: data.horaRecogida,
       nitCliente: data.nitCliente,
@@ -101,7 +105,7 @@ export default function ServiciosPage() {
       vehiculoPlaca: data.esVehiculoNoRegistrado ? data.vehiculoOtro : (vehiculos.find(v => v.id === data.vehiculoId)?.placa || 'N/A'),
       conductor: data.esConductorNoRegistrado ? data.conductorOtro : (conductores.find(c => c.id === data.conductorId) ? `${conductores.find(c => c.id === data.conductorId).nombres} ${conductores.find(c => c.id === data.conductorId).apellidos}` : 'No asignado'),
       conductorTelefono: data.esConductorNoRegistrado ? data.conductorTelefonoOtro : (conductores.find(c => c.id === data.conductorId)?.telefono || ''),
-      estado: 'Programado',
+      estado: 'Programado', // ESTADO REQUERIDO POR EL BOT
       valorServicio: Number(data.valorServicio) || 0,
       anticipo: Number(data.anticipo) || 0,
       costoOperacion: Number(data.costoOperacion) || 0,
@@ -109,17 +113,15 @@ export default function ServiciosPage() {
       metodoPago: data.metodoPago,
       estadoPago: data.estadoPago,
       notificacionEnviada: yaNotificado,
-      notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false,
-      horaRecogidaTimestamp: horaRecogidaTimestamp,
+      notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false, // REQUERIDO POR EL CRON
+      horaRecogidaTimestamp: horaRecogidaTimestamp, // FIRESTORE TIMESTAMP
     };
 
-    if (isNew) {
-      (payload as any).createdAt = serverTimestamp();
-    }
-
     // OPERACIÓN DE FIRESTORE NO BLOQUEANTE EN COLECCIÓN 'services'
+    console.log('[J&J] Iniciando guardado en colección "services"...');
     setDoc(doc(db, 'services', servicioId), payload, { merge: true })
-      .catch(async (serverError) => {
+      .then(() => console.log('[J&J] Guardado exitoso en services/', servicioId))
+      .catch((serverError) => {
         const permissionError = new FirestorePermissionError({
           path: `services/${servicioId}`,
           operation: 'write',
@@ -133,14 +135,15 @@ export default function ServiciosPage() {
     setServicios(updatedServicios);
     localStorage.setItem('servicios', JSON.stringify(updatedServicios));
 
-    // CIERRE DE MODAL INMEDIATO
+    // CIERRE DE MODAL INMEDIATO (UX FLUIDA)
     setIsSaving(false);
     setIsFormOpen(false);
     setSelected(null);
     toast({ title: "Servicio guardado exitosamente ✅" });
 
-    // PROCESO DE WHATSAPP EN SEGUNDO PLANO
+    // PROCESO DE WHATSAPP EN SEGUNDO PLANO (SOLO SI NO HA SIDO NOTIFICADO)
     if (!yaNotificado) {
+      console.log('[J&J] Solicitando notificación a Nova...');
       enviarNotificacionServicio({
         clienteNombre: payload.clienteNombre || payload.cliente,
         clienteTelefono: payload.telefonoCliente,
@@ -153,14 +156,14 @@ export default function ServiciosPage() {
         telefonoConductor: payload.conductorTelefono || 'N/A'
       }).then((resultado) => {
         if (resultado.success) {
-          // Actualización silenciosa del campo notificacionEnviada en 'services'
+          // Marcamos como notificado en Firestore para evitar duplicados en el futuro
           updateDoc(doc(db, 'services', servicioId), { notificacionEnviada: true })
-            .catch(() => console.error('[Nova] No se pudo marcar como notificado en Firestore'));
+            .catch(() => console.error('[J&J] No se pudo marcar como notificado en Firestore'));
           
           setServicios(prev => prev.map(s => s.id === servicioId ? { ...s, notificacionEnviada: true } : s));
           toast({ title: "Nova notificó al cliente ✅" });
         }
-      }).catch(err => console.error('[Nova] Error notificando:', err));
+      }).catch(err => console.error('[J&J] Error notificando:', err));
     }
   };
 
