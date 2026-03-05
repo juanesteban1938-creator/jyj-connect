@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -26,7 +25,7 @@ import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
 import { useFirestore } from '@/firebase';
-import { doc, setDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import type { Servicio } from '@/lib/types';
@@ -61,7 +60,13 @@ export default function ServiciosPage() {
     const servicioId = selected?.id || Date.now().toString();
     const yaNotificado = selected?.notificacionEnviada === true;
     
-    // Función para limpiar y asegurar 12 dígitos (57 + 10 dígitos)
+    // Log de diagnóstico
+    console.log('=== DEBUG FIRESTORE ===');
+    console.log('Project ID actual:', db.app.options.projectId);
+    console.log('Colección destino: services');
+    console.log('ID del documento:', servicioId);
+
+    // Formateo estricto del teléfono a 12 dígitos para el bot
     const cleanPhoneTo12Digits = (phone: string): string => {
       let cleaned = String(phone || '').replace(/\D/g, '');
       const last10 = cleaned.slice(-10);
@@ -70,14 +75,13 @@ export default function ServiciosPage() {
 
     const telefonoDoceDigitos = cleanPhoneTo12Digits(data.telefonoCliente);
 
-    // Construcción del Timestamp para el bot de Railway
+    // Timestamp para el cron job de aviso de salida
     let horaRecogidaTimestamp = null;
     if (data.fechaRecogida && data.horaRecogida) {
       try {
         const fechaStr = data.fechaRecogida instanceof Date 
           ? data.fechaRecogida.toISOString().split('T')[0] 
           : new Date(data.fechaRecogida).toISOString().split('T')[0];
-        // Forzamos zona horaria de Colombia (-05:00) para el bot
         const fechaUTC = new Date(`${fechaStr}T${data.horaRecogida}:00-05:00`);
         if (isValid(fechaUTC)) {
           horaRecogidaTimestamp = Timestamp.fromDate(fechaUTC);
@@ -87,7 +91,6 @@ export default function ServiciosPage() {
       }
     }
 
-    // OBJETO COMPLETO QUE SE GUARDA EN FIRESTORE
     const payload: Servicio = {
       id: servicioId,
       consecutivo: selected?.consecutivo || `JJ-${servicios.length + 1001}`,
@@ -96,7 +99,7 @@ export default function ServiciosPage() {
       clienteIniciales: data.nombreCliente.substring(0, 2).toUpperCase(),
       origen: data.direccionRecogida,
       destino: data.direccionDestino,
-      telefonoCliente: telefonoDoceDigitos, // 12 DÍGITOS REQUERIDOS POR EL BOT
+      telefonoCliente: telefonoDoceDigitos, 
       fecha: data.fechaRecogida instanceof Date ? data.fechaRecogida.toISOString() : new Date(data.fechaRecogida).toISOString(),
       hora: data.horaRecogida,
       nitCliente: data.nitCliente,
@@ -105,7 +108,7 @@ export default function ServiciosPage() {
       vehiculoPlaca: data.esVehiculoNoRegistrado ? data.vehiculoOtro : (vehiculos.find(v => v.id === data.vehiculoId)?.placa || 'N/A'),
       conductor: data.esConductorNoRegistrado ? data.conductorOtro : (conductores.find(c => c.id === data.conductorId) ? `${conductores.find(c => c.id === data.conductorId).nombres} ${conductores.find(c => c.id === data.conductorId).apellidos}` : 'No asignado'),
       conductorTelefono: data.esConductorNoRegistrado ? data.conductorTelefonoOtro : (conductores.find(c => c.id === data.conductorId)?.telefono || ''),
-      estado: 'Programado', // ESTADO REQUERIDO POR EL BOT
+      estado: 'Programado', 
       valorServicio: Number(data.valorServicio) || 0,
       anticipo: Number(data.anticipo) || 0,
       costoOperacion: Number(data.costoOperacion) || 0,
@@ -113,14 +116,13 @@ export default function ServiciosPage() {
       metodoPago: data.metodoPago,
       estadoPago: data.estadoPago,
       notificacionEnviada: yaNotificado,
-      notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false, // REQUERIDO POR EL CRON
-      horaRecogidaTimestamp: horaRecogidaTimestamp, // FIRESTORE TIMESTAMP
+      notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false, 
+      horaRecogidaTimestamp: horaRecogidaTimestamp,
     };
 
-    // OPERACIÓN DE FIRESTORE NO BLOQUEANTE EN COLECCIÓN 'services'
-    console.log('[J&J] Iniciando guardado en colección "services"...');
+    // GUARDADO NO BLOQUEANTE EN COLECCIÓN 'services'
     setDoc(doc(db, 'services', servicioId), payload, { merge: true })
-      .then(() => console.log('[J&J] Guardado exitoso en services/', servicioId))
+      .then(() => console.log('✅ Guardado exitoso en services/', servicioId))
       .catch((serverError) => {
         const permissionError = new FirestorePermissionError({
           path: `services/${servicioId}`,
@@ -130,20 +132,19 @@ export default function ServiciosPage() {
         errorEmitter.emit('permission-error', permissionError);
       });
 
-    // ACTUALIZACIÓN DE ESTADO LOCAL INMEDIATA
+    // Actualización local inmediata
     const updatedServicios = isNew ? [...servicios, payload] : servicios.map(s => s.id === payload.id ? payload : s);
     setServicios(updatedServicios);
     localStorage.setItem('servicios', JSON.stringify(updatedServicios));
 
-    // CIERRE DE MODAL INMEDIATO (UX FLUIDA)
+    // Liberación de la UI
     setIsSaving(false);
     setIsFormOpen(false);
     setSelected(null);
     toast({ title: "Servicio guardado exitosamente ✅" });
 
-    // PROCESO DE WHATSAPP EN SEGUNDO PLANO (SOLO SI NO HA SIDO NOTIFICADO)
+    // Notificación en segundo plano si es nuevo
     if (!yaNotificado) {
-      console.log('[J&J] Solicitando notificación a Nova...');
       enviarNotificacionServicio({
         clienteNombre: payload.clienteNombre || payload.cliente,
         clienteTelefono: payload.telefonoCliente,
@@ -156,9 +157,8 @@ export default function ServiciosPage() {
         telefonoConductor: payload.conductorTelefono || 'N/A'
       }).then((resultado) => {
         if (resultado.success) {
-          // Marcamos como notificado en Firestore para evitar duplicados en el futuro
           updateDoc(doc(db, 'services', servicioId), { notificacionEnviada: true })
-            .catch(() => console.error('[J&J] No se pudo marcar como notificado en Firestore'));
+            .catch(() => console.error('[J&J] Error persistiendo notificacionEnviada'));
           
           setServicios(prev => prev.map(s => s.id === servicioId ? { ...s, notificacionEnviada: true } : s));
           toast({ title: "Nova notificó al cliente ✅" });
