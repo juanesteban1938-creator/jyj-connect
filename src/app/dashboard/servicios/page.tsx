@@ -40,6 +40,9 @@ export default function ServiciosPage() {
   const { toast } = useToast();
   const db = useFirestore();
 
+  // Log de depuración solicitado
+  console.log('[Nova] selected actual:', selected?.id || 'NULL');
+
   useEffect(() => {
     const s = localStorage.getItem('servicios');
     const v = localStorage.getItem('vehiculos');
@@ -50,23 +53,21 @@ export default function ServiciosPage() {
   }, []);
 
   const handleNuevoServicio = () => {
-    setSelected(null); // CRÍTICO: Limpiar selección anterior para que sea un servicio nuevo
+    console.log('[Nova] Click en Nuevo Servicio - Limpiando selected...');
+    setSelected(null); 
     setIsFormOpen(true);
   };
 
   const handleSave = (formData: any) => {
-    // 1. CIERRE INMEDIATO Y NO BLOQUEANTE
     setIsFormOpen(false);
     toast({ title: "Guardando servicio... 🚐💨" });
 
-    // 2. GENERACIÓN DE ID DINÁMICO
     const esNuevo = !selected || !selected.id;
     const servicioId = esNuevo ? String(Date.now()) : selected.id;
     const yaNotificado = selected?.notificacionEnviada === true;
 
     console.log('[Nova] esNuevo:', esNuevo, 'ID:', servicioId, 'Timestamp actual:', Date.now());
 
-    // 3. PREPARACIÓN DEL PAYLOAD
     const cleanPhone = (phone: string): string => {
       let cleaned = String(phone || '').replace(/\D/g, '');
       return '57' + cleaned.slice(-10);
@@ -114,24 +115,17 @@ export default function ServiciosPage() {
       horaRecogidaTimestamp: horaRecogidaTimestamp,
     };
 
-    console.log('[Nova] Payload preparado para persistencia:', payload);
-
-    // 4. ACTUALIZACIÓN LOCAL OPTIMISTA
     const updated = !esNuevo ? servicios.map(s => s.id === servicioId ? payload : s) : [payload, ...servicios];
     setServicios(updated);
     localStorage.setItem('servicios', JSON.stringify(updated));
     setSelected(null);
 
-    // 5. PERSISTENCIA EN SEGUNDO PLANO
     console.log('[Nova] Iniciando setDoc en segundo plano para:', servicioId);
     
     setDoc(doc(db, 'services', servicioId), payload, { merge: true })
       .then(() => {
         console.log('[Nova] ✅ setDoc EXITOSO para:', servicioId);
-        
-        // 6. DISPARO DE WHATSAPP
         if (!yaNotificado) {
-          console.log('[Nova] Intentando envío de notificación vía WhatsApp...');
           enviarNotificacionServicio({
             clienteNombre: payload.clienteNombre || payload.cliente,
             clienteTelefono: payload.telefonoCliente,
@@ -144,22 +138,14 @@ export default function ServiciosPage() {
             telefonoConductor: payload.conductorTelefono || 'N/A'
           }).then(res => {
             if (res.success) {
-              console.log('[Nova] ✅ Notificación WhatsApp entregada.');
               setDoc(doc(db, 'services', servicioId), { notificacionEnviada: true }, { merge: true });
               toast({ title: "Nova notificó al cliente ✅" });
-            } else {
-              console.error('[Nova] ❌ Error en respuesta de WhatsApp:', res.error);
             }
-          }).catch(err => console.error('[Nova] ❌ Error fatal en WhatsApp Bridge:', err));
+          });
         }
       })
       .catch((error: any) => {
         console.error('[Nova] ❌ ERROR setDoc:', error.code, error.message);
-        toast({ 
-          variant: 'destructive', 
-          title: "Error de Sincronización", 
-          description: `No se pudo guardar en la nube: ${error.message}` 
-        });
       });
   };
 
