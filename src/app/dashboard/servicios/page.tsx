@@ -26,7 +26,7 @@ import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
 import { useFirestore } from '@/firebase';
-import { doc, setDoc, addDoc, collection, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, collection, Timestamp } from 'firebase/firestore';
 import type { Servicio } from '@/lib/types';
 
 export default function ServiciosPage() {
@@ -52,21 +52,21 @@ export default function ServiciosPage() {
   }, []);
 
   /**
-   * VERSIÓN FINAL: ID DINÁMICO Y GUARDADO NO BLOQUEANTE
+   * VERSIÓN FINAL: ID DINÁMICO Y GUARDADO TOTALMENTE NO BLOQUEANTE
    */
   const handleSave = (formData: any) => {
-    // 1. LIBERACIÓN INMEDIATA DE LA UI
+    // 1. LIBERACIÓN INMEDIATA DE LA UI (NUNCA ESPERA AL SERVIDOR)
     setIsFormOpen(false);
     toast({ title: "Guardando servicio... 🚐💨" });
 
-    // 2. GENERACIÓN DE ID DINÁMICO
+    // 2. GENERACIÓN DE ID DINÁMICO (Basado en timestamp para nuevos, o el ID existente para editar)
     const servicioId = selected?.id || String(Date.now());
     const isNew = !selected;
     const yaNotificado = selected?.notificacionEnviada === true;
 
     console.log('[Nova] ID generado:', servicioId, 'Timestamp actual:', Date.now(), 'Es nuevo:', isNew);
 
-    // Preparación de datos
+    // 3. PREPARACIÓN DEL PAYLOAD
     const cleanPhone = (phone: string): string => {
       let cleaned = String(phone || '').replace(/\D/g, '');
       return '57' + cleaned.slice(-10);
@@ -82,7 +82,7 @@ export default function ServiciosPage() {
         if (isValid(fechaUTC)) {
           horaRecogidaTimestamp = Timestamp.fromDate(fechaUTC);
         }
-      } catch (e) { console.error('Error Timestamp:', e); }
+      } catch (e) { console.error('[Nova] Error convirtiendo Timestamp:', e); }
     }
 
     const payload: Servicio = {
@@ -90,7 +90,7 @@ export default function ServiciosPage() {
       consecutivo: selected?.consecutivo || `JJ-${servicios.length + 1001}`,
       cliente: formData.nombreCliente,
       clienteNombre: formData.nombreCliente,
-      clienteIniciales: formData.nombreCliente.substring(0, 2).toUpperCase(),
+      clienteIniciales: (formData.nombreCliente || '').substring(0, 2).toUpperCase(),
       origen: formData.direccionRecogida,
       destino: formData.direccionDestino,
       telefonoCliente: cleanPhone(formData.telefonoCliente),
@@ -114,23 +114,24 @@ export default function ServiciosPage() {
       horaRecogidaTimestamp: horaRecogidaTimestamp,
     };
 
-    // 3. ACTUALIZACIÓN LOCAL OPTIMISTA
+    console.log('[Nova] Payload preparado para persistencia:', payload);
+
+    // 4. ACTUALIZACIÓN LOCAL OPTIMISTA (PARA QUE APAREZCA EN LA LISTA AL INSTANTE)
     const updated = selected ? servicios.map(s => s.id === servicioId ? payload : s) : [payload, ...servicios];
     setServicios(updated);
     localStorage.setItem('servicios', JSON.stringify(updated));
     setSelected(null);
 
-    // 4. PERSISTENCIA EN SEGUNDO PLANO (SIN AWAIT)
-    const servicesRef = collection(db, 'services');
+    // 5. PERSISTENCIA EN SEGUNDO PLANO (SIN AWAIT PARA NO BLOQUEAR)
+    console.log('[Nova] Iniciando setDoc en segundo plano para:', servicioId);
     
-    // Si es nuevo usamos el ID generado con setDoc para mantener control del ID
-    // o podríamos usar addDoc si el ID no importa. Aquí usamos setDoc para asegurar el ID timestamp.
     setDoc(doc(db, 'services', servicioId), payload, { merge: true })
       .then(() => {
-        console.log('[Nova] ✅ Guardado en Firestore:', servicioId);
+        console.log('[Nova] ✅ Persistencia exitosa en Firestore:', servicioId);
         
-        // Disparar WhatsApp solo si es nuevo o no se ha notificado
+        // 6. DISPARO DE WHATSAPP (Solo si es nuevo o no se ha notificado)
         if (!yaNotificado) {
+          console.log('[Nova] Intentando envío de notificación vía WhatsApp...');
           enviarNotificacionServicio({
             clienteNombre: payload.clienteNombre || payload.cliente,
             clienteTelefono: payload.telefonoCliente,
@@ -143,15 +144,23 @@ export default function ServiciosPage() {
             telefonoConductor: payload.conductorTelefono || 'N/A'
           }).then(res => {
             if (res.success) {
+              console.log('[Nova] ✅ Notificación WhatsApp entregada.');
+              // Actualizar estado de notificación en Firestore (silenciosamente)
               setDoc(doc(db, 'services', servicioId), { notificacionEnviada: true }, { merge: true });
               toast({ title: "Nova notificó al cliente ✅" });
+            } else {
+              console.error('[Nova] ❌ Error en respuesta de WhatsApp:', res.error);
             }
-          });
+          }).catch(err => console.error('[Nova] ❌ Error fatal en WhatsApp Bridge:', err));
         }
       })
       .catch((error: any) => {
-        console.error('[Nova] ❌ Error en segundo plano:', error.code, error.message);
-        toast({ variant: 'destructive', title: "Error al sincronizar", description: error.message });
+        console.error('[Nova] ❌ ERROR CRÍTICO EN FIRESTORE:', error.code, error.message);
+        toast({ 
+          variant: 'destructive', 
+          title: "Error de Sincronización", 
+          description: `No se pudo guardar en la nube: ${error.message}` 
+        });
       });
   };
 
