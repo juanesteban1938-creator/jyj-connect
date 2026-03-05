@@ -1,4 +1,3 @@
-
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -141,30 +140,31 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
     }
   }, [servicio, form, conductores, vehiculos]);
 
+  // Lógica para sincronizar anticipo cuando el estado es Pagado
   const valorServicio = form.watch('valorServicio') || 0;
   const estadoPago = form.watch('estadoPago');
 
   useEffect(() => {
     if (estadoPago === 'Pagado' && !isSaving) {
-      const currentAnticipo = form.getValues('anticipo');
-      if (currentAnticipo !== valorServicio) {
-        form.setValue('anticipo', valorServicio);
-      }
+      form.setValue('anticipo', valorServicio);
     } else if ((estadoPago === 'Pendiente' || estadoPago === 'Anulado') && !isSaving) {
-        const currentAnticipo = form.getValues('anticipo');
-        if (currentAnticipo !== 0) {
-            form.setValue('anticipo', 0);
-        }
+        form.setValue('anticipo', 0);
     }
   }, [estadoPago, valorServicio, form, isSaving]);
 
   const anticipo = form.watch('anticipo') || 0;
   const saldo = Math.max(0, valorServicio - anticipo);
   
+  // FUNCIÓN DE DISPARO PRINCIPAL
+  const handleFormSubmit = (data: ServicioFormValues) => {
+    console.log('[Nova] Formulario validado, llamando a handleSave...');
+    onSave(data);
+  };
+
   return (
     <Form {...form}>
       <form 
-        onSubmit={form.handleSubmit(onSave, (errors) => console.log('[Nova] Errores:', errors))} 
+        onSubmit={form.handleSubmit(handleFormSubmit, (errors) => console.log('[Nova] Errores de validación:', errors))} 
         className="space-y-6"
       >
         <ScrollArea className="h-[70vh] w-full">

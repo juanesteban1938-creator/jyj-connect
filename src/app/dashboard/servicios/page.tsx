@@ -25,9 +25,7 @@ import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
 import { useFirestore } from '@/firebase';
-import { doc, setDoc, updateDoc, Timestamp } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { doc, setDoc, Timestamp } from 'firebase/firestore';
 import type { Servicio } from '@/lib/types';
 
 export default function ServiciosPage() {
@@ -52,114 +50,102 @@ export default function ServiciosPage() {
     if (c) setConductores(JSON.parse(c));
   }, []);
 
-  const handleSave = async (data: any) => {
+  /**
+   * VERSIÓN LIMPIA Y ROBUSTA - NO BLOQUEANTE
+   * Se ejecuta al validar el formulario en ServicioForm
+   */
+  const handleSave = async (formData: any) => {
     if (isSaving) return;
     
-    // 1. CIERRE INMEDIATO Y FEEDBACK VISUAL
+    // 1. CIERRE E INTERFAZ INMEDIATA (Solicitado por el usuario)
     setIsSaving(false); 
     setIsFormOpen(false);
     toast({ title: "Guardando servicio... 🚐💨" });
 
-    // 2. PREPARACIÓN DE DATOS (En segundo plano)
-    const isNew = !selected;
-    const servicioId = selected?.id || Date.now().toString();
+    const servicioId = selected?.id || String(Date.now());
     const yaNotificado = selected?.notificacionEnviada === true;
-    
-    // Formateo de teléfono: Siempre 12 dígitos con prefijo 57
+
+    // Preparación de datos para Firestore
     const cleanPhone = (phone: string): string => {
       let cleaned = String(phone || '').replace(/\D/g, '');
       return '57' + cleaned.slice(-10);
     };
 
-    const telefonoDoceDigitos = cleanPhone(data.telefonoCliente);
-
-    // Construcción de Timestamp para el Cron de Railway
     let horaRecogidaTimestamp = null;
-    if (data.fechaRecogida && data.horaRecogida) {
+    if (formData.fechaRecogida && formData.horaRecogida) {
       try {
-        const fechaStr = data.fechaRecogida instanceof Date 
-          ? data.fechaRecogida.toISOString().split('T')[0] 
-          : new Date(data.fechaRecogida).toISOString().split('T')[0];
-        // Forzamos zona horaria Colombia (-05:00) para el Cron
-        const fechaUTC = new Date(`${fechaStr}T${data.horaRecogida}:00-05:00`);
+        const fechaStr = formData.fechaRecogida instanceof Date 
+          ? formData.fechaRecogida.toISOString().split('T')[0] 
+          : new Date(formData.fechaRecogida).toISOString().split('T')[0];
+        const fechaUTC = new Date(`${fechaStr}T${formData.horaRecogida}:00-05:00`);
         if (isValid(fechaUTC)) {
           horaRecogidaTimestamp = Timestamp.fromDate(fechaUTC);
         }
-      } catch (e) {
-        console.error('[J&J] Error Timestamp:', e);
-      }
+      } catch (e) { console.error('Error Timestamp:', e); }
     }
 
     const payload: Servicio = {
       id: servicioId,
       consecutivo: selected?.consecutivo || `JJ-${servicios.length + 1001}`,
-      clienteNombre: data.nombreCliente,
-      cliente: data.nombreCliente,
-      clienteIniciales: data.nombreCliente.substring(0, 2).toUpperCase(),
-      origen: data.direccionRecogida,
-      destino: data.direccionDestino,
-      telefonoCliente: telefonoDoceDigitos, 
-      fecha: data.fechaRecogida instanceof Date ? data.fechaRecogida.toISOString() : new Date(data.fechaRecogida).toISOString(),
-      hora: data.horaRecogida,
-      nitCliente: data.nitCliente,
-      emailCliente: data.emailCliente || '',
-      vehiculo: data.esVehiculoNoRegistrado ? `OTRO • ${data.vehiculoOtro}` : (vehiculos.find(v => v.id === data.vehiculoId) ? `${vehiculos.find(v => v.id === data.vehiculoId).marca} ${vehiculos.find(v => v.id === data.vehiculoId).linea}` : 'N/A'),
-      vehiculoPlaca: data.esVehiculoNoRegistrado ? data.vehiculoOtro : (vehiculos.find(v => v.id === data.vehiculoId)?.placa || 'N/A'),
-      conductor: data.esConductorNoRegistrado ? data.conductorOtro : (conductores.find(c => c.id === data.conductorId) ? `${conductores.find(c => c.id === data.conductorId).nombres} ${conductores.find(c => c.id === data.conductorId).apellidos}` : 'No asignado'),
-      conductorTelefono: data.esConductorNoRegistrado ? data.conductorTelefonoOtro : (conductores.find(c => c.id === data.conductorId)?.telefono || ''),
-      estado: 'Programado', 
-      valorServicio: Number(data.valorServicio) || 0,
-      anticipo: Number(data.anticipo) || 0,
-      costoOperacion: Number(data.costoOperacion) || 0,
-      saldo: (Number(data.valorServicio) || 0) - (Number(data.anticipo) || 0),
-      metodoPago: data.metodoPago,
-      estadoPago: data.estadoPago,
+      cliente: formData.nombreCliente,
+      clienteNombre: formData.nombreCliente,
+      clienteIniciales: formData.nombreCliente.substring(0, 2).toUpperCase(),
+      origen: formData.direccionRecogida,
+      destino: formData.direccionDestino,
+      telefonoCliente: cleanPhone(formData.telefonoCliente),
+      fecha: formData.fechaRecogida instanceof Date ? formData.fechaRecogida.toISOString() : new Date(formData.fechaRecogida).toISOString(),
+      hora: formData.horaRecogida,
+      nitCliente: formData.nitCliente,
+      emailCliente: formData.emailCliente || '',
+      vehiculo: formData.esVehiculoNoRegistrado ? `OTRO • ${formData.vehiculoOtro}` : (vehiculos.find(v => v.id === formData.vehiculoId)?.placa || 'N/A'),
+      vehiculoPlaca: formData.esVehiculoNoRegistrado ? formData.vehiculoOtro : (vehiculos.find(v => v.id === formData.vehiculoId)?.placa || 'N/A'),
+      conductor: formData.esConductorNoRegistrado ? formData.conductorOtro : (conductores.find(c => c.id === formData.conductorId) ? `${conductores.find(c => c.id === formData.conductorId).nombres} ${conductores.find(c => c.id === formData.conductorId).apellidos}` : 'No asignado'),
+      conductorTelefono: formData.esConductorNoRegistrado ? formData.conductorTelefonoOtro : (conductores.find(c => c.id === formData.conductorId)?.telefono || ''),
+      estado: 'Programado',
+      valorServicio: Number(formData.valorServicio) || 0,
+      anticipo: Number(formData.anticipo) || 0,
+      costoOperacion: Number(formData.costoOperacion) || 0,
+      saldo: (Number(formData.valorServicio) || 0) - (Number(formData.anticipo) || 0),
+      metodoPago: formData.metodoPago,
+      estadoPago: formData.estadoPago,
       notificacionEnviada: yaNotificado,
-      notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false, 
+      notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false,
       horaRecogidaTimestamp: horaRecogidaTimestamp,
     };
 
-    // 3. ACTUALIZACIÓN LOCAL INSTANTÁNEA
-    const updatedServicios = isNew ? [...servicios, payload] : servicios.map(s => s.id === payload.id ? payload : s);
-    setServicios(updatedServicios);
-    localStorage.setItem('servicios', JSON.stringify(updatedServicios));
+    // 2. ACTUALIZACIÓN LOCAL (Para reflejar cambios sin esperar a la red)
+    const updated = selected ? servicios.map(s => s.id === servicioId ? payload : s) : [...servicios, payload];
+    setServicios(updated);
+    localStorage.setItem('servicios', JSON.stringify(updated));
     setSelected(null);
 
-    // 4. GUARDADO EN FIRESTORE (Background)
-    setDoc(doc(db, 'services', servicioId), payload, { merge: true })
-      .then(() => console.log('✅ Firestore sync:', servicioId))
-      .catch((error) => {
-        console.error('❌ Firestore Error:', error.message);
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: `services/${servicioId}`,
-          operation: 'write',
-          requestResourceData: payload,
-        }));
-      });
+    // 3. TRABAJO EN SEGUNDO PLANO (Firestore y WhatsApp)
+    try {
+      console.log('Ejecutando setDoc en segundo plano para:', servicioId);
+      setDoc(doc(db, 'services', servicioId), payload, { merge: true })
+        .then(() => console.log('✅ Firestore sync exitoso'))
+        .catch(e => console.error('❌ Error Firestore:', e.message));
 
-    // 5. NOTIFICACIÓN WHATSAPP (Solo si no ha sido notificado)
-    if (!yaNotificado) {
-      enviarNotificacionServicio({
-        clienteNombre: payload.clienteNombre || payload.cliente,
-        clienteTelefono: payload.telefonoCliente,
-        fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
-        hora: payload.hora,
-        origen: payload.origen,
-        destino: payload.destino,
-        placa: payload.vehiculoPlaca || 'N/A',
-        conductor: payload.conductor,
-        telefonoConductor: payload.conductorTelefono || 'N/A'
-      }).then((res) => {
-        if (res.success) {
-          // Marcar como notificado en Firestore tras el éxito
-          updateDoc(doc(db, 'services', servicioId), { notificacionEnviada: true })
-            .then(() => {
-              console.log('✅ persistencia notificacionEnviada exitosa');
-              setServicios(prev => prev.map(s => s.id === servicioId ? { ...s, notificacionEnviada: true } : s));
-            });
-          toast({ title: "Nova notificó al cliente ✅" });
-        }
-      }).catch(err => console.error('[Nova] WhatsApp fail:', err));
+      if (!yaNotificado) {
+        enviarNotificacionServicio({
+          clienteNombre: payload.clienteNombre || payload.cliente,
+          clienteTelefono: payload.telefonoCliente,
+          fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
+          hora: payload.hora,
+          origen: payload.origen,
+          destino: payload.destino,
+          placa: payload.vehiculoPlaca || 'N/A',
+          conductor: payload.conductor,
+          telefonoConductor: payload.conductorTelefono || 'N/A'
+        }).then(res => {
+          if (res.success) {
+            setDoc(doc(db, 'services', servicioId), { notificacionEnviada: true }, { merge: true });
+            toast({ title: "Nova notificó al cliente ✅" });
+          }
+        });
+      }
+    } catch (e: any) {
+      console.error('Error general en handleSave:', e.message);
     }
   };
 
