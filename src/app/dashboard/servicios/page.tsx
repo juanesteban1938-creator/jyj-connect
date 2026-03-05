@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +15,7 @@ import {
   User, 
   Truck
 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs';
 import { Badge } from '@/components/ui/badge';
 import { format, isValid } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -26,7 +25,7 @@ import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
 import { useFirestore } from '@/firebase';
-import { doc, setDoc, collection, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, Timestamp } from 'firebase/firestore';
 import type { Servicio } from '@/lib/types';
 
 export default function ServiciosPage() {
@@ -38,7 +37,6 @@ export default function ServiciosPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isResumenOpen, setIsResumenOpen] = useState(false);
   const [selected, setSelected] = useState<Servicio | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
 
@@ -51,20 +49,22 @@ export default function ServiciosPage() {
     if (c) setConductores(JSON.parse(c));
   }, []);
 
-  /**
-   * VERSIÓN FINAL: ID DINÁMICO Y GUARDADO TOTALMENTE NO BLOQUEANTE
-   */
+  const handleNuevoServicio = () => {
+    setSelected(null);
+    setIsFormOpen(true);
+  };
+
   const handleSave = (formData: any) => {
-    // 1. LIBERACIÓN INMEDIATA DE LA UI (NUNCA ESPERA AL SERVIDOR)
+    // 1. CIERRE INMEDIATO Y NO BLOQUEANTE
     setIsFormOpen(false);
     toast({ title: "Guardando servicio... 🚐💨" });
 
-    // 2. GENERACIÓN DE ID DINÁMICO (Basado en timestamp para nuevos, o el ID existente para editar)
-    const servicioId = selected?.id || String(Date.now());
-    const isNew = !selected;
+    // 2. GENERACIÓN DE ID DINÁMICO
+    const esNuevo = !selected || !selected.id;
+    const servicioId = esNuevo ? String(Date.now()) : selected.id;
     const yaNotificado = selected?.notificacionEnviada === true;
 
-    console.log('[Nova] ID generado:', servicioId, 'Timestamp actual:', Date.now(), 'Es nuevo:', isNew);
+    console.log('[Nova] esNuevo:', esNuevo, 'ID:', servicioId, 'Timestamp actual:', Date.now());
 
     // 3. PREPARACIÓN DEL PAYLOAD
     const cleanPhone = (phone: string): string => {
@@ -116,20 +116,20 @@ export default function ServiciosPage() {
 
     console.log('[Nova] Payload preparado para persistencia:', payload);
 
-    // 4. ACTUALIZACIÓN LOCAL OPTIMISTA (PARA QUE APAREZCA EN LA LISTA AL INSTANTE)
-    const updated = selected ? servicios.map(s => s.id === servicioId ? payload : s) : [payload, ...servicios];
+    // 4. ACTUALIZACIÓN LOCAL OPTIMISTA
+    const updated = !esNuevo ? servicios.map(s => s.id === servicioId ? payload : s) : [payload, ...servicios];
     setServicios(updated);
     localStorage.setItem('servicios', JSON.stringify(updated));
     setSelected(null);
 
-    // 5. PERSISTENCIA EN SEGUNDO PLANO (SIN AWAIT PARA NO BLOQUEAR)
+    // 5. PERSISTENCIA EN SEGUNDO PLANO
     console.log('[Nova] Iniciando setDoc en segundo plano para:', servicioId);
     
     setDoc(doc(db, 'services', servicioId), payload, { merge: true })
       .then(() => {
-        console.log('[Nova] ✅ Persistencia exitosa en Firestore:', servicioId);
+        console.log('[Nova] ✅ setDoc EXITOSO para:', servicioId);
         
-        // 6. DISPARO DE WHATSAPP (Solo si es nuevo o no se ha notificado)
+        // 6. DISPARO DE WHATSAPP
         if (!yaNotificado) {
           console.log('[Nova] Intentando envío de notificación vía WhatsApp...');
           enviarNotificacionServicio({
@@ -145,7 +145,6 @@ export default function ServiciosPage() {
           }).then(res => {
             if (res.success) {
               console.log('[Nova] ✅ Notificación WhatsApp entregada.');
-              // Actualizar estado de notificación en Firestore (silenciosamente)
               setDoc(doc(db, 'services', servicioId), { notificacionEnviada: true }, { merge: true });
               toast({ title: "Nova notificó al cliente ✅" });
             } else {
@@ -155,7 +154,7 @@ export default function ServiciosPage() {
         }
       })
       .catch((error: any) => {
-        console.error('[Nova] ❌ ERROR CRÍTICO EN FIRESTORE:', error.code, error.message);
+        console.error('[Nova] ❌ ERROR setDoc:', error.code, error.message);
         toast({ 
           variant: 'destructive', 
           title: "Error de Sincronización", 
@@ -189,7 +188,7 @@ export default function ServiciosPage() {
             onChange={e => setSearchTerm(e.target.value)} 
           />
         </div>
-        <Button onClick={() => setIsFormOpen(true)} className="btn-action"><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Servicio</Button>
+        <Button onClick={handleNuevoServicio} className="btn-action"><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Servicio</Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -252,7 +251,7 @@ export default function ServiciosPage() {
         <DialogContent className="sm:max-w-4xl">
           <VisuallyHidden><DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader></VisuallyHidden>
           <DialogHeader><DialogTitle className="text-2xl font-bold">{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader>
-          <ServicioForm servicio={selected} onSave={handleSave} onCancel={() => setIsFormOpen(false)} conductores={conductores} vehiculos={vehiculos} isSaving={isSaving} />
+          <ServicioForm servicio={selected} onSave={handleSave} onCancel={() => setIsFormOpen(false)} conductores={conductores} vehiculos={vehiculos} />
         </DialogContent>
       </Dialog>
 
