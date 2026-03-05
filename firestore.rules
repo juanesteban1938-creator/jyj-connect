@@ -1,50 +1,15 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
      * TRANSPORTES ESPECIALES J&J - J&J CONNECT V2.0
-     * SECURITY RULES - v2.5
+     * SECURITY RULES - DEBUG MODE
+     * Permite acceso total a usuarios con sesión activa (incluyendo anónimos).
      */
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /** 
-     * @description Historial de notificaciones de WhatsApp. 
-     */
-    match /notificaciones_whatsapp/{notificacionId} {
-      allow read, create: if true;
-    }
-
-    /** @description Colección de servicios. */
-    match /services/{servicioId} {
-      allow read, write: if true;
-    }
-
-    /** @description Colección de clientes. */
-    match /clientes/{clienteId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
-    }
-
-    /** @description Colección de cuentas de cobro. */
-    match /cuentas_cobro/{cuentaCobroId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
-    }
-
-    /** @description Gestión de roles administrativos. */
-    match /roles_admin/{uid} {
-      allow get: if isSignedIn() && request.auth.uid == uid;
-      allow list: if isSignedIn();
-      allow write: if false;
-    }
 
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if request.auth != null;
     }
   }
 }
