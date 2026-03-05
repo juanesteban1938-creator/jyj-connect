@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -25,7 +26,7 @@ import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
 import { useFirestore } from '@/firebase';
-import { doc, setDoc, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, addDoc, collection, Timestamp } from 'firebase/firestore';
 import type { Servicio } from '@/lib/types';
 
 export default function ServiciosPage() {
@@ -51,17 +52,19 @@ export default function ServiciosPage() {
   }, []);
 
   /**
-   * VERSIÓN DE DIAGNÓSTICO: CIERRE INMEDIATO Y LOGS EXPLICITOS
+   * VERSIÓN FINAL: ID DINÁMICO Y GUARDADO NO BLOQUEANTE
    */
-  const handleSave = async (formData: any) => {
-    console.log('[Nova] Iniciando handleSave con payload:', formData);
-    
-    // 1. CIERRE E INTERFAZ INMEDIATA
+  const handleSave = (formData: any) => {
+    // 1. LIBERACIÓN INMEDIATA DE LA UI
     setIsFormOpen(false);
-    toast({ title: "Guardando en segundo plano... 🚐💨" });
+    toast({ title: "Guardando servicio... 🚐💨" });
 
+    // 2. GENERACIÓN DE ID DINÁMICO
     const servicioId = selected?.id || String(Date.now());
+    const isNew = !selected;
     const yaNotificado = selected?.notificacionEnviada === true;
+
+    console.log('[Nova] ID generado:', servicioId, 'Timestamp actual:', Date.now(), 'Es nuevo:', isNew);
 
     // Preparación de datos
     const cleanPhone = (phone: string): string => {
@@ -111,49 +114,45 @@ export default function ServiciosPage() {
       horaRecogidaTimestamp: horaRecogidaTimestamp,
     };
 
-    // 2. ACTUALIZACIÓN LOCAL INSTANTÁNEA
-    const updated = selected ? servicios.map(s => s.id === servicioId ? payload : s) : [...servicios, payload];
+    // 3. ACTUALIZACIÓN LOCAL OPTIMISTA
+    const updated = selected ? servicios.map(s => s.id === servicioId ? payload : s) : [payload, ...servicios];
     setServicios(updated);
     localStorage.setItem('servicios', JSON.stringify(updated));
     setSelected(null);
 
-    // 3. TRABAJO EN SEGUNDO PLANO CON LOGS DE SEGUIMIENTO
-    console.log('[Nova] Intentando setDoc en segundo plano para:', servicioId);
-    try {
-      await setDoc(doc(db, 'services', servicioId), payload, { merge: true });
-      console.log('[Nova] ✅ setDoc EXITOSO para:', servicioId);
-
-      // Si no se había notificado, disparamos WhatsApp
-      if (!yaNotificado) {
-        console.log('[Nova] Disparando notificación de WhatsApp...');
-        enviarNotificacionServicio({
-          clienteNombre: payload.clienteNombre || payload.cliente,
-          clienteTelefono: payload.telefonoCliente,
-          fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
-          hora: payload.hora,
-          origen: payload.origen,
-          destino: payload.destino,
-          placa: payload.vehiculoPlaca || 'N/A',
-          conductor: payload.conductor,
-          telefonoConductor: payload.conductorTelefono || 'N/A'
-        }).then(res => {
-          if (res.success) {
-            setDoc(doc(db, 'services', servicioId), { notificacionEnviada: true }, { merge: true });
-            toast({ title: "Nova notificó al cliente ✅" });
-            console.log('[Nova] WhatsApp enviado y marca de notificación actualizada');
-          } else {
-            console.warn('[Nova] Fallo al enviar WhatsApp:', res.error);
-          }
-        });
-      }
-    } catch (firestoreError: any) {
-      console.error('[Nova] ❌ ERROR setDoc:', firestoreError.code, firestoreError.message);
-      toast({ 
-        variant: 'destructive', 
-        title: "Error Firestore", 
-        description: `No se pudo guardar: ${firestoreError.message}` 
+    // 4. PERSISTENCIA EN SEGUNDO PLANO (SIN AWAIT)
+    const servicesRef = collection(db, 'services');
+    
+    // Si es nuevo usamos el ID generado con setDoc para mantener control del ID
+    // o podríamos usar addDoc si el ID no importa. Aquí usamos setDoc para asegurar el ID timestamp.
+    setDoc(doc(db, 'services', servicioId), payload, { merge: true })
+      .then(() => {
+        console.log('[Nova] ✅ Guardado en Firestore:', servicioId);
+        
+        // Disparar WhatsApp solo si es nuevo o no se ha notificado
+        if (!yaNotificado) {
+          enviarNotificacionServicio({
+            clienteNombre: payload.clienteNombre || payload.cliente,
+            clienteTelefono: payload.telefonoCliente,
+            fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
+            hora: payload.hora,
+            origen: payload.origen,
+            destino: payload.destino,
+            placa: payload.vehiculoPlaca || 'N/A',
+            conductor: payload.conductor,
+            telefonoConductor: payload.conductorTelefono || 'N/A'
+          }).then(res => {
+            if (res.success) {
+              setDoc(doc(db, 'services', servicioId), { notificacionEnviada: true }, { merge: true });
+              toast({ title: "Nova notificó al cliente ✅" });
+            }
+          });
+        }
+      })
+      .catch((error: any) => {
+        console.error('[Nova] ❌ Error en segundo plano:', error.code, error.message);
+        toast({ variant: 'destructive', title: "Error al sincronizar", description: error.message });
       });
-    }
   };
 
   const filtered = servicios.filter(s => {
