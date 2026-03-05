@@ -40,8 +40,8 @@ export default function ServiciosPage() {
   const { toast } = useToast();
   const db = useFirestore();
 
-  // Log de depuración solicitado
-  console.log('[Nova] selected actual:', selected?.id || 'NULL');
+  // LOG DE TRAZABILIDAD
+  console.log('[Nova] Renderizando - selected es:', selected?.id || 'NULL');
 
   useEffect(() => {
     const s = localStorage.getItem('servicios');
@@ -53,20 +53,21 @@ export default function ServiciosPage() {
   }, []);
 
   const handleNuevoServicio = () => {
-    console.log('[Nova] Click en Nuevo Servicio - Limpiando selected...');
+    console.log('[Nova] Trigger: handleNuevoServicio - Limpiando selected...');
     setSelected(null); 
     setIsFormOpen(true);
   };
 
   const handleSave = (formData: any) => {
+    // 1. CIERRE INMEDIATO
     setIsFormOpen(false);
-    toast({ title: "Guardando servicio... 🚐💨" });
-
+    
     const esNuevo = !selected || !selected.id;
     const servicioId = esNuevo ? String(Date.now()) : selected.id;
     const yaNotificado = selected?.notificacionEnviada === true;
 
-    console.log('[Nova] esNuevo:', esNuevo, 'ID:', servicioId, 'Timestamp actual:', Date.now());
+    console.log('[Nova] Trigger: handleSave - EsNuevo:', esNuevo, 'ID:', servicioId);
+    toast({ title: "Guardando servicio... 🚐💨" });
 
     const cleanPhone = (phone: string): string => {
       let cleaned = String(phone || '').replace(/\D/g, '');
@@ -115,13 +116,17 @@ export default function ServiciosPage() {
       horaRecogidaTimestamp: horaRecogidaTimestamp,
     };
 
+    // 2. ACTUALIZACIÓN LOCAL
     const updated = !esNuevo ? servicios.map(s => s.id === servicioId ? payload : s) : [payload, ...servicios];
     setServicios(updated);
     localStorage.setItem('servicios', JSON.stringify(updated));
+    
+    // LIMPIEZA DE ESTADO
+    console.log('[Nova] handleSave completado - Limpiando selected...');
     setSelected(null);
 
-    console.log('[Nova] Iniciando setDoc en segundo plano para:', servicioId);
-    
+    // 3. PERSISTENCIA EN SEGUNDO PLANO
+    console.log('[Nova] Intentando setDoc en segundo plano para:', servicioId);
     setDoc(doc(db, 'services', servicioId), payload, { merge: true })
       .then(() => {
         console.log('[Nova] ✅ setDoc EXITOSO para:', servicioId);
@@ -206,8 +211,8 @@ export default function ServiciosPage() {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild><PlusCircle className="h-4 w-4 cursor-pointer text-muted-foreground hover:text-primary transition-colors" /></DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => { setSelected(s); setIsResumenOpen(true); }}><Eye className="mr-2 h-4 w-4" /> Ver Detalles</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setSelected(s); setIsFormOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { console.log('[Nova] Trigger: Ver Detalles ID:', s.id); setSelected(s); setIsResumenOpen(true); }}><Eye className="mr-2 h-4 w-4" /> Ver Detalles</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { console.log('[Nova] Trigger: Editar ID:', s.id); setSelected(s); setIsFormOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className="text-green-600 font-bold" onClick={() => {
                          enviarNotificacionServicio({
@@ -233,7 +238,14 @@ export default function ServiciosPage() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={isFormOpen} onOpenChange={o => { setIsFormOpen(o); if(!o) setSelected(null); }}>
+      <Dialog open={isFormOpen} onOpenChange={o => { 
+        console.log('[Nova] Dialog Form onOpenChange:', o);
+        setIsFormOpen(o); 
+        if(!o) {
+          console.log('[Nova] Cerrando Form - Limpiando selected...');
+          setSelected(null);
+        }
+      }}>
         <DialogContent className="sm:max-w-4xl">
           <VisuallyHidden><DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader></VisuallyHidden>
           <DialogHeader><DialogTitle className="text-2xl font-bold">{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader>
@@ -241,7 +253,14 @@ export default function ServiciosPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isResumenOpen} onOpenChange={setIsResumenOpen}>
+      <Dialog open={isResumenOpen} onOpenChange={o => {
+        console.log('[Nova] Dialog Resumen onOpenChange:', o);
+        setIsResumenOpen(o);
+        if(!o) {
+          console.log('[Nova] Cerrando Resumen - Limpiando selected...');
+          setSelected(null);
+        }
+      }}>
         <DialogContent className="sm:max-w-lg">
           <VisuallyHidden><DialogHeader><DialogTitle>Resumen del Servicio</DialogTitle></DialogHeader></VisuallyHidden>
           {selected && <ResumenServicio servicio={selected} />}
