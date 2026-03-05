@@ -37,6 +37,7 @@ import type { Conductor } from '@/app/dashboard/conductores/page';
 import type { Vehiculo } from '@/app/dashboard/vehiculos/page';
 import type { Servicio } from '@/lib/types';
 
+// ESQUEMA FLEXIBLE PARA EVITAR BLOQUEOS POR VALIDACIÓN
 const formSchema = z.object({
     nombreCliente: z.string().min(1, 'El nombre es requerido'),
     nitCliente: z.string().min(1, 'El NIT es requerido'),
@@ -63,12 +64,6 @@ const formSchema = z.object({
     estadoPago: z.enum(['Pendiente', 'Anticipo', 'Pagado', 'Anulado']),
     anticipo: z.coerce.number().optional(),
 
-}).refine(data => data.esConductorNoRegistrado ? !!data.conductorOtro : !!data.conductorId, {
-    message: 'Debe especificar un conductor',
-    path: ['conductorId'],
-}).refine(data => data.esVehiculoNoRegistrado ? !!data.vehiculoOtro : !!data.vehiculoId, {
-    message: 'Debe especificar un vehículo',
-    path: ['vehiculoId'],
 });
 
 export type ServicioFormValues = z.infer<typeof formSchema>;
@@ -140,31 +135,34 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
     }
   }, [servicio, form, conductores, vehiculos]);
 
-  // Lógica para sincronizar anticipo cuando el estado es Pagado
   const valorServicio = form.watch('valorServicio') || 0;
   const estadoPago = form.watch('estadoPago');
 
   useEffect(() => {
-    if (estadoPago === 'Pagado' && !isSaving) {
+    if (estadoPago === 'Pagado') {
       form.setValue('anticipo', valorServicio);
-    } else if ((estadoPago === 'Pendiente' || estadoPago === 'Anulado') && !isSaving) {
+    } else if (estadoPago === 'Pendiente' || estadoPago === 'Anulado') {
         form.setValue('anticipo', 0);
     }
-  }, [estadoPago, valorServicio, form, isSaving]);
+  }, [estadoPago, valorServicio, form]);
 
   const anticipo = form.watch('anticipo') || 0;
   const saldo = Math.max(0, valorServicio - anticipo);
   
-  // FUNCIÓN DE DISPARO PRINCIPAL
+  // FUNCIÓN PRINCIPAL DE DISPARO
   const handleFormSubmit = (data: ServicioFormValues) => {
-    console.log('[Nova] Formulario validado, llamando a handleSave...');
+    console.log('[Nova] Formulario VALIDADO con éxito. Disparando onSave...');
     onSave(data);
+  };
+
+  const handleFormError = (errors: any) => {
+    console.log('[Nova] ERROR DE VALIDACIÓN EN FORMULARIO:', errors);
   };
 
   return (
     <Form {...form}>
       <form 
-        onSubmit={form.handleSubmit(handleFormSubmit, (errors) => console.log('[Nova] Errores de validación:', errors))} 
+        onSubmit={form.handleSubmit(handleFormSubmit, handleFormError)} 
         className="space-y-6"
       >
         <ScrollArea className="h-[70vh] w-full">
@@ -217,7 +215,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                             </div>
                         ) : (
                              <FormField name="conductorId" control={form.control} render={({ field }) => (
-                                <FormItem><FormLabel>Conductor</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl><SelectContent>{conductores.map(c => <SelectItem key={c.id} value={c.id}>{c.nombres} {c.apellidos}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                                <FormItem><FormLabel>Conductor</FormLabel><Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl><SelectContent>{conductores.map(c => <SelectItem key={c.id} value={c.id}>{c.nombres} {c.apellidos}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                              )} />
                         )}
                     </div>
@@ -238,7 +236,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                             )} />
                         ) : (
                            <FormField name="vehiculoId" control={form.control} render={({ field }) => (
-                                <FormItem><FormLabel>Vehículo</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl><SelectContent>{vehiculos.map(v => <SelectItem key={v.id} value={v.id}>{v.marca} {v.linea} ({v.placa})</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                                <FormItem><FormLabel>Vehículo</FormLabel><Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl><SelectContent>{vehiculos.map(v => <SelectItem key={v.id} value={v.id}>{v.marca} {v.linea} ({v.placa})</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                            )} />
                         )}
                     </div>
@@ -308,8 +306,8 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
       </ScrollArea>
 
       <div className="flex justify-end gap-2 pt-4">
-        <Button type="button" variant="ghost" onClick={onCancel} disabled={isSaving}>Cancelar</Button>
-        <Button type="submit" disabled={isSaving}>
+        <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
+        <Button type="submit">
             {isSaving ? (
                 <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

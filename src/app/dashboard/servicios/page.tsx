@@ -51,16 +51,16 @@ export default function ServiciosPage() {
   }, []);
 
   /**
-   * VERSIÓN LIMPIA Y ROBUSTA - NO BLOQUEANTE
-   * Se ejecuta al validar el formulario en ServicioForm
+   * VERSIÓN FINAL: CIERRE INSTANTÁNEO Y EJECUCIÓN EN SEGUNDO PLANO
+   * Esta función es llamada por el formulario cuando se presiona "Guardar"
    */
   const handleSave = async (formData: any) => {
-    if (isSaving) return;
+    console.log('[Nova] Iniciando handleSave con payload:', formData);
     
     // 1. CIERRE E INTERFAZ INMEDIATA (Solicitado por el usuario)
-    setIsSaving(false); 
+    // Cerramos el modal y notificamos al usuario ANTES de cualquier operación asíncrona
     setIsFormOpen(false);
-    toast({ title: "Guardando servicio... 🚐💨" });
+    toast({ title: "Guardando en segundo plano... 🚐💨" });
 
     const servicioId = selected?.id || String(Date.now());
     const yaNotificado = selected?.notificacionEnviada === true;
@@ -120,33 +120,35 @@ export default function ServiciosPage() {
     setSelected(null);
 
     // 3. TRABAJO EN SEGUNDO PLANO (Firestore y WhatsApp)
-    try {
-      console.log('Ejecutando setDoc en segundo plano para:', servicioId);
-      setDoc(doc(db, 'services', servicioId), payload, { merge: true })
-        .then(() => console.log('✅ Firestore sync exitoso'))
-        .catch(e => console.error('❌ Error Firestore:', e.message));
-
-      if (!yaNotificado) {
-        enviarNotificacionServicio({
-          clienteNombre: payload.clienteNombre || payload.cliente,
-          clienteTelefono: payload.telefonoCliente,
-          fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
-          hora: payload.hora,
-          origen: payload.origen,
-          destino: payload.destino,
-          placa: payload.vehiculoPlaca || 'N/A',
-          conductor: payload.conductor,
-          telefonoConductor: payload.conductorTelefono || 'N/A'
-        }).then(res => {
-          if (res.success) {
-            setDoc(doc(db, 'services', servicioId), { notificacionEnviada: true }, { merge: true });
-            toast({ title: "Nova notificó al cliente ✅" });
-          }
-        });
-      }
-    } catch (e: any) {
-      console.error('Error general en handleSave:', e.message);
-    }
+    // Usamos .then() para no bloquear el hilo principal con 'await'
+    console.log('[Nova] Intentando setDoc en segundo plano para:', servicioId);
+    setDoc(doc(db, 'services', servicioId), payload, { merge: true })
+      .then(() => {
+        console.log('✅ Guardado exitoso en Firestore:', servicioId);
+        // Si no se había notificado, disparamos WhatsApp
+        if (!yaNotificado) {
+          enviarNotificacionServicio({
+            clienteNombre: payload.clienteNombre || payload.cliente,
+            clienteTelefono: payload.telefonoCliente,
+            fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
+            hora: payload.hora,
+            origen: payload.origen,
+            destino: payload.destino,
+            placa: payload.vehiculoPlaca || 'N/A',
+            conductor: payload.conductor,
+            telefonoConductor: payload.conductorTelefono || 'N/A'
+          }).then(res => {
+            if (res.success) {
+              setDoc(doc(db, 'services', servicioId), { notificacionEnviada: true }, { merge: true });
+              toast({ title: "Nova notificó al cliente ✅" });
+            }
+          });
+        }
+      })
+      .catch(e => {
+        console.error('❌ Error Firestore:', e.message);
+        toast({ variant: 'destructive', title: "Error guardando en Firestore" });
+      });
   };
 
   const filtered = servicios.filter(s => {
@@ -233,7 +235,7 @@ export default function ServiciosPage() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={isFormOpen} onOpenChange={o => { if(!isSaving) { setIsFormOpen(o); if(!o) setSelected(null); } }}>
+      <Dialog open={isFormOpen} onOpenChange={o => { setIsFormOpen(o); if(!o) setSelected(null); }}>
         <DialogContent className="sm:max-w-4xl">
           <VisuallyHidden><DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader></VisuallyHidden>
           <DialogHeader><DialogTitle className="text-2xl font-bold">{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader>
