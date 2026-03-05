@@ -52,7 +52,7 @@ export default function ServiciosPage() {
     if (c) setConductores(JSON.parse(c));
   }, []);
 
-  const handleSave = (data: any) => {
+  const handleSave = async (data: any) => {
     if (isSaving) return;
     setIsSaving(true);
 
@@ -60,13 +60,12 @@ export default function ServiciosPage() {
     const servicioId = selected?.id || Date.now().toString();
     const yaNotificado = selected?.notificacionEnviada === true;
     
-    // Log de diagnóstico
     console.log('=== DEBUG FIRESTORE ===');
     console.log('Project ID actual:', db.app.options.projectId);
     console.log('Colección destino: services');
     console.log('ID del documento:', servicioId);
+    console.log('¿Ya notificado?:', yaNotificado);
 
-    // Formateo estricto del teléfono a 12 dígitos para el bot
     const cleanPhoneTo12Digits = (phone: string): string => {
       let cleaned = String(phone || '').replace(/\D/g, '');
       const last10 = cleaned.slice(-10);
@@ -75,7 +74,6 @@ export default function ServiciosPage() {
 
     const telefonoDoceDigitos = cleanPhoneTo12Digits(data.telefonoCliente);
 
-    // Timestamp para el cron job de aviso de salida
     let horaRecogidaTimestamp = null;
     if (data.fechaRecogida && data.horaRecogida) {
       try {
@@ -120,50 +118,64 @@ export default function ServiciosPage() {
       horaRecogidaTimestamp: horaRecogidaTimestamp,
     };
 
-    // GUARDADO NO BLOQUEANTE EN COLECCIÓN 'services'
-    setDoc(doc(db, 'services', servicioId), payload, { merge: true })
-      .then(() => console.log('✅ Guardado exitoso en services/', servicioId))
-      .catch((serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: `services/${servicioId}`,
-          operation: 'write',
-          requestResourceData: payload,
-        });
-        errorEmitter.emit('permission-error', permissionError);
+    try {
+      console.log('Intentando guardar en Firestore...');
+      // Usamos await solo para depuración solicitada
+      await setDoc(doc(db, 'services', servicioId), payload, { merge: true });
+      console.log('✅ Guardado exitoso en Firestore ID:', servicioId);
+      
+      // Actualización local inmediata
+      const updatedServicios = isNew ? [...servicios, payload] : servicios.map(s => s.id === payload.id ? payload : s);
+      setServicios(updatedServicios);
+      localStorage.setItem('servicios', JSON.stringify(updatedServicios));
+
+      // Liberación de la UI
+      setIsSaving(false);
+      setIsFormOpen(false);
+      setSelected(null);
+      toast({ title: "Servicio guardado exitosamente ✅" });
+
+      // Notificación en segundo plano si es nuevo o no notificado
+      if (!yaNotificado) {
+        enviarNotificacionServicio({
+          clienteNombre: payload.clienteNombre || payload.cliente,
+          clienteTelefono: payload.telefonoCliente,
+          fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
+          hora: payload.hora,
+          origen: payload.origen,
+          destino: payload.destino,
+          placa: payload.vehiculoPlaca || 'N/A',
+          conductor: payload.conductor,
+          telefonoConductor: payload.conductorTelefono || 'N/A'
+        }).then((resultado) => {
+          if (resultado.success) {
+            updateDoc(doc(db, 'services', servicioId), { notificacionEnviada: true })
+              .then(() => {
+                console.log('✅ notificacionEnviada guardada como true en Firestore');
+                setServicios(prev => prev.map(s => s.id === servicioId ? { ...s, notificacionEnviada: true } : s));
+              })
+              .catch(err => console.error('[J&J] Error persistiendo notificacionEnviada:', err));
+            
+            toast({ title: "Nova notificó al cliente ✅" });
+          }
+        }).catch(err => console.error('[J&J] Error notificando:', err));
+      }
+    } catch (error: any) {
+      console.error('❌ Error Firestore:', error.code, error.message);
+      setIsSaving(false);
+      toast({ 
+        variant: "destructive",
+        title: "Error al guardar en Firestore",
+        description: error.message
       });
-
-    // Actualización local inmediata
-    const updatedServicios = isNew ? [...servicios, payload] : servicios.map(s => s.id === payload.id ? payload : s);
-    setServicios(updatedServicios);
-    localStorage.setItem('servicios', JSON.stringify(updatedServicios));
-
-    // Liberación de la UI
-    setIsSaving(false);
-    setIsFormOpen(false);
-    setSelected(null);
-    toast({ title: "Servicio guardado exitosamente ✅" });
-
-    // Notificación en segundo plano si es nuevo
-    if (!yaNotificado) {
-      enviarNotificacionServicio({
-        clienteNombre: payload.clienteNombre || payload.cliente,
-        clienteTelefono: payload.telefonoCliente,
-        fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
-        hora: payload.hora,
-        origen: payload.origen,
-        destino: payload.destino,
-        placa: payload.vehiculoPlaca || 'N/A',
-        conductor: payload.conductor,
-        telefonoConductor: payload.conductorTelefono || 'N/A'
-      }).then((resultado) => {
-        if (resultado.success) {
-          updateDoc(doc(db, 'services', servicioId), { notificacionEnviada: true })
-            .catch(() => console.error('[J&J] Error persistiendo notificacionEnviada'));
-          
-          setServicios(prev => prev.map(s => s.id === servicioId ? { ...s, notificacionEnviada: true } : s));
-          toast({ title: "Nova notificó al cliente ✅" });
-        }
-      }).catch(err => console.error('[J&J] Error notificando:', err));
+      
+      // Emitir error para el listener global
+      const permissionError = new FirestorePermissionError({
+        path: `services/${servicioId}`,
+        operation: 'write',
+        requestResourceData: payload,
+      });
+      errorEmitter.emit('permission-error', permissionError);
     }
   };
 
