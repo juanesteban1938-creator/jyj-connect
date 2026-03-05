@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,7 @@ import {
   User, 
   Truck
 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { format, isValid } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -50,7 +50,7 @@ export default function ServiciosPage() {
   }, []);
 
   const handleNuevoServicio = () => {
-    setSelected(null);
+    setSelected(null); // CRÍTICO: Limpiar selección anterior para que sea un servicio nuevo
     setIsFormOpen(true);
   };
 
