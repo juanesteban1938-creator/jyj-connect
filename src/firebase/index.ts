@@ -6,12 +6,13 @@ import { getFirestore } from 'firebase/firestore';
 import { firebaseConfig } from './config';
 
 /**
- * Inicialización simplificada y robusta para J&J Connect V2.0.
- * Asegura que todas las partes de la app apunten al mismo proyecto.
+ * Inicialización centralizada para asegurar que todo el SDK apunte al mismo proyecto.
+ * Proyecto activo: jj-connect--18988325-5ab9e
  */
 export function initializeFirebase() {
   let app: FirebaseApp;
   
+  // Evitar inicializaciones múltiples en el cliente (Next.js)
   if (!getApps().length) {
     app = initializeApp(firebaseConfig);
   } else {

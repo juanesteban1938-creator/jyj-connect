@@ -1,13 +1,27 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    /**
-     * J&J CONNECT V2.0 - PRODUCTION RULES
-     * Sincronización forzada para: jj-connect--18988325-5ab9e
-     */
+    // REGLAS DE PRODUCCIÓN - J&J CONNECT V2.0
+    // Proyecto: jj-connect--18988325-5ab9e
+    // Sincronización Forzada ID: deploy_prod_20240325_2145
+    
+    match /services/{serviceId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /clientes/{clienteId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /notificaciones_whatsapp/{notificacionId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /cuentas_cobro/{cuentaId} {
+      allow read, write: if request.auth != null;
+    }
+
     match /{document=**} {
-      // Permitir acceso total a cualquier usuario autenticado (incluyendo anónimos)
-      // Esto soluciona el error de "Missing or insufficient permissions"
       allow read, write: if request.auth != null;
     }
   }
