@@ -37,7 +37,6 @@ import type { Conductor } from '@/app/dashboard/conductores/page';
 import type { Vehiculo } from '@/app/dashboard/vehiculos/page';
 import type { Servicio } from '@/lib/types';
 
-// ESQUEMA FLEXIBLE PARA EVITAR BLOQUEOS POR VALIDACIÓN
 const formSchema = z.object({
     nombreCliente: z.string().min(1, 'El nombre es requerido'),
     nitCliente: z.string().min(1, 'El NIT es requerido'),
@@ -63,7 +62,6 @@ const formSchema = z.object({
     costoOperacion: z.coerce.number().optional(),
     estadoPago: z.enum(['Pendiente', 'Anticipo', 'Pagado', 'Anulado']),
     anticipo: z.coerce.number().optional(),
-
 });
 
 export type ServicioFormValues = z.infer<typeof formSchema>;
@@ -105,8 +103,10 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
     },
   });
 
+  // useEffect: Reseteo de campos cuando cambia el prop 'servicio'
   useEffect(() => {
     if (servicio) {
+        console.log('[Nova] ServicioForm - Reseteando con servicio:', servicio.id);
         const conductorMatched = conductores.find(c => `${c.nombres} ${c.apellidos}` === servicio.conductor);
         const vehiculoMatched = vehiculos.find(v => v.placa === servicio.vehiculoPlaca);
 
@@ -132,6 +132,30 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
             vehiculoId: vehiculoMatched?.id || '',
             vehiculoOtro: servicio.vehiculoPlaca || servicio.placa || ''
         });
+    } else {
+        console.log('[Nova] ServicioForm - Reseteando a valores por defecto (Nuevo Servicio)');
+        form.reset({
+          nombreCliente: '',
+          nitCliente: '',
+          telefonoCliente: '',
+          emailCliente: '',
+          esConductorNoRegistrado: false,
+          conductorId: '',
+          conductorOtro: '',
+          conductorTelefonoOtro: '',
+          esVehiculoNoRegistrado: false,
+          vehiculoId: '',
+          vehiculoOtro: '',
+          horaRecogida: '00:00',
+          direccionRecogida: '',
+          direccionDestino: '',
+          metodoPago: 'Facturacion',
+          valorServicio: 0,
+          costoOperacion: 0,
+          estadoPago: 'Pendiente',
+          anticipo: 0,
+          fechaRecogida: new Date(),
+        });
     }
   }, [servicio, form, conductores, vehiculos]);
 
@@ -149,22 +173,18 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
   const anticipo = form.watch('anticipo') || 0;
   const saldo = Math.max(0, valorServicio - anticipo);
   
-  // FUNCIÓN PRINCIPAL DE DISPARO
   const handleFormSubmit = (data: ServicioFormValues) => {
-    console.log('[Nova] Formulario VALIDADO con éxito. Disparando onSave...');
+    console.log('[Nova] ServicioForm - Formulario validado con éxito');
     onSave(data);
   };
 
   const handleFormError = (errors: any) => {
-    console.log('[Nova] ERROR DE VALIDACIÓN EN FORMULARIO:', errors);
+    console.log('[Nova] ServicioForm - ERROR VALIDACIÓN:', errors);
   };
 
   return (
     <Form {...form}>
-      <form 
-        onSubmit={form.handleSubmit(handleFormSubmit, handleFormError)} 
-        className="space-y-6"
-      >
+      <form onSubmit={form.handleSubmit(handleFormSubmit, handleFormError)} className="space-y-6">
         <ScrollArea className="h-[70vh] w-full">
          <div className="space-y-6 p-1">
             <div className="space-y-4">
@@ -215,7 +235,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                             </div>
                         ) : (
                              <FormField name="conductorId" control={form.control} render={({ field }) => (
-                                <FormItem><FormLabel>Conductor</FormLabel><Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl><SelectContent>{conductores.map(c => <SelectItem key={c.id} value={c.id}>{c.nombres} {c.apellidos}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                                <FormItem><FormLabel>Conductor</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl><SelectContent>{conductores.map(c => <SelectItem key={c.id} value={c.id}>{c.nombres} {c.apellidos}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                              )} />
                         )}
                     </div>
@@ -236,7 +256,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                             )} />
                         ) : (
                            <FormField name="vehiculoId" control={form.control} render={({ field }) => (
-                                <FormItem><FormLabel>Vehículo</FormLabel><Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl><SelectContent>{vehiculos.map(v => <SelectItem key={v.id} value={v.id}>{v.marca} {v.linea} ({v.placa})</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                                <FormItem><FormLabel>Vehículo</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl><SelectContent>{vehiculos.map(v => <SelectItem key={v.id} value={v.id}>{v.marca} {v.linea} ({v.placa})</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                            )} />
                         )}
                     </div>

@@ -44,9 +44,9 @@ export default function ServiciosPage() {
   const { toast } = useToast();
   const db = useFirestore();
 
-  console.log('[Nova] selected actual:', selected?.id || 'NULL');
-
+  // useEffect 1: Carga inicial de datos desde localStorage
   useEffect(() => {
+    console.log('[Nova] useEffect 1: Cargando datos iniciales...');
     const s = localStorage.getItem('servicios');
     const v = localStorage.getItem('vehiculos');
     const c = localStorage.getItem('conductores');
@@ -55,13 +55,23 @@ export default function ServiciosPage() {
     if (c) setConductores(JSON.parse(c));
   }, []);
 
+  // useEffect 2: DEBUG de trazabilidad para 'selected'
+  useEffect(() => {
+    if (selected) {
+      console.log('[Nova] DEBUG - selected se ha actualizado a:', selected.id);
+    } else {
+      console.log('[Nova] DEBUG - selected es NULL');
+    }
+  }, [selected]);
+
   const handleNuevoServicio = () => {
-    console.log('[Nova] Click en Nuevo Servicio - Limpiando selected...');
+    console.log('[Nova] Accion: Click en Nuevo Servicio - Forzando NULL');
     setSelected(null); 
     setIsFormOpen(true);
   };
 
   const handleUpdateEstado = (id: string, nuevoEstado: Servicio['estado']) => {
+    console.log('[Nova] Accion: Actualizando estado de', id, 'a', nuevoEstado);
     const updated = servicios.map(s => s.id === id ? { ...s, estado: nuevoEstado } : s);
     setServicios(updated);
     localStorage.setItem('servicios', JSON.stringify(updated));
@@ -71,19 +81,19 @@ export default function ServiciosPage() {
         toast({ title: `Servicio ${nuevoEstado}`, description: `El estado se ha actualizado correctamente.` });
       })
       .catch((error) => {
-        console.error('[Nova] Error actualizando estado en Firestore:', error);
+        console.error('[Nova] Error Firestore updateDoc:', error);
       });
   };
 
   const handleSave = async (formData: any) => {
-    // 1. CIERRE INMEDIATO DE LA INTERFAZ
+    // CIERRE INMEDIATO DE LA INTERFAZ
     setIsFormOpen(false);
     
     const esNuevo = !selected || !selected.id;
     const servicioId = esNuevo ? String(Date.now()) : selected.id;
     const estadoActual = selected?.estado || 'Programado';
 
-    console.log('[Nova] esNuevo:', esNuevo, 'ID:', servicioId, 'Estado:', estadoActual);
+    console.log('[Nova] handleSave - esNuevo:', esNuevo, 'ID:', servicioId, 'Estado:', estadoActual);
     toast({ title: "Guardando servicio..." });
 
     const cleanPhone = (phone: string): string => {
@@ -133,13 +143,13 @@ export default function ServiciosPage() {
       horaRecogidaTimestamp: horaRecogidaTimestamp,
     };
 
-    // 2. ACTUALIZACIÓN LOCAL
+    // ACTUALIZACIÓN LOCAL
     const updated = esNuevo ? [payload, ...servicios] : servicios.map(s => s.id === servicioId ? payload : s);
     setServicios(updated);
     localStorage.setItem('servicios', JSON.stringify(updated));
     setSelected(null);
 
-    // 3. PERSISTENCIA EN SEGUNDO PLANO CON LOGS DE ALTA VISIBILIDAD
+    // PERSISTENCIA EN SEGUNDO PLANO
     (async () => {
       console.log('[Nova] Intentando setDoc en segundo plano para:', servicioId);
       try {
@@ -159,7 +169,6 @@ export default function ServiciosPage() {
             conductor: payload.conductor,
             telefonoConductor: payload.conductorTelefono || 'N/A'
           });
-          console.log('[Nova] WhatsApp resultado:', JSON.stringify(resultado));
           
           if (resultado.success) {
             await setDoc(doc(db, 'services', servicioId), { notificacionEnviada: true }, { merge: true });
@@ -167,7 +176,7 @@ export default function ServiciosPage() {
           }
         }
       } catch (err: any) {
-        console.error('[Nova] ❌ ERROR:', err.code, err.message);
+        console.error('[Nova] ❌ ERROR setDoc:', err.code, err.message);
         toast({ variant: 'destructive', title: "Error al guardar", description: err.message });
       }
     })();
@@ -200,7 +209,9 @@ export default function ServiciosPage() {
             onChange={e => setSearchTerm(e.target.value)} 
           />
         </div>
-        <Button onClick={handleNuevoServicio} className="btn-action"><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Servicio</Button>
+        <Button onClick={handleNuevoServicio} className="btn-action">
+          <PlusCircle className="mr-2 h-4 w-4" /> Nuevo Servicio
+        </Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -236,26 +247,24 @@ export default function ServiciosPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuItem onClick={() => { setSelected(s); setIsResumenOpen(true); }}><Eye className="mr-2 h-4 w-4" /> Ver Detalles</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setSelected(s); setIsFormOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar Información</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { console.log('[Nova] Accion: Ver Detalles de', s.id); setSelected(s); setIsResumenOpen(true); }}><Eye className="mr-2 h-4 w-4" /> Ver Detalles</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { console.log('[Nova] Accion: Editando', s.id); setSelected(s); setIsFormOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar Información</DropdownMenuItem>
                       <DropdownMenuSeparator />
                       
-                      {s.estado === 'Programado' && (
-                        <DropdownMenuItem onClick={() => handleUpdateEstado(s.id, 'En Servicio')} className="text-blue-600 font-bold">
-                          <PlayCircle className="mr-2 h-4 w-4" /> Iniciar Servicio
-                        </DropdownMenuItem>
-                      )}
-                      
-                      {(s.estado === 'En Servicio' || s.estado === 'Programado') && (
-                        <DropdownMenuItem onClick={() => handleUpdateEstado(s.id, 'Finalizado')} className="text-green-600 font-bold">
-                          <CheckCircle className="mr-2 h-4 w-4" /> Finalizar Servicio
-                        </DropdownMenuItem>
-                      )}
-
                       {(s.estado === 'Programado' || s.estado === 'En Servicio') && (
-                        <DropdownMenuItem onClick={() => handleUpdateEstado(s.id, 'Cancelado')} className="text-red-600">
-                          <XCircle className="mr-2 h-4 w-4" /> Cancelar Servicio
-                        </DropdownMenuItem>
+                        <>
+                          {s.estado === 'Programado' && (
+                            <DropdownMenuItem onClick={() => handleUpdateEstado(s.id, 'En Servicio')} className="text-blue-600 font-bold">
+                              <PlayCircle className="mr-2 h-4 w-4" /> Iniciar Servicio
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem onClick={() => handleUpdateEstado(s.id, 'Finalizado')} className="text-green-600 font-bold">
+                            <CheckCircle className="mr-2 h-4 w-4" /> Finalizar Servicio
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleUpdateEstado(s.id, 'Cancelado')} className="text-red-600">
+                            <XCircle className="mr-2 h-4 w-4" /> Cancelar Servicio
+                          </DropdownMenuItem>
+                        </>
                       )}
 
                       <DropdownMenuSeparator />
@@ -285,7 +294,10 @@ export default function ServiciosPage() {
 
       <Dialog open={isFormOpen} onOpenChange={o => { 
         setIsFormOpen(o); 
-        if(!o) setSelected(null);
+        if(!o) {
+          console.log('[Nova] Cerrando Formulario - Forzando setSelected(null)');
+          setSelected(null);
+        }
       }}>
         <DialogContent className="sm:max-w-4xl">
           <VisuallyHidden><DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader></VisuallyHidden>
@@ -297,7 +309,7 @@ export default function ServiciosPage() {
       <Dialog open={isResumenOpen} onOpenChange={o => {
         setIsResumenOpen(o);
         if(!o) {
-          console.log('[Nova] Cerrando Resumen - Limpiando selected');
+          console.log('[Nova] Cerrando Resumen - Forzando setSelected(null)');
           setSelected(null);
         }
       }}>
