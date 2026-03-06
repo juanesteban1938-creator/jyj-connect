@@ -15,7 +15,7 @@ import { CuentaCobro } from '@/components/dashboard/facturacion/cuenta-cobro';
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { AbonoForm, type AbonoFormValues } from '@/components/dashboard/facturacion/abono-form';
 import { FacturacionForm, type FacturacionFormValues } from '@/components/dashboard/facturacion/facturacion-form';
-import { useFirestore, useUser } from '@/firebase';
+import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore';
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 });
@@ -34,13 +34,22 @@ export default function FacturacionPage() {
   useEffect(() => {
     if (!user) return;
 
-    const q = query(collection(db, 'services'), orderBy('fecha', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setServicios(data);
-    }, (error) => {
-      console.error('[Facturación] Error Firestore:', error);
-    });
+    const servicesCol = collection(db, 'services');
+    const q = query(servicesCol, orderBy('fecha', 'desc'));
+    
+    const unsubscribe = onSnapshot(
+      q, 
+      (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setServicios(data);
+      }, 
+      async (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: servicesCol.path,
+          operation: 'list'
+        }));
+      }
+    );
     return () => unsubscribe();
   }, [db, user]);
 
@@ -63,10 +72,14 @@ export default function FacturacionPage() {
   }, [servicios]);
 
   const updateServicioFirestore = (id: string, updates: any) => {
-    updateDoc(doc(db, 'services', id), updates)
-      .catch(err => {
-        console.error('[Nova] Error al actualizar facturación:', err);
-        toast({ variant: 'destructive', title: "Error en la nube" });
+    const docRef = doc(db, 'services', id);
+    updateDoc(docRef, updates)
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'update',
+          requestResourceData: updates
+        }));
       });
   };
 

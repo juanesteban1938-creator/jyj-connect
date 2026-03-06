@@ -19,7 +19,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useEffect, useState, useMemo } from 'react';
-import { useFirestore, useUser } from '@/firebase';
+import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 const StatCard = ({
@@ -74,11 +74,23 @@ export default function DashboardHomePage() {
   useEffect(() => {
     if (!user) return;
 
-    const q = query(collection(db, 'services'), orderBy('fecha', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setServicios(data);
-    });
+    const servicesCol = collection(db, 'services');
+    const q = query(servicesCol, orderBy('fecha', 'desc'));
+    
+    const unsubscribe = onSnapshot(
+      q, 
+      (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setServicios(data);
+      },
+      async (error) => {
+        // Manejo centralizado de errores de permisos para silenciar "Uncaught Error"
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: servicesCol.path,
+          operation: 'list'
+        }));
+      }
+    );
 
     const v = localStorage.getItem('vehiculos');
     const c = localStorage.getItem('conductores');

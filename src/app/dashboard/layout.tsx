@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useAuth } from '@/context/auth-context';
@@ -24,7 +23,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { isAuthenticated, logout } = useAuth();
-  const { isUserLoading: isFirebaseLoading } = useUser();
+  const { user, isUserLoading: isFirebaseLoading } = useUser();
   const router = useRouter();
   const [isVerified, setIsVerified] = useState(false);
 
@@ -37,8 +36,9 @@ export default function DashboardLayout({
     }
   }, [isAuthenticated, router]);
 
-  // Esperar a que la sesión local y la sesión de Firebase estén listas
-  if (!isVerified || isFirebaseLoading) {
+  // CRÍTICO: No renderizar nada hasta que el usuario de Firebase esté presente y la carga haya terminado.
+  // Esto evita errores de permisos en Firestore Security Rules.
+  if (!isVerified || isFirebaseLoading || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <div className="flex flex-col items-center gap-4">

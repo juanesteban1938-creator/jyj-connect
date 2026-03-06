@@ -12,7 +12,7 @@ import {
   Edit, 
   MessageSquare, 
   Briefcase, 
-  User, 
+  User as UserIcon, 
   Truck,
   PlayCircle,
   CheckCircle,
@@ -28,7 +28,7 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
-import { useFirestore, useUser } from '@/firebase';
+import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { doc, setDoc, Timestamp, updateDoc, collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import type { Servicio } from '@/lib/types';
 
@@ -53,19 +53,20 @@ export default function ServiciosPage() {
 
     if (!user) return;
 
-    console.log('[Nova] Iniciando listener de Firestore para servicios...');
-    const q = query(collection(db, 'services'), orderBy('fecha', 'desc'));
+    const servicesCol = collection(db, 'services');
+    const q = query(servicesCol, orderBy('fecha', 'desc'));
+    
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Servicio[];
         setServicios(data);
       },
-      (error) => {
-        console.error('[Nova] Error Firestore Listener:', error);
-        if (error.code === 'permission-denied') {
-          console.warn('[Nova] Permisos insuficientes detectados. Asegurando sesión...');
-        }
+      async (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: servicesCol.path,
+          operation: 'list'
+        }));
       }
     );
 
@@ -78,13 +79,17 @@ export default function ServiciosPage() {
   };
 
   const handleUpdateEstado = (id: string, nuevoEstado: Servicio['estado']) => {
-    updateDoc(doc(db, 'services', id), { estado: nuevoEstado })
+    const docRef = doc(db, 'services', id);
+    updateDoc(docRef, { estado: nuevoEstado })
       .then(() => {
         toast({ title: `Servicio ${nuevoEstado}`, description: `El estado se ha actualizado correctamente.` });
       })
-      .catch((error) => {
-        console.error('[Nova] Error Firestore updateDoc:', error);
-        toast({ variant: 'destructive', title: "Error al actualizar estado" });
+      .catch(async (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'update',
+          requestResourceData: { estado: nuevoEstado }
+        }));
       });
   };
 
@@ -94,9 +99,6 @@ export default function ServiciosPage() {
     const esNuevo = !selected || !selected.id;
     const servicioId = esNuevo ? String(Date.now()) : selected.id;
     const estadoActual = selected?.estado || 'Programado';
-
-    console.log('[Nova] handleSave - ID:', servicioId);
-    toast({ title: "Guardando servicio..." });
 
     const cleanPhone = (phone: string): string => {
       let cleaned = String(phone || '').replace(/\D/g, '');
@@ -145,32 +147,34 @@ export default function ServiciosPage() {
       horaRecogidaTimestamp: horaRecogidaTimestamp,
     };
 
-    try {
-      await setDoc(doc(db, 'services', servicioId), payload, { merge: true });
-      console.log('[Nova] ✅ Guardado en Firestore:', servicioId);
-
-      if (esNuevo && !payload.notificacionEnviada) {
-        const resultado = await enviarNotificacionServicio({
-          clienteNombre: payload.clienteNombre || payload.cliente,
-          clienteTelefono: payload.telefonoCliente,
-          fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
-          hora: payload.hora,
-          origen: payload.origen,
-          destino: payload.destino,
-          placa: payload.vehiculoPlaca || 'N/A',
-          conductor: payload.conductor,
-          telefonoConductor: payload.conductorTelefono || 'N/A'
-        });
-        
-        if (resultado.success) {
-          await updateDoc(doc(db, 'services', servicioId), { notificacionEnviada: true });
-          toast({ title: "Nova notificó al cliente ✅" });
+    const docRef = doc(db, 'services', servicioId);
+    setDoc(docRef, payload, { merge: true })
+      .then(async () => {
+        if (esNuevo && !payload.notificacionEnviada) {
+          const resultado = await enviarNotificacionServicio({
+            clienteNombre: payload.clienteNombre || payload.cliente,
+            clienteTelefono: payload.telefonoCliente,
+            fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
+            hora: payload.hora,
+            origen: payload.origen,
+            destino: payload.destino,
+            placa: payload.vehiculoPlaca || 'N/A',
+            conductor: payload.conductor,
+            telefonoConductor: payload.conductorTelefono || 'N/A'
+          });
+          
+          if (resultado.success) {
+            updateDoc(docRef, { notificacionEnviada: true });
+          }
         }
-      }
-    } catch (err: any) {
-      console.error('[Nova] ❌ Error en persistencia:', err);
-      toast({ variant: 'destructive', title: "Error de red", description: "No se pudo sincronizar con la nube." });
-    }
+      })
+      .catch(async (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'write',
+          requestResourceData: payload
+        }));
+      });
   };
 
   const filtered = servicios.filter(s => {
@@ -234,7 +238,7 @@ export default function ServiciosPage() {
                   <p className="text-sm font-semibold">{s.origen} <span className="text-primary mx-1">➔</span> {s.destino}</p>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground font-medium">
                     <p className="uppercase"><Briefcase className="inline h-3 w-3 mr-1"/> {s.cliente}</p>
-                    <p className="uppercase"><User className="inline h-3 w-3 mr-1"/> {s.conductor}</p>
+                    <p className="uppercase"><UserIcon className="inline h-3 w-3 mr-1"/> {s.conductor}</p>
                     <p className="uppercase font-bold text-primary"><Truck className="inline h-3 w-3 mr-1"/> {s.vehiculoPlaca}</p>
                   </div>
                 </div>
