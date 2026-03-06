@@ -1,34 +1,28 @@
 'use client';
 
-import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore'
+import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, Firestore } from 'firebase/firestore';
+import { firebaseConfig } from './config';
 
 /**
- * Inicializa Firebase de forma robusta para el cliente.
- * Utiliza la instancia por defecto para evitar errores de "Uncaught Error" en el SDK.
+ * Singleton para inicializar Firebase de forma segura en el cliente.
+ * Evita errores de inicialización múltiple y asegura el uso del proyecto correcto.
  */
 export function initializeFirebase() {
-  let firebaseApp: FirebaseApp;
+  let app: FirebaseApp;
   
   if (!getApps().length) {
-    // Inicializa la app por defecto con la configuración de producción
-    firebaseApp = initializeApp(firebaseConfig);
-    console.log('[Firebase] App inicializada con éxito:', firebaseConfig.projectId);
+    app = initializeApp(firebaseConfig);
+    console.log('[Firebase] App inicializada para:', firebaseConfig.projectId);
   } else {
-    // Usa la app ya inicializada
-    firebaseApp = getApp();
+    app = getApp();
   }
 
-  return getSdks(firebaseApp);
-}
-
-export function getSdks(firebaseApp: FirebaseApp) {
   return {
-    firebaseApp,
-    auth: getAuth(firebaseApp),
-    firestore: getFirestore(firebaseApp)
+    app,
+    auth: getAuth(app),
+    firestore: getFirestore(app),
   };
 }
 
@@ -36,7 +30,5 @@ export * from './provider';
 export * from './client-provider';
 export * from './firestore/use-collection';
 export * from './firestore/use-doc';
-export * from './non-blocking-updates';
-export * from './non-blocking-login';
 export * from './errors';
 export * from './error-emitter';

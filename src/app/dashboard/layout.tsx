@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { MainNav } from '@/components/dashboard/main-nav';
 import { Button } from '@/components/ui/button';
-import { Bell, UserCircle } from 'lucide-react';
+import { Bell, UserCircle, Loader2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +27,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const [isVerified, setIsVerified] = useState(false);
 
+  // Sincronización del estado de autenticación local con la ruta
   useEffect(() => {
     const storedAuth = localStorage.getItem('isAuthenticated');
     if (isAuthenticated || storedAuth === 'true') {
@@ -36,14 +37,16 @@ export default function DashboardLayout({
     }
   }, [isAuthenticated, router]);
 
-  // CRÍTICO: No renderizar nada hasta que el usuario de Firebase esté presente y la carga haya terminado.
-  // Esto evita errores de permisos en Firestore Security Rules.
+  // Pantalla de carga mientras se verifica la sesión en Firebase y el estado local
   if (!isVerified || isFirebaseLoading || !user) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
+      <div className="flex h-screen w-full items-center justify-center bg-[#f4f6f8]">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Sincronizando Nova...</p>
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <div className="text-center">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Sincronizando Nova</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Conectando con jj-connect--18988325-5ab9e</p>
+          </div>
         </div>
       </div>
     );
