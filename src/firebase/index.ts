@@ -18,7 +18,7 @@ export function initializeFirebase() {
   }
 
   // Si no hay apps o la existente no es la correcta, inicializamos
-  // Si ya hay una app [DEFAULT] pero no es la nuestra, inicializamos con nombre
+  // Si ya hay una app [DEFAULT] pero no es la nuestra, inicializamos con nombre para evitar colisiones en Studio
   const firebaseApp = getApps().length === 0 
     ? initializeApp(firebaseConfig) 
     : initializeApp(firebaseConfig, 'jj-connect-prod');
