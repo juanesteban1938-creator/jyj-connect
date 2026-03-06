@@ -6,22 +6,21 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore'
 
 /**
- * Inicializa Firebase utilizando la configuración de producción confirmada.
- * Forza el uso del Project ID: jj-connect--18988325-5ab9e
+ * Inicializa Firebase de forma robusta para el cliente.
+ * Utiliza la instancia por defecto para evitar errores de "Uncaught Error" en el SDK.
  */
 export function initializeFirebase() {
-  const apps = getApps();
-  // Buscamos si ya existe una instancia conectada a nuestro proyecto específico
-  const existingApp = apps.find(app => app.options.projectId === firebaseConfig.projectId);
+  let firebaseApp: FirebaseApp;
   
-  if (existingApp) {
-    return getSdks(existingApp);
+  if (!getApps().length) {
+    // Inicializa la app por defecto con la configuración de producción
+    firebaseApp = initializeApp(firebaseConfig);
+    console.log('[Firebase] App inicializada con éxito:', firebaseConfig.projectId);
+  } else {
+    // Usa la app ya inicializada
+    firebaseApp = getApp();
   }
 
-  // Si no existe, inicializamos una nueva instancia con nombre único para evitar conflictos con Studio
-  const firebaseApp = initializeApp(firebaseConfig, 'jj-connect-production-v2');
-
-  console.log('[Firebase] Conexión establecida con el proyecto:', firebaseConfig.projectId);
   return getSdks(firebaseApp);
 }
 
