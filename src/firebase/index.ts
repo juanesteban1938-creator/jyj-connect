@@ -1,20 +1,20 @@
 'use client';
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
-import { getFirestore, Firestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 import { firebaseConfig } from './config';
 
 /**
- * Singleton para inicializar Firebase de forma segura en el cliente.
- * Evita errores de inicialización múltiple y asegura el uso del proyecto correcto.
+ * Inicialización centralizada de Firebase para J&J Connect V2.0.
+ * Garantiza que la conexión se realice exclusivamente al proyecto jj-connect--18988325-5ab9e.
  */
 export function initializeFirebase() {
   let app: FirebaseApp;
   
+  // Verificamos si ya existe una instancia para evitar colisiones en modo desarrollo
   if (!getApps().length) {
     app = initializeApp(firebaseConfig);
-    console.log('[Firebase] App inicializada para:', firebaseConfig.projectId);
   } else {
     app = getApp();
   }

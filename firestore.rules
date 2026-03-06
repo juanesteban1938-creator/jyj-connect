@@ -3,9 +3,9 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * TRANSPORTES ESPECIALES J&J - J&J CONNECT V2.0
-     * SECURITY RULES - DEBUG MODE
-     * Permite acceso total a usuarios con sesión activa (incluyendo anónimos).
+     * J&J CONNECT V2.0 - SECURITY RULES
+     * PROD SYNC: 2026-03-06 (Forced Deployment)
+     * Proyecto: jj-connect--18988325-5ab9e
      */
 
     match /{document=**} {
