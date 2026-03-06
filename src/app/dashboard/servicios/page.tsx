@@ -62,8 +62,6 @@ export default function ServiciosPage() {
   };
 
   const handleUpdateEstado = (id: string, nuevoEstado: Servicio['estado']) => {
-    console.log(`[Nova] Actualizando estado de ${id} a ${nuevoEstado}`);
-    
     const updated = servicios.map(s => s.id === id ? { ...s, estado: nuevoEstado } : s);
     setServicios(updated);
     localStorage.setItem('servicios', JSON.stringify(updated));
@@ -77,7 +75,7 @@ export default function ServiciosPage() {
       });
   };
 
-  const handleSave = (formData: any) => {
+  const handleSave = async (formData: any) => {
     // 1. CIERRE INMEDIATO DE LA INTERFAZ
     setIsFormOpen(false);
     
@@ -141,14 +139,16 @@ export default function ServiciosPage() {
     localStorage.setItem('servicios', JSON.stringify(updated));
     setSelected(null);
 
-    // 3. PERSISTENCIA EN SEGUNDO PLANO
-    console.log('[Nova] Iniciando setDoc...');
-    setDoc(doc(db, 'services', servicioId), payload, { merge: true })
-      .then(() => {
-        console.log('[Nova] ✅ Persistencia exitosa en ID:', servicioId);
-        if (esNuevo) {
-          console.log('[Nova] Intentando envío de notificación...');
-          enviarNotificacionServicio({
+    // 3. PERSISTENCIA EN SEGUNDO PLANO CON LOGS DE ALTA VISIBILIDAD
+    (async () => {
+      console.log('[Nova] Intentando setDoc en segundo plano para:', servicioId);
+      try {
+        await setDoc(doc(db, 'services', servicioId), payload, { merge: true });
+        console.log('[Nova] ✅ setDoc EXITOSO:', servicioId);
+
+        if (esNuevo && !payload.notificacionEnviada) {
+          console.log('[Nova] Enviando WhatsApp a:', payload.telefonoCliente);
+          const resultado = await enviarNotificacionServicio({
             clienteNombre: payload.clienteNombre || payload.cliente,
             clienteTelefono: payload.telefonoCliente,
             fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
@@ -158,18 +158,19 @@ export default function ServiciosPage() {
             placa: payload.vehiculoPlaca || 'N/A',
             conductor: payload.conductor,
             telefonoConductor: payload.conductorTelefono || 'N/A'
-          }).then(res => {
-            if (res.success) {
-              setDoc(doc(db, 'services', servicioId), { notificacionEnviada: true }, { merge: true });
-              toast({ title: "Nova notificó al cliente ✅" });
-            }
-          }).catch(e => console.error('[Nova] WhatsApp Error:', e));
+          });
+          console.log('[Nova] WhatsApp resultado:', JSON.stringify(resultado));
+          
+          if (resultado.success) {
+            await setDoc(doc(db, 'services', servicioId), { notificacionEnviada: true }, { merge: true });
+            toast({ title: "Nova notificó al cliente ✅" });
+          }
         }
-      })
-      .catch((err) => {
-        console.error('[Nova] ❌ Error Firestore:', err.code, err.message);
+      } catch (err: any) {
+        console.error('[Nova] ❌ ERROR:', err.code, err.message);
         toast({ variant: 'destructive', title: "Error al guardar", description: err.message });
-      });
+      }
+    })();
   };
 
   const filtered = servicios.filter(s => {
@@ -295,7 +296,10 @@ export default function ServiciosPage() {
 
       <Dialog open={isResumenOpen} onOpenChange={o => {
         setIsResumenOpen(o);
-        if(!o) setSelected(null);
+        if(!o) {
+          console.log('[Nova] Cerrando Resumen - Limpiando selected');
+          setSelected(null);
+        }
       }}>
         <DialogContent className="sm:max-w-lg">
           <VisuallyHidden><DialogHeader><DialogTitle>Resumen del Servicio</DialogTitle></DialogHeader></VisuallyHidden>
