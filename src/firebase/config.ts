@@ -1,3 +1,7 @@
+/**
+ * J&J CONNECT V2.0 - Firebase Config
+ * Proyecto: jj-connect--18988325-5ab9e
+ */
 export const firebaseConfig = {
   projectId: 'jj-connect--18988325-5ab9e',
   appId: '1:113157243545:web:dceb7097ee6f367824ee08',
