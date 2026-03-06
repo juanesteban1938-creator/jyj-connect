@@ -5,11 +5,10 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore'
 
-// IMPORTANTE: Se ha forzado el uso de firebaseConfig para evitar desincronización con el bot de Nova
+// IMPORTANTE: Se ha corregido el projectId a jj-connect--18988325-5ab9e
 export function initializeFirebase() {
   if (!getApps().length) {
-    // Forzamos la inicialización manual con el config de jj-connect-18988325-5ab9e
-    // Esto evita que la app se conecte al proyecto interno de Studio por error.
+    // Inicialización manual con el config corregido
     const firebaseApp = initializeApp(firebaseConfig);
     console.log('[Firebase] Inicializado manualmente con proyecto:', firebaseConfig.projectId);
     return getSdks(firebaseApp);

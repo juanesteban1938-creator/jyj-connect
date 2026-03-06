@@ -2,7 +2,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 2.1.1 (Colección 'services')
+ * Versión: 2.1.2 (Project ID corregido)
  */
 
 const express = require('express');
@@ -16,7 +16,7 @@ const qrcode = require('qrcode');
 
 if (!admin.apps.length) {
     admin.initializeApp({
-        projectId: process.env.FIREBASE_PROJECT_ID || 'jj-connect-18988325-5ab9e'
+        projectId: process.env.FIREBASE_PROJECT_ID || 'jj-connect--18988325-5ab9e'
     });
 }
 const db = admin.firestore();
