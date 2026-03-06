@@ -1,8 +1,7 @@
-
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 2.1.2 (Project ID corregido)
+ * Versión: 2.1.3 (Consolidación de Project ID)
  */
 
 const express = require('express');
@@ -14,6 +13,7 @@ const cron = require('node-cron');
 const fetch = require('node-fetch');
 const qrcode = require('qrcode');
 
+// Inicialización de Firebase Admin con el ID de producción correcto
 if (!admin.apps.length) {
     admin.initializeApp({
         projectId: process.env.FIREBASE_PROJECT_ID || 'jj-connect--18988325-5ab9e'
@@ -118,11 +118,9 @@ async function generateServiceCard(data) {
     }
 }
 
-// EVENTOS DE WHATSAPP
 client.on('qr', async (qr) => {
     isReady = false;
     authStatus = 'Esperando escaneo QR...';
-    console.log('[Nova] Nuevo QR generado.');
     try {
         qrCodeBase64 = await qrcode.toDataURL(qr);
     } catch(e) {
@@ -130,28 +128,16 @@ client.on('qr', async (qr) => {
     }
 });
 
-client.on('authenticated', () => {
-    authStatus = 'Autenticado, sincronizando...';
-    console.log('[Nova] Autenticación exitosa.');
-});
-
-client.on('auth_failure', (msg) => {
-    isReady = false;
-    authStatus = 'Fallo de autenticación.';
-    console.error('[Nova] Fallo de autenticación:', msg);
-});
-
 client.on('ready', () => {
     isReady = true;
     qrCodeBase64 = '';
     authStatus = 'Listo para operar.';
-    console.log('[Nova] J&J Connect Bot operando correctamente.');
+    console.log('[Nova] Sistema sincronizado con Firestore:', admin.app().options.projectId);
 });
 
 client.on('disconnected', (reason) => {
     isReady = false;
     authStatus = 'Desconectado.';
-    console.log('[Nova] Cliente desconectado:', reason);
     client.initialize().catch(console.error);
 });
 
@@ -162,10 +148,7 @@ const checkApiKey = (req, res, next) => {
 };
 
 app.get('/status', checkApiKey, (req, res) => {
-    res.json({ 
-        connected: isReady, 
-        status: authStatus 
-    });
+    res.json({ connected: isReady, status: authStatus });
 });
 
 app.get('/qr', checkApiKey, (req, res) => {
@@ -175,7 +158,6 @@ app.get('/qr', checkApiKey, (req, res) => {
 });
 
 app.post('/restart', checkApiKey, async (req, res) => {
-    console.log('[Nova] Solicitud de reinicio de sesión...');
     try {
         await client.logout();
         await client.destroy();
@@ -215,7 +197,6 @@ app.post('/send-departure-notification', checkApiKey, async (req, res) => {
 
     try {
         const jid = resolveWAId(data.clienteTelefono);
-        
         let weatherMsg = '';
         try {
             const wRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=Bogota&units=metric&appid=${WEATHER_KEY}&lang=es`);
@@ -250,7 +231,6 @@ cron.schedule('* * * * *', async () => {
             const diffMin = diffMs / 60000;
             
             if (diffMin >= 0 && diffMin <= 2) {
-                console.log(`[Cron] Notificando salida para ${s.consecutivo}`);
                 try {
                     const result = await fetch(`http://localhost:${port}/send-departure-notification`, {
                         method: 'POST',
@@ -277,6 +257,6 @@ cron.schedule('* * * * *', async () => {
 });
 
 app.listen(port, '0.0.0.0', () => {
-    console.log(`[Nova Server] Puerto: ${port}`);
+    console.log(`[Nova Server] Sincronizado con: ${admin.app().options.projectId}`);
     client.initialize().catch(err => console.error('[Nova] Error de inicialización:', err));
 });
