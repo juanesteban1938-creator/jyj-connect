@@ -5,12 +5,14 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore'
 
-// IMPORTANTE: Se ha corregido el projectId a jj-connect--18988325-5ab9e
+/**
+ * Inicializa Firebase utilizando la configuración de producción.
+ * Asegura que el Proyecto ID sea jj-connect--18988325-5ab9e (con doble guion).
+ */
 export function initializeFirebase() {
   if (!getApps().length) {
-    // Inicialización manual con el config corregido
     const firebaseApp = initializeApp(firebaseConfig);
-    console.log('[Firebase] Inicializado manualmente con proyecto:', firebaseConfig.projectId);
+    console.log('[Firebase] Sistema inicializado exitosamente:', firebaseConfig.projectId);
     return getSdks(firebaseApp);
   }
 
@@ -25,6 +27,7 @@ export function getSdks(firebaseApp: FirebaseApp) {
   };
 }
 
+// Exportación de hooks y utilidades del sistema Firebase
 export * from './provider';
 export * from './client-provider';
 export * from './firestore/use-collection';
