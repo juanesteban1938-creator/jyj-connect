@@ -78,13 +78,14 @@ export default function ServiciosPage() {
   };
 
   const handleSave = (formData: any) => {
+    // 1. CIERRE INMEDIATO DE LA INTERFAZ
     setIsFormOpen(false);
     
     const esNuevo = !selected || !selected.id;
     const servicioId = esNuevo ? String(Date.now()) : selected.id;
     const estadoActual = selected?.estado || 'Programado';
 
-    console.log('[Nova] Guardando - esNuevo:', esNuevo, 'ID:', servicioId, 'Estado:', estadoActual);
+    console.log('[Nova] esNuevo:', esNuevo, 'ID:', servicioId, 'Estado:', estadoActual);
     toast({ title: "Guardando servicio..." });
 
     const cleanPhone = (phone: string): string => {
@@ -134,15 +135,19 @@ export default function ServiciosPage() {
       horaRecogidaTimestamp: horaRecogidaTimestamp,
     };
 
+    // 2. ACTUALIZACIÓN LOCAL
     const updated = esNuevo ? [payload, ...servicios] : servicios.map(s => s.id === servicioId ? payload : s);
     setServicios(updated);
     localStorage.setItem('servicios', JSON.stringify(updated));
     setSelected(null);
 
+    // 3. PERSISTENCIA EN SEGUNDO PLANO
+    console.log('[Nova] Iniciando setDoc...');
     setDoc(doc(db, 'services', servicioId), payload, { merge: true })
       .then(() => {
-        console.log('[Nova] ✅ Guardado exitoso en Firestore:', servicioId);
+        console.log('[Nova] ✅ Persistencia exitosa en ID:', servicioId);
         if (esNuevo) {
+          console.log('[Nova] Intentando envío de notificación...');
           enviarNotificacionServicio({
             clienteNombre: payload.clienteNombre || payload.cliente,
             clienteTelefono: payload.telefonoCliente,
@@ -158,10 +163,13 @@ export default function ServiciosPage() {
               setDoc(doc(db, 'services', servicioId), { notificacionEnviada: true }, { merge: true });
               toast({ title: "Nova notificó al cliente ✅" });
             }
-          });
+          }).catch(e => console.error('[Nova] WhatsApp Error:', e));
         }
       })
-      .catch((err) => console.error('[Nova] ❌ Error Firestore:', err));
+      .catch((err) => {
+        console.error('[Nova] ❌ Error Firestore:', err.code, err.message);
+        toast({ variant: 'destructive', title: "Error al guardar", description: err.message });
+      });
   };
 
   const filtered = servicios.filter(s => {
@@ -237,7 +245,7 @@ export default function ServiciosPage() {
                         </DropdownMenuItem>
                       )}
                       
-                      {s.estado === 'En Servicio' && (
+                      {(s.estado === 'En Servicio' || s.estado === 'Programado') && (
                         <DropdownMenuItem onClick={() => handleUpdateEstado(s.id, 'Finalizado')} className="text-green-600 font-bold">
                           <CheckCircle className="mr-2 h-4 w-4" /> Finalizar Servicio
                         </DropdownMenuItem>
