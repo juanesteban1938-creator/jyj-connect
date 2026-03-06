@@ -2,12 +2,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     /**
-     * J&J CONNECT V2.0 - SECURITY RULES
+     * J&J CONNECT V2.0 - PRODUCTION RULES
      * Proyecto: jj-connect--18988325-5ab9e
-     * Reglas simplificadas para garantizar acceso a usuarios autenticados.
+     * Despliegue forzado: ID_PRD_SYNC_9988
      */
     match /{document=**} {
-      // Permite lectura y escritura a cualquier usuario con sesión (incluyendo anónimos)
+      // Permite lectura y escritura a cualquier usuario con sesión activa (incluyendo anónimos)
       allow read, write: if request.auth != null;
     }
   }
