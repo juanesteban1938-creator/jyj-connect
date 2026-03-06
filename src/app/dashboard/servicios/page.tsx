@@ -28,7 +28,7 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useUser } from '@/firebase';
 import { doc, setDoc, Timestamp, updateDoc, collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import type { Servicio } from '@/lib/types';
 
@@ -43,53 +43,41 @@ export default function ServiciosPage() {
   const [selected, setSelected] = useState<Servicio | null>(null);
   const { toast } = useToast();
   const db = useFirestore();
+  const { user, isUserLoading } = useUser();
 
-  // useEffect 1: Sincronización en tiempo real con Firestore
   useEffect(() => {
-    console.log('[Nova] Cargando datos desde Firestore...');
-    
-    // Cargamos conductores y vehículos desde localStorage por ahora
     const v = localStorage.getItem('vehiculos');
     const c = localStorage.getItem('conductores');
     if (v) setVehiculos(JSON.parse(v));
     if (c) setConductores(JSON.parse(c));
 
-    // Listener de Firestore para servicios
+    if (!user) return;
+
+    console.log('[Nova] Iniciando listener de Firestore para servicios...');
     const q = query(collection(db, 'services'), orderBy('fecha', 'desc'));
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Servicio[];
         setServicios(data);
-        console.log('[Nova] Servicios actualizados desde Firestore:', data.length);
       },
       (error) => {
         console.error('[Nova] Error Firestore Listener:', error);
-        toast({ variant: 'destructive', title: "Error de conexión", description: "No se pudieron cargar los servicios de la nube." });
+        if (error.code === 'permission-denied') {
+          console.warn('[Nova] Permisos insuficientes detectados. Asegurando sesión...');
+        }
       }
     );
 
     return () => unsubscribe();
-  }, [db, toast]);
-
-  // useEffect 2: DEBUG de trazabilidad para 'selected'
-  useEffect(() => {
-    if (selected) {
-      console.log('[Nova] DEBUG - selected se ha actualizado a:', selected.id);
-    } else {
-      console.log('[Nova] DEBUG - selected es NULL');
-    }
-  }, [selected]);
+  }, [db, user]);
 
   const handleNuevoServicio = () => {
-    console.log('[Nova] Acción: Click en Nuevo Servicio - Forzando NULL');
     setSelected(null); 
     setIsFormOpen(true);
   };
 
   const handleUpdateEstado = (id: string, nuevoEstado: Servicio['estado']) => {
-    console.log('[Nova] Acción: Actualizando estado de', id, 'a', nuevoEstado);
-    
     updateDoc(doc(db, 'services', id), { estado: nuevoEstado })
       .then(() => {
         toast({ title: `Servicio ${nuevoEstado}`, description: `El estado se ha actualizado correctamente.` });
@@ -101,14 +89,13 @@ export default function ServiciosPage() {
   };
 
   const handleSave = async (formData: any) => {
-    // CIERRE INMEDIATO DE LA INTERFAZ
     setIsFormOpen(false);
     
     const esNuevo = !selected || !selected.id;
     const servicioId = esNuevo ? String(Date.now()) : selected.id;
     const estadoActual = selected?.estado || 'Programado';
 
-    console.log('[Nova] handleSave - esNuevo:', esNuevo, 'ID:', servicioId);
+    console.log('[Nova] handleSave - ID:', servicioId);
     toast({ title: "Guardando servicio..." });
 
     const cleanPhone = (phone: string): string => {
@@ -126,7 +113,7 @@ export default function ServiciosPage() {
         if (isValid(fechaUTC)) {
           horaRecogidaTimestamp = Timestamp.fromDate(fechaUTC);
         }
-      } catch (e) { console.error('[Nova] Error Timestamp:', e); }
+      } catch (e) {}
     }
 
     const payload: Servicio = {
@@ -158,37 +145,32 @@ export default function ServiciosPage() {
       horaRecogidaTimestamp: horaRecogidaTimestamp,
     };
 
-    // PERSISTENCIA EN SEGUNDO PLANO (Solo Firestore, onSnapshot actualizará la UI)
-    (async () => {
-      console.log('[Nova] Intentando setDoc en segundo plano para:', servicioId);
-      try {
-        await setDoc(doc(db, 'services', servicioId), payload, { merge: true });
-        console.log('[Nova] ✅ setDoc EXITOSO:', servicioId);
+    try {
+      await setDoc(doc(db, 'services', servicioId), payload, { merge: true });
+      console.log('[Nova] ✅ Guardado en Firestore:', servicioId);
 
-        if (esNuevo && !payload.notificacionEnviada) {
-          console.log('[Nova] Enviando WhatsApp a:', payload.telefonoCliente);
-          const resultado = await enviarNotificacionServicio({
-            clienteNombre: payload.clienteNombre || payload.cliente,
-            clienteTelefono: payload.telefonoCliente,
-            fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
-            hora: payload.hora,
-            origen: payload.origen,
-            destino: payload.destino,
-            placa: payload.vehiculoPlaca || 'N/A',
-            conductor: payload.conductor,
-            telefonoConductor: payload.conductorTelefono || 'N/A'
-          });
-          
-          if (resultado.success) {
-            await updateDoc(doc(db, 'services', servicioId), { notificacionEnviada: true });
-            toast({ title: "Nova notificó al cliente ✅" });
-          }
+      if (esNuevo && !payload.notificacionEnviada) {
+        const resultado = await enviarNotificacionServicio({
+          clienteNombre: payload.clienteNombre || payload.cliente,
+          clienteTelefono: payload.telefonoCliente,
+          fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
+          hora: payload.hora,
+          origen: payload.origen,
+          destino: payload.destino,
+          placa: payload.vehiculoPlaca || 'N/A',
+          conductor: payload.conductor,
+          telefonoConductor: payload.conductorTelefono || 'N/A'
+        });
+        
+        if (resultado.success) {
+          await updateDoc(doc(db, 'services', servicioId), { notificacionEnviada: true });
+          toast({ title: "Nova notificó al cliente ✅" });
         }
-      } catch (err: any) {
-        console.error('[Nova] ❌ ERROR setDoc:', err.code, err.message);
-        toast({ variant: 'destructive', title: "Error al guardar en la nube", description: err.message });
       }
-    })();
+    } catch (err: any) {
+      console.error('[Nova] ❌ Error en persistencia:', err);
+      toast({ variant: 'destructive', title: "Error de red", description: "No se pudo sincronizar con la nube." });
+    }
   };
 
   const filtered = servicios.filter(s => {
@@ -207,6 +189,13 @@ export default function ServiciosPage() {
         <h1 className="page-title">Gestión de Servicios</h1>
         <p className="page-subtitle">Administra y supervisa los traslados de Transportes Especiales J&J.</p>
       </header>
+
+      {isUserLoading && (
+        <div className="flex justify-center p-8">
+           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+           <span className="ml-3 text-sm text-muted-foreground">Sincronizando con la nube...</span>
+        </div>
+      )}
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
         <div className="relative w-full max-w-md">
@@ -230,7 +219,9 @@ export default function ServiciosPage() {
         </TabsList>
         <TabsContent value={activeTab} className="space-y-4">
           {filtered.length === 0 ? (
-            <Card className="p-12 text-center text-muted-foreground">No se encontraron servicios en la nube.</Card>
+            <Card className="p-12 text-center text-muted-foreground">
+              {!user ? 'Inicie sesión para ver los servicios.' : 'No se encontraron servicios en la nube.'}
+            </Card>
           ) : filtered.map(s => (
             <Card key={s.id} className="p-6 hover:shadow-md transition-shadow">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -301,10 +292,7 @@ export default function ServiciosPage() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={isFormOpen} onOpenChange={o => { 
-        setIsFormOpen(o); 
-        if(!o) setSelected(null);
-      }}>
+      <Dialog open={isFormOpen} onOpenChange={o => { setIsFormOpen(o); if(!o) setSelected(null); }}>
         <DialogContent className="sm:max-w-4xl">
           <VisuallyHidden><DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader></VisuallyHidden>
           <DialogHeader><DialogTitle className="text-2xl font-bold">{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader>
@@ -312,10 +300,7 @@ export default function ServiciosPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isResumenOpen} onOpenChange={o => {
-        setIsResumenOpen(o);
-        if(!o) setSelected(null);
-      }}>
+      <Dialog open={isResumenOpen} onOpenChange={o => { setIsResumenOpen(o); if(!o) setSelected(null); }}>
         <DialogContent className="sm:max-w-lg">
           <VisuallyHidden><DialogHeader><DialogTitle>Resumen del Servicio</DialogTitle></DialogHeader></VisuallyHidden>
           {selected && <ResumenServicio servicio={selected} />}

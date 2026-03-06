@@ -15,7 +15,7 @@ import { CuentaCobro } from '@/components/dashboard/facturacion/cuenta-cobro';
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { AbonoForm, type AbonoFormValues } from '@/components/dashboard/facturacion/abono-form';
 import { FacturacionForm, type FacturacionFormValues } from '@/components/dashboard/facturacion/facturacion-form';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useUser } from '@/firebase';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore';
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 });
@@ -29,15 +29,20 @@ export default function FacturacionPage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
+  const { user } = useUser();
 
   useEffect(() => {
+    if (!user) return;
+
     const q = query(collection(db, 'services'), orderBy('fecha', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setServicios(data);
+    }, (error) => {
+      console.error('[Facturación] Error Firestore:', error);
     });
     return () => unsubscribe();
-  }, [db]);
+  }, [db, user]);
 
   const stats = useMemo(() => {
     return servicios.reduce((acc, s) => {
@@ -68,7 +73,7 @@ export default function FacturacionPage() {
   const handleMarcarPagada = (servicio: any) => {
     const valor = Number(servicio.valorServicio) || 0;
     updateServicioFirestore(servicio.id, { estadoPago: 'Pagado', saldo: 0, anticipo: valor });
-    toast({ title: "Servicio Pagado", description: `El servicio ${servicio.consecutivo} ha sido actualizado en la nube.` });
+    toast({ title: "Servicio Pagado" });
   };
 
   const handleSaveAbono = (data: AbonoFormValues) => {
@@ -87,7 +92,7 @@ export default function FacturacionPage() {
       banco: data.banco
     });
     setIsAbonoOpen(false);
-    toast({ title: "Abono Registrado", description: `Se ha sincronizado un abono de ${currencyFormatter.format(data.valorAbono)}` });
+    toast({ title: "Abono Registrado" });
   };
 
   const handleSaveEdit = (data: FacturacionFormValues) => {
@@ -98,7 +103,7 @@ export default function FacturacionPage() {
     
     updateServicioFirestore(selected.id, { ...data, saldo });
     setIsEditOpen(false);
-    toast({ title: "Facturación Sincronizada" });
+    toast({ title: "Facturación Actualizada" });
   };
 
   const filtered = servicios.filter(s => s.cliente?.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -185,9 +190,11 @@ export default function FacturacionPage() {
                   </TableCell>
                 </TableRow>
               ))}
-              {filtered.length === 0 && (
+              {(!user || filtered.length === 0) && (
                 <TableRow>
-                  <TableCell colSpan={5} className="p-12 text-center text-muted-foreground">No se encontraron registros de facturación.</TableCell>
+                  <TableCell colSpan={5} className="p-12 text-center text-muted-foreground">
+                    {!user ? 'Sincronizando sesión...' : 'No se encontraron registros de facturación.'}
+                  </TableCell>
                 </TableRow>
               )}
             </TableBody>

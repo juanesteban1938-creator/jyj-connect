@@ -19,8 +19,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useEffect, useState, useMemo } from 'react';
-import { useFirestore } from '@/firebase';
-import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { useFirestore, useUser } from '@/firebase';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 const StatCard = ({
   title,
@@ -69,23 +69,24 @@ export default function DashboardHomePage() {
   const [vehiculos, setVehiculos] = useState<any[]>([]);
   const [conductores, setConductores] = useState<any[]>([]);
   const db = useFirestore();
+  const { user } = useUser();
 
   useEffect(() => {
-    // Sincronización de servicios desde Firestore
+    if (!user) return;
+
     const q = query(collection(db, 'services'), orderBy('fecha', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setServicios(data);
     });
 
-    // Cargar otros datos desde localStorage por ahora
     const v = localStorage.getItem('vehiculos');
     const c = localStorage.getItem('conductores');
     if (v) setVehiculos(JSON.parse(v));
     if (c) setConductores(JSON.parse(c));
 
     return () => unsubscribe();
-  }, [db]);
+  }, [db, user]);
 
   const stats = useMemo(() => {
     const totalVenta = servicios.reduce((acc, s) => acc + (Number(s.valorServicio) || 0), 0);
@@ -109,7 +110,6 @@ export default function DashboardHomePage() {
   }, [servicios, vehiculos, conductores]);
 
   const recientes = useMemo(() => {
-      if (!servicios) return [];
       return [...servicios].slice(0, 3);
   }, [servicios]);
 
@@ -205,7 +205,7 @@ export default function DashboardHomePage() {
                 <Badge variant="outline" className="text-[10px] font-bold uppercase">{s.estado}</Badge>
               </div>
             ))}
-            {recientes.length === 0 && <p className="text-xs text-muted-foreground text-center">No hay servicios en la nube.</p>}
+            {(!user || recientes.length === 0) && <p className="text-xs text-muted-foreground text-center">No hay servicios en la nube.</p>}
             <Link href="/dashboard/servicios" className="flex items-center justify-center text-primary text-xs font-bold hover:underline gap-1 pt-2">
                 Ver todos los servicios <ChevronRight className="h-3 w-3" />
             </Link>
