@@ -29,7 +29,7 @@ import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
 import { useFirestore } from '@/firebase';
-import { doc, setDoc, Timestamp, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, Timestamp, updateDoc, collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import type { Servicio } from '@/lib/types';
 
 export default function ServiciosPage() {
@@ -44,16 +44,33 @@ export default function ServiciosPage() {
   const { toast } = useToast();
   const db = useFirestore();
 
-  // useEffect 1: Carga inicial de datos desde localStorage
+  // useEffect 1: Sincronización en tiempo real con Firestore
   useEffect(() => {
-    console.log('[Nova] useEffect 1: Cargando datos iniciales...');
-    const s = localStorage.getItem('servicios');
+    console.log('[Nova] Cargando datos desde Firestore...');
+    
+    // Cargamos conductores y vehículos desde localStorage por ahora
     const v = localStorage.getItem('vehiculos');
     const c = localStorage.getItem('conductores');
-    if (s) setServicios(JSON.parse(s));
     if (v) setVehiculos(JSON.parse(v));
     if (c) setConductores(JSON.parse(c));
-  }, []);
+
+    // Listener de Firestore para servicios
+    const q = query(collection(db, 'services'), orderBy('fecha', 'desc'));
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Servicio[];
+        setServicios(data);
+        console.log('[Nova] Servicios actualizados desde Firestore:', data.length);
+      },
+      (error) => {
+        console.error('[Nova] Error Firestore Listener:', error);
+        toast({ variant: 'destructive', title: "Error de conexión", description: "No se pudieron cargar los servicios de la nube." });
+      }
+    );
+
+    return () => unsubscribe();
+  }, [db, toast]);
 
   // useEffect 2: DEBUG de trazabilidad para 'selected'
   useEffect(() => {
@@ -65,23 +82,21 @@ export default function ServiciosPage() {
   }, [selected]);
 
   const handleNuevoServicio = () => {
-    console.log('[Nova] Accion: Click en Nuevo Servicio - Forzando NULL');
+    console.log('[Nova] Acción: Click en Nuevo Servicio - Forzando NULL');
     setSelected(null); 
     setIsFormOpen(true);
   };
 
   const handleUpdateEstado = (id: string, nuevoEstado: Servicio['estado']) => {
-    console.log('[Nova] Accion: Actualizando estado de', id, 'a', nuevoEstado);
-    const updated = servicios.map(s => s.id === id ? { ...s, estado: nuevoEstado } : s);
-    setServicios(updated);
-    localStorage.setItem('servicios', JSON.stringify(updated));
-
+    console.log('[Nova] Acción: Actualizando estado de', id, 'a', nuevoEstado);
+    
     updateDoc(doc(db, 'services', id), { estado: nuevoEstado })
       .then(() => {
         toast({ title: `Servicio ${nuevoEstado}`, description: `El estado se ha actualizado correctamente.` });
       })
       .catch((error) => {
         console.error('[Nova] Error Firestore updateDoc:', error);
+        toast({ variant: 'destructive', title: "Error al actualizar estado" });
       });
   };
 
@@ -93,7 +108,7 @@ export default function ServiciosPage() {
     const servicioId = esNuevo ? String(Date.now()) : selected.id;
     const estadoActual = selected?.estado || 'Programado';
 
-    console.log('[Nova] handleSave - esNuevo:', esNuevo, 'ID:', servicioId, 'Estado:', estadoActual);
+    console.log('[Nova] handleSave - esNuevo:', esNuevo, 'ID:', servicioId);
     toast({ title: "Guardando servicio..." });
 
     const cleanPhone = (phone: string): string => {
@@ -143,13 +158,7 @@ export default function ServiciosPage() {
       horaRecogidaTimestamp: horaRecogidaTimestamp,
     };
 
-    // ACTUALIZACIÓN LOCAL
-    const updated = esNuevo ? [payload, ...servicios] : servicios.map(s => s.id === servicioId ? payload : s);
-    setServicios(updated);
-    localStorage.setItem('servicios', JSON.stringify(updated));
-    setSelected(null);
-
-    // PERSISTENCIA EN SEGUNDO PLANO
+    // PERSISTENCIA EN SEGUNDO PLANO (Solo Firestore, onSnapshot actualizará la UI)
     (async () => {
       console.log('[Nova] Intentando setDoc en segundo plano para:', servicioId);
       try {
@@ -171,13 +180,13 @@ export default function ServiciosPage() {
           });
           
           if (resultado.success) {
-            await setDoc(doc(db, 'services', servicioId), { notificacionEnviada: true }, { merge: true });
+            await updateDoc(doc(db, 'services', servicioId), { notificacionEnviada: true });
             toast({ title: "Nova notificó al cliente ✅" });
           }
         }
       } catch (err: any) {
         console.error('[Nova] ❌ ERROR setDoc:', err.code, err.message);
-        toast({ variant: 'destructive', title: "Error al guardar", description: err.message });
+        toast({ variant: 'destructive', title: "Error al guardar en la nube", description: err.message });
       }
     })();
   };
@@ -221,7 +230,7 @@ export default function ServiciosPage() {
         </TabsList>
         <TabsContent value={activeTab} className="space-y-4">
           {filtered.length === 0 ? (
-            <Card className="p-12 text-center text-muted-foreground">No se encontraron servicios.</Card>
+            <Card className="p-12 text-center text-muted-foreground">No se encontraron servicios en la nube.</Card>
           ) : filtered.map(s => (
             <Card key={s.id} className="p-6 hover:shadow-md transition-shadow">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -247,8 +256,8 @@ export default function ServiciosPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuItem onClick={() => { console.log('[Nova] Accion: Ver Detalles de', s.id); setSelected(s); setIsResumenOpen(true); }}><Eye className="mr-2 h-4 w-4" /> Ver Detalles</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { console.log('[Nova] Accion: Editando', s.id); setSelected(s); setIsFormOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar Información</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setSelected(s); setIsResumenOpen(true); }}><Eye className="mr-2 h-4 w-4" /> Ver Detalles</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setSelected(s); setIsFormOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar Información</DropdownMenuItem>
                       <DropdownMenuSeparator />
                       
                       {(s.estado === 'Programado' || s.estado === 'En Servicio') && (
@@ -294,10 +303,7 @@ export default function ServiciosPage() {
 
       <Dialog open={isFormOpen} onOpenChange={o => { 
         setIsFormOpen(o); 
-        if(!o) {
-          console.log('[Nova] Cerrando Formulario - Forzando setSelected(null)');
-          setSelected(null);
-        }
+        if(!o) setSelected(null);
       }}>
         <DialogContent className="sm:max-w-4xl">
           <VisuallyHidden><DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader></VisuallyHidden>
@@ -308,10 +314,7 @@ export default function ServiciosPage() {
 
       <Dialog open={isResumenOpen} onOpenChange={o => {
         setIsResumenOpen(o);
-        if(!o) {
-          console.log('[Nova] Cerrando Resumen - Forzando setSelected(null)');
-          setSelected(null);
-        }
+        if(!o) setSelected(null);
       }}>
         <DialogContent className="sm:max-w-lg">
           <VisuallyHidden><DialogHeader><DialogTitle>Resumen del Servicio</DialogTitle></DialogHeader></VisuallyHidden>

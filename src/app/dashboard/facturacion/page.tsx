@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -16,6 +15,8 @@ import { CuentaCobro } from '@/components/dashboard/facturacion/cuenta-cobro';
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { AbonoForm, type AbonoFormValues } from '@/components/dashboard/facturacion/abono-form';
 import { FacturacionForm, type FacturacionFormValues } from '@/components/dashboard/facturacion/facturacion-form';
+import { useFirestore } from '@/firebase';
+import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore';
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 });
 
@@ -27,11 +28,16 @@ export default function FacturacionPage() {
   const [isAbonoOpen, setIsAbonoOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const { toast } = useToast();
+  const db = useFirestore();
 
   useEffect(() => {
-    const stored = localStorage.getItem('servicios');
-    if (stored) setServicios(JSON.parse(stored));
-  }, []);
+    const q = query(collection(db, 'services'), orderBy('fecha', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setServicios(data);
+    });
+    return () => unsubscribe();
+  }, [db]);
 
   const stats = useMemo(() => {
     return servicios.reduce((acc, s) => {
@@ -51,16 +57,18 @@ export default function FacturacionPage() {
     }, { total: 0, ganancia: 0, cartera: 0 });
   }, [servicios]);
 
-  const updateServicio = (id: string, updates: any) => {
-    const updated = servicios.map(s => s.id === id ? { ...s, ...updates } : s);
-    setServicios(updated);
-    localStorage.setItem('servicios', JSON.stringify(updated));
+  const updateServicioFirestore = (id: string, updates: any) => {
+    updateDoc(doc(db, 'services', id), updates)
+      .catch(err => {
+        console.error('[Nova] Error al actualizar facturación:', err);
+        toast({ variant: 'destructive', title: "Error en la nube" });
+      });
   };
 
   const handleMarcarPagada = (servicio: any) => {
     const valor = Number(servicio.valorServicio) || 0;
-    updateServicio(servicio.id, { estadoPago: 'Pagado', saldo: 0, anticipo: valor });
-    toast({ title: "Servicio Pagado", description: `El servicio ${servicio.consecutivo} ha sido marcado como pagado.` });
+    updateServicioFirestore(servicio.id, { estadoPago: 'Pagado', saldo: 0, anticipo: valor });
+    toast({ title: "Servicio Pagado", description: `El servicio ${servicio.consecutivo} ha sido actualizado en la nube.` });
   };
 
   const handleSaveAbono = (data: AbonoFormValues) => {
@@ -70,7 +78,7 @@ export default function FacturacionPage() {
     const nuevoAnticipo = anticipoAnterior + Number(data.valorAbono);
     const nuevoSaldo = valorOriginal - nuevoAnticipo;
     
-    updateServicio(selected.id, { 
+    updateServicioFirestore(selected.id, { 
       anticipo: nuevoAnticipo, 
       saldo: nuevoSaldo, 
       estadoPago: data.nuevoEstadoPago,
@@ -79,7 +87,7 @@ export default function FacturacionPage() {
       banco: data.banco
     });
     setIsAbonoOpen(false);
-    toast({ title: "Abono Registrado", description: `Se ha registrado un abono de ${currencyFormatter.format(data.valorAbono)}` });
+    toast({ title: "Abono Registrado", description: `Se ha sincronizado un abono de ${currencyFormatter.format(data.valorAbono)}` });
   };
 
   const handleSaveEdit = (data: FacturacionFormValues) => {
@@ -88,9 +96,9 @@ export default function FacturacionPage() {
     const anticipo = Number(data.anticipo) || 0;
     const saldo = valor - anticipo;
     
-    updateServicio(selected.id, { ...data, saldo });
+    updateServicioFirestore(selected.id, { ...data, saldo });
     setIsEditOpen(false);
-    toast({ title: "Facturación Actualizada" });
+    toast({ title: "Facturación Sincronizada" });
   };
 
   const filtered = servicios.filter(s => s.cliente?.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -99,7 +107,7 @@ export default function FacturacionPage() {
     <div className="page-container">
       <header>
         <h1 className="page-title">Facturación y Cartera</h1>
-        <p className="page-subtitle">Gestión financiera, control de pagos y estado de cuenta.</p>
+        <p className="page-subtitle">Gestión financiera sincronizada con la nube.</p>
       </header>
 
       <div className="grid gap-6 md:grid-cols-3 mb-8">
@@ -177,6 +185,11 @@ export default function FacturacionPage() {
                   </TableCell>
                 </TableRow>
               ))}
+              {filtered.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="p-12 text-center text-muted-foreground">No se encontraron registros de facturación.</TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>

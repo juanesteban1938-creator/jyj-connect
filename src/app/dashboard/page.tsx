@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -20,6 +19,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useEffect, useState, useMemo } from 'react';
+import { useFirestore } from '@/firebase';
+import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 
 const StatCard = ({
   title,
@@ -67,15 +68,24 @@ export default function DashboardHomePage() {
   const [servicios, setServicios] = useState<any[]>([]);
   const [vehiculos, setVehiculos] = useState<any[]>([]);
   const [conductores, setConductores] = useState<any[]>([]);
+  const db = useFirestore();
 
   useEffect(() => {
-    const s = localStorage.getItem('servicios');
+    // Sincronización de servicios desde Firestore
+    const q = query(collection(db, 'services'), orderBy('fecha', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setServicios(data);
+    });
+
+    // Cargar otros datos desde localStorage por ahora
     const v = localStorage.getItem('vehiculos');
     const c = localStorage.getItem('conductores');
-    if (s) setServicios(JSON.parse(s));
     if (v) setVehiculos(JSON.parse(v));
     if (c) setConductores(JSON.parse(c));
-  }, []);
+
+    return () => unsubscribe();
+  }, [db]);
 
   const stats = useMemo(() => {
     const totalVenta = servicios.reduce((acc, s) => acc + (Number(s.valorServicio) || 0), 0);
@@ -100,7 +110,7 @@ export default function DashboardHomePage() {
 
   const recientes = useMemo(() => {
       if (!servicios) return [];
-      return [...servicios].slice(-3).reverse();
+      return [...servicios].slice(0, 3);
   }, [servicios]);
 
   return (
@@ -183,7 +193,7 @@ export default function DashboardHomePage() {
         <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none">
           <CardHeader className="p-6">
             <CardTitle className="text-lg">Servicios Recientes</CardTitle>
-            <CardDescription>Últimas operaciones realizadas.</CardDescription>
+            <CardDescription>Últimas operaciones sincronizadas.</CardDescription>
           </CardHeader>
           <CardContent className="px-6 pb-6 space-y-4">
             {recientes.map(s => (
@@ -195,7 +205,7 @@ export default function DashboardHomePage() {
                 <Badge variant="outline" className="text-[10px] font-bold uppercase">{s.estado}</Badge>
               </div>
             ))}
-            {recientes.length === 0 && <p className="text-xs text-muted-foreground text-center">No hay servicios recientes.</p>}
+            {recientes.length === 0 && <p className="text-xs text-muted-foreground text-center">No hay servicios en la nube.</p>}
             <Link href="/dashboard/servicios" className="flex items-center justify-center text-primary text-xs font-bold hover:underline gap-1 pt-2">
                 Ver todos los servicios <ChevronRight className="h-3 w-3" />
             </Link>
