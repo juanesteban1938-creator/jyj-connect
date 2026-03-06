@@ -1,27 +1,13 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
     /**
      * J&J CONNECT V2.0 - SECURITY RULES
-     * LAST DEPLOY: 2026-03-07 10:45:00 (Forced sync)
      * Proyecto: jj-connect--18988325-5ab9e
+     * Reglas simplificadas para garantizar acceso a usuarios autenticados.
      */
-
     match /{document=**} {
-      // Permite acceso total a cualquier usuario con sesión activa (incluyendo anónimos)
-      allow read, write: if request.auth != null;
-    }
-    
-    match /services/{serviceId} {
-      allow read, write: if request.auth != null;
-    }
-    
-    match /clientes/{clienteId} {
-      allow read, write: if request.auth != null;
-    }
-    
-    match /notificaciones_whatsapp/{notifId} {
+      // Permite lectura y escritura a cualquier usuario con sesión (incluyendo anónimos)
       allow read, write: if request.auth != null;
     }
   }

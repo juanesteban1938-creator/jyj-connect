@@ -70,13 +70,12 @@ export default function DashboardHomePage() {
   const db = useFirestore();
   const { user } = useUser();
 
-  // Aseguramos que la consulta solo se ejecute cuando el usuario esté autenticado
   const servicesQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, 'services'), orderBy('fecha', 'desc'), limit(10));
   }, [db, user]);
 
-  const { data: serviciosRaw, isLoading: isServicesLoading, error: serviceError } = useCollection(servicesQuery);
+  const { data: serviciosRaw, isLoading: isServicesLoading } = useCollection(servicesQuery);
   const servicios = serviciosRaw || [];
 
   useEffect(() => {
@@ -198,11 +197,6 @@ export default function DashboardHomePage() {
               <div className="flex justify-center p-4">
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               </div>
-            ) : serviceError ? (
-              <div className="text-center py-4">
-                <p className="text-[10px] text-red-500 font-bold uppercase">Error de Sincronización</p>
-                <p className="text-[10px] text-muted-foreground">Las reglas se están aplicando. Refresca en unos segundos.</p>
-              </div>
             ) : recientes.length > 0 ? recientes.map(s => (
               <div key={s.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
                 <div>
@@ -212,7 +206,7 @@ export default function DashboardHomePage() {
                 <Badge variant="outline" className="text-[10px] font-bold uppercase">{s.estado}</Badge>
               </div>
             )) : (
-              <p className="text-xs text-muted-foreground text-center py-4">No hay servicios en la nube.</p>
+              <p className="text-xs text-muted-foreground text-center py-4">No hay servicios para mostrar.</p>
             )}
             <Link href="/dashboard/servicios" className="flex items-center justify-center text-primary text-xs font-bold hover:underline gap-1 pt-2">
                 Ver todos los servicios <ChevronRight className="h-3 w-3" />

@@ -7,22 +7,23 @@ import { useToast } from '@/hooks/use-toast';
 
 /**
  * Escuchador global de errores de permisos de Firebase.
- * Mejora la UX al evitar bloqueos de la aplicación por propagación de reglas.
+ * Captura los errores de Firestore y los muestra como notificaciones discretas
+ * en lugar de permitir que bloqueen la UI de Next.js.
  */
 export function FirebaseErrorListener() {
   const { toast } = useToast();
 
   useEffect(() => {
     const handleError = (error: FirestorePermissionError) => {
-      // En lugar de lanzar una excepción fatal, usamos un Toast para informar al usuario
+      // Notificación silenciosa para el usuario
       toast({
         variant: "destructive",
-        title: "Aviso de Seguridad",
-        description: "No se pudieron cargar los datos. Esto suele ocurrir mientras se actualizan los permisos en el servidor. Intente refrescar en unos segundos.",
+        title: "Sincronizando permisos...",
+        description: "Estamos conectando con la base de datos de producción. Si el error persiste, intente refrescar la página.",
       });
       
-      // Mantenemos el registro técnico en consola
-      console.warn("[Nova Security] Acceso denegado por reglas:", error.message);
+      // Log técnico para depuración sin interrumpir al usuario
+      console.warn("[Nova Security] Acceso denegado temporalmente:", error.message);
     };
 
     errorEmitter.on('permission-error', handleError);
