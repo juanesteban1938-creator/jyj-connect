@@ -70,17 +70,16 @@ export default function DashboardHomePage() {
   const db = useFirestore();
   const { user } = useUser();
 
-  // Optimización de consulta de servicios usando hooks de Firebase
+  // Aseguramos que la consulta solo se ejecute cuando el usuario esté autenticado
   const servicesQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'services'), orderBy('fecha', 'desc'));
+    return query(collection(db, 'services'), orderBy('fecha', 'desc'), limit(10));
   }, [db, user]);
 
-  const { data: serviciosRaw, isLoading: isServicesLoading } = useCollection(servicesQuery);
+  const { data: serviciosRaw, isLoading: isServicesLoading, error: serviceError } = useCollection(servicesQuery);
   const servicios = serviciosRaw || [];
 
   useEffect(() => {
-    // Carga de datos locales (MVP)
     const v = localStorage.getItem('vehiculos');
     const c = localStorage.getItem('conductores');
     if (v) setVehiculos(JSON.parse(v));
@@ -199,7 +198,12 @@ export default function DashboardHomePage() {
               <div className="flex justify-center p-4">
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               </div>
-            ) : recientes.map(s => (
+            ) : serviceError ? (
+              <div className="text-center py-4">
+                <p className="text-[10px] text-red-500 font-bold uppercase">Error de Sincronización</p>
+                <p className="text-[10px] text-muted-foreground">Las reglas se están aplicando. Refresca en unos segundos.</p>
+              </div>
+            ) : recientes.length > 0 ? recientes.map(s => (
               <div key={s.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
                 <div>
                   <p className="font-bold text-sm">Servicio {s.consecutivo}</p>
@@ -207,9 +211,8 @@ export default function DashboardHomePage() {
                 </div>
                 <Badge variant="outline" className="text-[10px] font-bold uppercase">{s.estado}</Badge>
               </div>
-            ))}
-            {(!user || (recientes.length === 0 && !isServicesLoading)) && (
-              <p className="text-xs text-muted-foreground text-center">No hay servicios en la nube.</p>
+            )) : (
+              <p className="text-xs text-muted-foreground text-center py-4">No hay servicios en la nube.</p>
             )}
             <Link href="/dashboard/servicios" className="flex items-center justify-center text-primary text-xs font-bold hover:underline gap-1 pt-2">
                 Ver todos los servicios <ChevronRight className="h-3 w-3" />

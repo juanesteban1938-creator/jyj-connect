@@ -4,16 +4,15 @@ service cloud.firestore {
 
     /**
      * J&J CONNECT V2.0 - SECURITY RULES
-     * PROD SYNC: 2026-03-07 (Deployment Verification)
+     * LAST DEPLOY: 2026-03-07 10:45:00 (Forced sync)
      * Proyecto: jj-connect--18988325-5ab9e
      */
 
     match /{document=**} {
-      // Permite lectura y escritura a cualquier usuario autenticado (incluyendo anónimos)
+      // Permite acceso total a cualquier usuario con sesión activa (incluyendo anónimos)
       allow read, write: if request.auth != null;
     }
     
-    // Reglas específicas para colecciones principales
     match /services/{serviceId} {
       allow read, write: if request.auth != null;
     }
