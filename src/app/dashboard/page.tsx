@@ -71,13 +71,8 @@ export default function DashboardHomePage() {
   const { user } = useUser();
 
   const servicesQuery = useMemoFirebase(() => {
-    // Solo ejecutamos la consulta si hay un usuario autenticado para evitar errores de permisos iniciales
     if (!db || !user) return null;
-    try {
-        return query(collection(db, 'services'), orderBy('fecha', 'desc'), limit(10));
-    } catch (e) {
-        return null;
-    }
+    return query(collection(db, 'services'), orderBy('fecha', 'desc'), limit(10));
   }, [db, user]);
 
   const { data: serviciosRaw, isLoading: isServicesLoading, error } = useCollection(servicesQuery);
@@ -96,10 +91,7 @@ export default function DashboardHomePage() {
         const valor = Number(s.valorServicio) || 0;
         const anticipo = Number(s.anticipo) || 0;
         const saldo = (s.saldo !== undefined && s.saldo !== null) ? Number(s.saldo) : (valor - anticipo);
-        
-        if (s.estadoPago === 'Pendiente' || s.estadoPago === 'Anticipo') {
-            return acc + saldo;
-        }
+        if (s.estadoPago === 'Pendiente' || s.estadoPago === 'Anticipo') return acc + saldo;
         return acc;
     }, 0);
 
@@ -111,21 +103,19 @@ export default function DashboardHomePage() {
     };
   }, [servicios, vehiculos, conductores]);
 
-  const recientes = useMemo(() => {
-      return servicios.slice(0, 3);
-  }, [servicios]);
+  const recientes = useMemo(() => servicios.slice(0, 3), [servicios]);
 
   return (
     <div className="page-container">
       <header className="mb-8">
         <h1 className="page-title">Panel de Control</h1>
-        <p className="page-subtitle">Bienvenido al centro de operaciones de J&J Connect V2.0.</p>
+        <p className="page-subtitle">Gestión centralizada de Transportes Especiales J&J.</p>
       </header>
 
       {error && (
-        <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg text-orange-800 text-sm font-medium flex items-center gap-2">
+        <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg text-orange-800 text-xs font-bold flex items-center gap-2 animate-pulse">
             <AlertTriangle className="h-4 w-4" />
-            Sincronizando permisos con la nube... Por favor espera unos segundos.
+            CONECTANDO CON LA NUBE... ESTO PUEDE TARDAR UN MOMENTO.
         </div>
       )}
 
@@ -134,8 +124,6 @@ export default function DashboardHomePage() {
           title="Total de Vehículos"
           value={stats.vehiculos.toString()}
           icon={Briefcase}
-          change="+2"
-          changeType="positive"
           iconColor="text-blue-600"
           bgColor="bg-blue-50"
         />
@@ -143,8 +131,6 @@ export default function DashboardHomePage() {
           title="Conductores Activos"
           value={stats.conductores.toString()}
           icon={Users}
-          change="+1"
-          changeType="positive"
           iconColor="text-orange-600"
           bgColor="bg-orange-50"
         />
@@ -152,16 +138,13 @@ export default function DashboardHomePage() {
           title="Cartera Pendiente"
           value={stats.cartera}
           icon={AlertTriangle}
-          changeType="negative"
           iconColor="text-red-600"
           bgColor="bg-red-50"
         />
         <StatCard
-          title="Ingresos del Mes"
+          title="Ingresos Registrados"
           value={stats.venta}
           icon={TrendingUp}
-          change="+15%"
-          changeType="positive"
           iconColor="text-green-600"
           bgColor="bg-green-50"
         />
@@ -172,37 +155,22 @@ export default function DashboardHomePage() {
            <CardContent className="p-8">
             <div className="flex flex-col md:flex-row items-center justify-between gap-6">
               <div className="z-10 text-center md:text-left">
-                <h3 className="text-2xl font-bold text-gray-800">
-                  Acciones Rápidas
-                </h3>
-                <p className="mt-2 max-w-md text-muted-foreground">
-                  Gestiona tus servicios y conductores de forma ágil desde un solo lugar.
-                </p>
+                <h3 className="text-2xl font-bold text-gray-800">Operaciones J&J</h3>
+                <p className="mt-2 max-w-md text-muted-foreground">Gestión ágil de servicios y monitoreo de flota en tiempo real.</p>
                 <div className="mt-6 flex flex-wrap gap-3 justify-center md:justify-start">
-                  <Link href="/dashboard/servicios">
-                    <Button className="btn-action shadow-md">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Nuevo Servicio
-                    </Button>
-                  </Link>
-                  <Link href="/dashboard/facturacion">
-                    <Button variant="outline" className="btn-action bg-white">
-                      Ver Reportes
-                    </Button>
-                  </Link>
+                  <Link href="/dashboard/servicios"><Button className="btn-action shadow-md"><Plus className="mr-2 h-4 w-4" /> Nuevo Servicio</Button></Link>
+                  <Link href="/dashboard/facturacion"><Button variant="outline" className="btn-action bg-white">Ver Facturación</Button></Link>
                 </div>
               </div>
-               <div className="hidden md:block text-primary/10">
-                <Briefcase className="h-40 w-40" />
-              </div>
+               <div className="hidden md:block text-primary/10"><Briefcase className="h-40 w-40" /></div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none">
           <CardHeader className="p-6">
-            <CardTitle className="text-lg">Servicios Recientes</CardTitle>
-            <CardDescription>Últimas operaciones sincronizadas.</CardDescription>
+            <CardTitle className="text-lg">Últimos Movimientos</CardTitle>
+            <CardDescription>Servicios sincronizados recientemente.</CardDescription>
           </CardHeader>
           <CardContent className="px-6 pb-6 space-y-4">
             {isServicesLoading ? (
@@ -218,7 +186,7 @@ export default function DashboardHomePage() {
                 <Badge variant="outline" className="text-[10px] font-bold uppercase">{s.estado}</Badge>
               </div>
             )) : (
-              <p className="text-xs text-muted-foreground text-center py-4">No hay servicios para mostrar.</p>
+              <p className="text-xs text-muted-foreground text-center py-4">No hay operaciones registradas.</p>
             )}
             <Link href="/dashboard/servicios" className="flex items-center justify-center text-primary text-xs font-bold hover:underline gap-1 pt-2">
                 Ver todos los servicios <ChevronRight className="h-3 w-3" />
