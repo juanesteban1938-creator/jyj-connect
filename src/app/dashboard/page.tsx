@@ -71,11 +71,16 @@ export default function DashboardHomePage() {
   const { user } = useUser();
 
   const servicesQuery = useMemoFirebase(() => {
+    // Solo ejecutamos la consulta si hay un usuario autenticado para evitar errores de permisos iniciales
     if (!db || !user) return null;
-    return query(collection(db, 'services'), orderBy('fecha', 'desc'), limit(10));
+    try {
+        return query(collection(db, 'services'), orderBy('fecha', 'desc'), limit(10));
+    } catch (e) {
+        return null;
+    }
   }, [db, user]);
 
-  const { data: serviciosRaw, isLoading: isServicesLoading } = useCollection(servicesQuery);
+  const { data: serviciosRaw, isLoading: isServicesLoading, error } = useCollection(servicesQuery);
   const servicios = serviciosRaw || [];
 
   useEffect(() => {
@@ -116,6 +121,13 @@ export default function DashboardHomePage() {
         <h1 className="page-title">Panel de Control</h1>
         <p className="page-subtitle">Bienvenido al centro de operaciones de J&J Connect V2.0.</p>
       </header>
+
+      {error && (
+        <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg text-orange-800 text-sm font-medium flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            Sincronizando permisos con la nube... Por favor espera unos segundos.
+        </div>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
         <StatCard

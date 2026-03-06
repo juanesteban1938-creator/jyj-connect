@@ -4,10 +4,11 @@ service cloud.firestore {
     /**
      * J&J CONNECT V2.0 - PRODUCTION RULES
      * Proyecto: jj-connect--18988325-5ab9e
-     * Despliegue forzado: ID_PRD_SYNC_9988
+     * Despliegue forzado: ID_PRD_SYNC_2026_FINAL_V1
      */
     match /{document=**} {
-      // Permite lectura y escritura a cualquier usuario con sesión activa (incluyendo anónimos)
+      // Permite lectura y escritura a cualquier usuario con sesión activa
+      // Esto incluye usuarios anónimos y con correo/contraseña
       allow read, write: if request.auth != null;
     }
   }
