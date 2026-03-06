@@ -32,12 +32,12 @@ export default function DashboardLayout({
     const storedAuth = localStorage.getItem('isAuthenticated');
     if (isAuthenticated || storedAuth === 'true') {
       setIsVerified(true);
-    } else {
+    } else if (!isFirebaseLoading) {
       router.replace('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, router, isFirebaseLoading]);
 
-  // Pantalla de carga mientras se verifica la sesión en Firebase y el estado local
+  // Pantalla de carga mientras se verifica la sesión
   if (!isVerified || isFirebaseLoading || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-[#f4f6f8]">
@@ -45,7 +45,7 @@ export default function DashboardLayout({
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <div className="text-center">
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Sincronizando Nova</p>
-            <p className="text-[10px] text-muted-foreground mt-1">Conectando con jj-connect--18988325-5ab9e</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Conectando con el proyecto de producción...</p>
           </div>
         </div>
       </div>

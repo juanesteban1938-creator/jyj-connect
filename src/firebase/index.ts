@@ -6,15 +6,15 @@ import { getFirestore } from 'firebase/firestore';
 import { firebaseConfig } from './config';
 
 /**
- * Inicialización centralizada de Firebase para J&J Connect V2.0.
- * Forzado para el proyecto de producción: jj-connect--18988325-5ab9e
+ * Inicialización centralizada y única de Firebase para J&J Connect V2.0.
+ * Asegura que todas las partes de la App usen jj-connect--18988325-5ab9e.
  */
 export function initializeFirebase() {
   let app: FirebaseApp;
   
   if (!getApps().length) {
     app = initializeApp(firebaseConfig);
-    console.log("[Nova] Firebase Initialized for:", firebaseConfig.projectId);
+    console.log("[Nova] Conexión establecida con el proyecto:", firebaseConfig.projectId);
   } else {
     app = getApp();
   }

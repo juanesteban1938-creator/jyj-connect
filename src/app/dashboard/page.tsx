@@ -19,8 +19,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useEffect, useState, useMemo } from 'react';
-import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy, limit } from 'firebase/firestore';
 
 const StatCard = ({
   title,
@@ -65,40 +65,27 @@ const StatCard = ({
 const currencyFormatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 });
 
 export default function DashboardHomePage() {
-  const [servicios, setServicios] = useState<any[]>([]);
   const [vehiculos, setVehiculos] = useState<any[]>([]);
   const [conductores, setConductores] = useState<any[]>([]);
   const db = useFirestore();
   const { user } = useUser();
 
+  // Optimización de consulta de servicios usando hooks de Firebase
+  const servicesQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'services'), orderBy('fecha', 'desc'));
+  }, [db, user]);
+
+  const { data: serviciosRaw, isLoading: isServicesLoading } = useCollection(servicesQuery);
+  const servicios = serviciosRaw || [];
+
   useEffect(() => {
-    if (!user) return;
-
-    const servicesCol = collection(db, 'services');
-    const q = query(servicesCol, orderBy('fecha', 'desc'));
-    
-    const unsubscribe = onSnapshot(
-      q, 
-      (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setServicios(data);
-      },
-      async (error) => {
-        // Manejo centralizado de errores de permisos para silenciar "Uncaught Error"
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: servicesCol.path,
-          operation: 'list'
-        }));
-      }
-    );
-
+    // Carga de datos locales (MVP)
     const v = localStorage.getItem('vehiculos');
     const c = localStorage.getItem('conductores');
     if (v) setVehiculos(JSON.parse(v));
     if (c) setConductores(JSON.parse(c));
-
-    return () => unsubscribe();
-  }, [db, user]);
+  }, []);
 
   const stats = useMemo(() => {
     const totalVenta = servicios.reduce((acc, s) => acc + (Number(s.valorServicio) || 0), 0);
@@ -122,7 +109,7 @@ export default function DashboardHomePage() {
   }, [servicios, vehiculos, conductores]);
 
   const recientes = useMemo(() => {
-      return [...servicios].slice(0, 3);
+      return servicios.slice(0, 3);
   }, [servicios]);
 
   return (
@@ -208,7 +195,11 @@ export default function DashboardHomePage() {
             <CardDescription>Últimas operaciones sincronizadas.</CardDescription>
           </CardHeader>
           <CardContent className="px-6 pb-6 space-y-4">
-            {recientes.map(s => (
+            {isServicesLoading ? (
+              <div className="flex justify-center p-4">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              </div>
+            ) : recientes.map(s => (
               <div key={s.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
                 <div>
                   <p className="font-bold text-sm">Servicio {s.consecutivo}</p>
@@ -217,7 +208,9 @@ export default function DashboardHomePage() {
                 <Badge variant="outline" className="text-[10px] font-bold uppercase">{s.estado}</Badge>
               </div>
             ))}
-            {(!user || recientes.length === 0) && <p className="text-xs text-muted-foreground text-center">No hay servicios en la nube.</p>}
+            {(!user || (recientes.length === 0 && !isServicesLoading)) && (
+              <p className="text-xs text-muted-foreground text-center">No hay servicios en la nube.</p>
+            )}
             <Link href="/dashboard/servicios" className="flex items-center justify-center text-primary text-xs font-bold hover:underline gap-1 pt-2">
                 Ver todos los servicios <ChevronRight className="h-3 w-3" />
             </Link>
