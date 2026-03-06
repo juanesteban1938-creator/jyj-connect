@@ -8,7 +8,8 @@ import {
   useEffect,
   ReactNode,
 } from 'react';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { initializeFirebase } from '@/firebase';
 
 type AuthContextType = {
   isAuthenticated: boolean;
@@ -26,7 +27,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    const auth = getAuth();
+    // CRÍTICO: Usar el inicializador centralizado para obtener las instancias correctas
+    const { auth } = initializeFirebase();
     
     // 1. Sincronizar estado local con localStorage
     const storedAuth = localStorage.getItem('isAuthenticated');
@@ -36,15 +38,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 2. Asegurar sesión en Firebase si no existe
       if (!auth.currentUser) {
         signInAnonymously(auth).catch((err) => {
-          console.error("Error al iniciar sesión anónima en Firebase:", err);
+          console.error("[Auth Context] Error sesión anónima:", err);
         });
       }
     }
 
-    // 3. Listener de estado de autenticación para debugging
+    // 3. Listener de estado de autenticación
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        console.log("Firebase Auth sincronizado (UID):", user.uid);
+        console.log("[Auth Context] Firebase Auth sincronizado:", user.uid);
       }
     });
 
@@ -56,10 +58,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('isAuthenticated', 'true');
       setIsAuthenticated(true);
       
-      // Iniciar sesión en Firebase para habilitar Security Rules
-      const auth = getAuth();
+      const { auth } = initializeFirebase();
       signInAnonymously(auth).catch((err) => {
-        console.error("Error al sincronizar con Firebase Auth durante login:", err);
+        console.error("[Auth Context] Error login Firebase:", err);
       });
 
       router.push('/dashboard');
@@ -72,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('isAuthenticated');
     setIsAuthenticated(false);
     
-    const auth = getAuth();
+    const { auth } = initializeFirebase();
     auth.signOut().catch(console.error);
 
     router.push('/login');

@@ -10,13 +10,21 @@ import { getFirestore } from 'firebase/firestore'
  * Asegura que el Proyecto ID sea jj-connect--18988325-5ab9e (con doble guion).
  */
 export function initializeFirebase() {
-  if (!getApps().length) {
-    const firebaseApp = initializeApp(firebaseConfig);
-    console.log('[Firebase] Sistema inicializado exitosamente:', firebaseConfig.projectId);
-    return getSdks(firebaseApp);
+  // Verificamos si ya existe una app inicializada con el ID correcto
+  const existingApp = getApps().find(app => app.options.projectId === firebaseConfig.projectId);
+  
+  if (existingApp) {
+    return getSdks(existingApp);
   }
 
-  return getSdks(getApp());
+  // Si no hay apps o la existente no es la correcta, inicializamos
+  // Si ya hay una app [DEFAULT] pero no es la nuestra, inicializamos con nombre
+  const firebaseApp = getApps().length === 0 
+    ? initializeApp(firebaseConfig) 
+    : initializeApp(firebaseConfig, 'jj-connect-prod');
+
+  console.log('[Firebase] Sistema inicializado exitosamente:', firebaseConfig.projectId);
+  return getSdks(firebaseApp);
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
