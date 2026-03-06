@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -5,9 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { RefreshCw, CheckCircle2, AlertCircle, PhoneIncoming, XCircle, QrCode, Power } from 'lucide-react';
+import { RefreshCw, CheckCircle2, AlertCircle, PhoneIncoming, XCircle, Power } from 'lucide-react';
 import { obtenerEstadoNova, obtenerQRNova } from '@/lib/whatsapp';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
 import Image from 'next/image';
@@ -18,16 +19,18 @@ export default function WhatsAppStatusPage() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const firestore = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
 
   const logsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    // CRÍTICO: No iniciar la consulta si no hay usuario autenticado
+    if (!firestore || !user) return null;
     return query(
       collection(firestore, 'notificaciones_whatsapp'), 
       orderBy('fecha', 'desc'), 
       limit(10)
     );
-  }, [firestore]);
+  }, [firestore, user]);
 
   const { data: logs, isLoading: logsLoading, error: logsError } = useCollection(logsQuery);
 
@@ -35,7 +38,6 @@ export default function WhatsAppStatusPage() {
     setIsLoading(true);
     try {
       const data = await obtenerEstadoNova();
-      console.log('Status response:', JSON.stringify(data));
       setStatus(data);
       
       if (data && data.connected === false) {
@@ -213,6 +215,13 @@ export default function WhatsAppStatusPage() {
                 </TableCell>
               </TableRow>
             ))}
+            {(logsLoading && !logs) && (
+              <TableRow>
+                <TableCell colSpan={4} className="p-8 text-center">
+                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto" />
+                </TableCell>
+              </TableRow>
+            )}
             {(!logs || logs.length === 0) && !logsLoading && !logsError && (
               <TableRow>
                 <TableCell colSpan={4} className="p-8 text-center text-muted-foreground">No hay registros de notificaciones.</TableCell>

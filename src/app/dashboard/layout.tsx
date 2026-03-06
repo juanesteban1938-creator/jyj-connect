@@ -2,6 +2,7 @@
 'use client';
 
 import { useAuth } from '@/context/auth-context';
+import { useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
@@ -23,6 +24,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { isAuthenticated, logout } = useAuth();
+  const { isUserLoading: isFirebaseLoading } = useUser();
   const router = useRouter();
   const [isVerified, setIsVerified] = useState(false);
 
@@ -35,10 +37,14 @@ export default function DashboardLayout({
     }
   }, [isAuthenticated, router]);
 
-  if (!isVerified) {
+  // Esperar a que la sesión local y la sesión de Firebase estén listas
+  if (!isVerified || isFirebaseLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Sincronizando Nova...</p>
+        </div>
       </div>
     );
   }
