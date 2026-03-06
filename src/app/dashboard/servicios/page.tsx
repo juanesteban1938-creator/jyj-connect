@@ -13,7 +13,11 @@ import {
   MessageSquare, 
   Briefcase, 
   User, 
-  Truck
+  Truck,
+  PlayCircle,
+  CheckCircle,
+  XCircle,
+  MoreVertical
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -25,7 +29,7 @@ import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
 import { useFirestore } from '@/firebase';
-import { doc, setDoc, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, Timestamp, updateDoc } from 'firebase/firestore';
 import type { Servicio } from '@/lib/types';
 
 export default function ServiciosPage() {
@@ -40,8 +44,7 @@ export default function ServiciosPage() {
   const { toast } = useToast();
   const db = useFirestore();
 
-  // LOG DE TRAZABILIDAD
-  console.log('[Nova] Renderizando - selected es:', selected?.id || 'NULL');
+  console.log('[Nova] selected actual:', selected?.id || 'NULL');
 
   useEffect(() => {
     const s = localStorage.getItem('servicios');
@@ -53,21 +56,36 @@ export default function ServiciosPage() {
   }, []);
 
   const handleNuevoServicio = () => {
-    console.log('[Nova] Trigger: handleNuevoServicio - Limpiando selected...');
+    console.log('[Nova] Click en Nuevo Servicio - Limpiando selected...');
     setSelected(null); 
     setIsFormOpen(true);
   };
 
+  const handleUpdateEstado = (id: string, nuevoEstado: Servicio['estado']) => {
+    console.log(`[Nova] Actualizando estado de ${id} a ${nuevoEstado}`);
+    
+    const updated = servicios.map(s => s.id === id ? { ...s, estado: nuevoEstado } : s);
+    setServicios(updated);
+    localStorage.setItem('servicios', JSON.stringify(updated));
+
+    updateDoc(doc(db, 'services', id), { estado: nuevoEstado })
+      .then(() => {
+        toast({ title: `Servicio ${nuevoEstado}`, description: `El estado se ha actualizado correctamente.` });
+      })
+      .catch((error) => {
+        console.error('[Nova] Error actualizando estado en Firestore:', error);
+      });
+  };
+
   const handleSave = (formData: any) => {
-    // 1. CIERRE INMEDIATO
     setIsFormOpen(false);
     
     const esNuevo = !selected || !selected.id;
     const servicioId = esNuevo ? String(Date.now()) : selected.id;
-    const yaNotificado = selected?.notificacionEnviada === true;
+    const estadoActual = selected?.estado || 'Programado';
 
-    console.log('[Nova] Trigger: handleSave - EsNuevo:', esNuevo, 'ID:', servicioId);
-    toast({ title: "Guardando servicio... 🚐💨" });
+    console.log('[Nova] Guardando - esNuevo:', esNuevo, 'ID:', servicioId, 'Estado:', estadoActual);
+    toast({ title: "Guardando servicio..." });
 
     const cleanPhone = (phone: string): string => {
       let cleaned = String(phone || '').replace(/\D/g, '');
@@ -84,7 +102,7 @@ export default function ServiciosPage() {
         if (isValid(fechaUTC)) {
           horaRecogidaTimestamp = Timestamp.fromDate(fechaUTC);
         }
-      } catch (e) { console.error('[Nova] Error convirtiendo Timestamp:', e); }
+      } catch (e) { console.error('[Nova] Error Timestamp:', e); }
     }
 
     const payload: Servicio = {
@@ -104,33 +122,27 @@ export default function ServiciosPage() {
       vehiculoPlaca: formData.esVehiculoNoRegistrado ? formData.vehiculoOtro : (vehiculos.find(v => v.id === formData.vehiculoId)?.placa || 'N/A'),
       conductor: formData.esConductorNoRegistrado ? formData.conductorOtro : (conductores.find(c => c.id === formData.conductorId) ? `${conductores.find(c => c.id === formData.conductorId).nombres} ${conductores.find(c => c.id === formData.conductorId).apellidos}` : 'No asignado'),
       conductorTelefono: formData.esConductorNoRegistrado ? formData.conductorTelefonoOtro : (conductores.find(c => c.id === formData.conductorId)?.telefono || ''),
-      estado: 'Programado',
+      estado: estadoActual,
       valorServicio: Number(formData.valorServicio) || 0,
       anticipo: Number(formData.anticipo) || 0,
       costoOperacion: Number(formData.costoOperacion) || 0,
       saldo: (Number(formData.valorServicio) || 0) - (Number(formData.anticipo) || 0),
       metodoPago: formData.metodoPago,
       estadoPago: formData.estadoPago,
-      notificacionEnviada: yaNotificado,
+      notificacionEnviada: selected?.notificacionEnviada || false,
       notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false,
       horaRecogidaTimestamp: horaRecogidaTimestamp,
     };
 
-    // 2. ACTUALIZACIÓN LOCAL
-    const updated = !esNuevo ? servicios.map(s => s.id === servicioId ? payload : s) : [payload, ...servicios];
+    const updated = esNuevo ? [payload, ...servicios] : servicios.map(s => s.id === servicioId ? payload : s);
     setServicios(updated);
     localStorage.setItem('servicios', JSON.stringify(updated));
-    
-    // LIMPIEZA DE ESTADO
-    console.log('[Nova] handleSave completado - Limpiando selected...');
     setSelected(null);
 
-    // 3. PERSISTENCIA EN SEGUNDO PLANO
-    console.log('[Nova] Intentando setDoc en segundo plano para:', servicioId);
     setDoc(doc(db, 'services', servicioId), payload, { merge: true })
       .then(() => {
-        console.log('[Nova] ✅ setDoc EXITOSO para:', servicioId);
-        if (!yaNotificado) {
+        console.log('[Nova] ✅ Guardado exitoso en Firestore:', servicioId);
+        if (esNuevo) {
           enviarNotificacionServicio({
             clienteNombre: payload.clienteNombre || payload.cliente,
             clienteTelefono: payload.telefonoCliente,
@@ -149,16 +161,16 @@ export default function ServiciosPage() {
           });
         }
       })
-      .catch((error: any) => {
-        console.error('[Nova] ❌ ERROR setDoc:', error.code, error.message);
-      });
+      .catch((err) => console.error('[Nova] ❌ Error Firestore:', err));
   };
 
   const filtered = servicios.filter(s => {
     const isMatch = (s.cliente || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
                     (s.conductor || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
                     (s.vehiculoPlaca || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const isTabMatch = activeTab === 'activos' ? (s.estado === 'Programado' || s.estado === 'En Servicio') : (s.estado === 'Finalizado' || s.estado === 'Cancelado');
+    const isTabMatch = activeTab === 'activos' 
+      ? (s.estado === 'Programado' || s.estado === 'En Servicio') 
+      : (s.estado === 'Finalizado' || s.estado === 'Cancelado');
     return isMatch && isTabMatch;
   });
 
@@ -172,9 +184,9 @@ export default function ServiciosPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input 
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-9"
+          <Input 
             placeholder="Buscar por cliente, conductor o placa..." 
+            className="pl-9"
             value={searchTerm} 
             onChange={e => setSearchTerm(e.target.value)} 
           />
@@ -207,14 +219,38 @@ export default function ServiciosPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Badge variant={s.estado === 'Programado' ? 'secondary' : 'default'} className="text-[10px] font-bold uppercase">{s.estado}</Badge>
+                  <Badge variant={s.estado === 'Programado' ? 'secondary' : s.estado === 'En Servicio' ? 'default' : 'outline'} className="text-[10px] font-bold uppercase">{s.estado}</Badge>
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild><PlusCircle className="h-4 w-4 cursor-pointer text-muted-foreground hover:text-primary transition-colors" /></DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => { console.log('[Nova] Trigger: Ver Detalles ID:', s.id); setSelected(s); setIsResumenOpen(true); }}><Eye className="mr-2 h-4 w-4" /> Ver Detalles</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { console.log('[Nova] Trigger: Editar ID:', s.id); setSelected(s); setIsFormOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuItem onClick={() => { setSelected(s); setIsResumenOpen(true); }}><Eye className="mr-2 h-4 w-4" /> Ver Detalles</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setSelected(s); setIsFormOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar Información</DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-green-600 font-bold" onClick={() => {
+                      
+                      {s.estado === 'Programado' && (
+                        <DropdownMenuItem onClick={() => handleUpdateEstado(s.id, 'En Servicio')} className="text-blue-600 font-bold">
+                          <PlayCircle className="mr-2 h-4 w-4" /> Iniciar Servicio
+                        </DropdownMenuItem>
+                      )}
+                      
+                      {s.estado === 'En Servicio' && (
+                        <DropdownMenuItem onClick={() => handleUpdateEstado(s.id, 'Finalizado')} className="text-green-600 font-bold">
+                          <CheckCircle className="mr-2 h-4 w-4" /> Finalizar Servicio
+                        </DropdownMenuItem>
+                      )}
+
+                      {(s.estado === 'Programado' || s.estado === 'En Servicio') && (
+                        <DropdownMenuItem onClick={() => handleUpdateEstado(s.id, 'Cancelado')} className="text-red-600">
+                          <XCircle className="mr-2 h-4 w-4" /> Cancelar Servicio
+                        </DropdownMenuItem>
+                      )}
+
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-muted-foreground" onClick={() => {
                          enviarNotificacionServicio({
                           clienteNombre: s.clienteNombre || s.cliente,
                           clienteTelefono: s.telefonoCliente,
@@ -226,9 +262,9 @@ export default function ServiciosPage() {
                           conductor: s.conductor,
                           telefonoConductor: s.conductorTelefono || 'N/A'
                         }).then(res => {
-                           if (res.success) toast({ title: "Re-notificación enviada a Nova ✅" });
+                           if (res.success) toast({ title: "Re-notificación enviada ✅" });
                         });
-                      }}><MessageSquare className="mr-2 h-4 w-4" /> Re-notificar Nova</DropdownMenuItem>
+                      }}><MessageSquare className="mr-2 h-4 w-4" /> Re-enviar Notificación</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -239,12 +275,8 @@ export default function ServiciosPage() {
       </Tabs>
 
       <Dialog open={isFormOpen} onOpenChange={o => { 
-        console.log('[Nova] Dialog Form onOpenChange:', o);
         setIsFormOpen(o); 
-        if(!o) {
-          console.log('[Nova] Cerrando Form - Limpiando selected...');
-          setSelected(null);
-        }
+        if(!o) setSelected(null);
       }}>
         <DialogContent className="sm:max-w-4xl">
           <VisuallyHidden><DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader></VisuallyHidden>
@@ -254,12 +286,8 @@ export default function ServiciosPage() {
       </Dialog>
 
       <Dialog open={isResumenOpen} onOpenChange={o => {
-        console.log('[Nova] Dialog Resumen onOpenChange:', o);
         setIsResumenOpen(o);
-        if(!o) {
-          console.log('[Nova] Cerrando Resumen - Limpiando selected...');
-          setSelected(null);
-        }
+        if(!o) setSelected(null);
       }}>
         <DialogContent className="sm:max-w-lg">
           <VisuallyHidden><DialogHeader><DialogTitle>Resumen del Servicio</DialogTitle></DialogHeader></VisuallyHidden>
