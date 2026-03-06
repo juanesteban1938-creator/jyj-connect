@@ -12,9 +12,15 @@ import { firebaseConfig } from './config';
 export function initializeFirebase() {
   let app: FirebaseApp;
   
+  // Limpieza de espacios en el projectId para evitar errores de red
+  const cleanConfig = {
+    ...firebaseConfig,
+    projectId: firebaseConfig.projectId.trim()
+  };
+
   // Evitar inicializaciones múltiples en el cliente (Next.js)
   if (!getApps().length) {
-    app = initializeApp(firebaseConfig);
+    app = initializeApp(cleanConfig);
   } else {
     app = getApp();
   }

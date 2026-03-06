@@ -1,26 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // REGLAS DE PRODUCCIÓN - J&J CONNECT V2.0
+    // REGLAS GLOBALES - J&J CONNECT V2.0
     // Proyecto: jj-connect--18988325-5ab9e
-    // Sincronización Forzada ID: deploy_prod_20240325_2145
+    // Forzado de sincronización global: deploy_final_force_access_v3
     
-    match /services/{serviceId} {
-      allow read, write: if request.auth != null;
-    }
-    
-    match /clientes/{clienteId} {
-      allow read, write: if request.auth != null;
-    }
-    
-    match /notificaciones_whatsapp/{notificacionId} {
-      allow read, write: if request.auth != null;
-    }
-    
-    match /cuentas_cobro/{cuentaId} {
-      allow read, write: if request.auth != null;
-    }
-
+    // Permitir lectura y escritura total a cualquier usuario autenticado (incluyendo anónimos)
+    // Esto asegura que las consultas de listado (queries) funcionen sin restricciones de ruta.
     match /{document=**} {
       allow read, write: if request.auth != null;
     }

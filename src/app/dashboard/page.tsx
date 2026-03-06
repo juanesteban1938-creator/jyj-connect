@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ChevronRight,
   Plus,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -70,9 +71,10 @@ export default function DashboardHomePage() {
   const db = useFirestore();
   const { user } = useUser();
 
+  // Query optimizada: Solo se activa si hay base de datos y usuario autenticado
   const servicesQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'services'), orderBy('fecha', 'desc'), limit(10));
+    return query(collection(db, 'services'), orderBy('fecha', 'desc'), limit(5));
   }, [db, user]);
 
   const { data: serviciosRaw, isLoading: isServicesLoading, error } = useCollection(servicesQuery);
@@ -103,8 +105,6 @@ export default function DashboardHomePage() {
     };
   }, [servicios, vehiculos, conductores]);
 
-  const recientes = useMemo(() => servicios.slice(0, 3), [servicios]);
-
   return (
     <div className="page-container">
       <header className="mb-8">
@@ -113,9 +113,9 @@ export default function DashboardHomePage() {
       </header>
 
       {error && (
-        <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg text-orange-800 text-xs font-bold flex items-center gap-2 animate-pulse">
-            <AlertTriangle className="h-4 w-4" />
-            CONECTANDO CON LA NUBE... ESTO PUEDE TARDAR UN MOMENTO.
+        <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg text-orange-800 text-[11px] font-bold flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            CONECTANDO CON LA NUBE... SI EL ERROR PERSISTE, REFRESCAR PÁGINA (F5).
         </div>
       )}
 
@@ -170,14 +170,15 @@ export default function DashboardHomePage() {
         <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none">
           <CardHeader className="p-6">
             <CardTitle className="text-lg">Últimos Movimientos</CardTitle>
-            <CardDescription>Servicios sincronizados recientemente.</CardDescription>
+            <CardDescription>Sincronización en tiempo real.</CardDescription>
           </CardHeader>
           <CardContent className="px-6 pb-6 space-y-4">
             {isServicesLoading ? (
-              <div className="flex justify-center p-4">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <div className="flex flex-col items-center justify-center p-8 gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <span className="text-[10px] text-muted-foreground uppercase font-bold">Cargando datos...</span>
               </div>
-            ) : recientes.length > 0 ? recientes.map(s => (
+            ) : servicios.length > 0 ? servicios.map(s => (
               <div key={s.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
                 <div>
                   <p className="font-bold text-sm">Servicio {s.consecutivo}</p>
@@ -186,7 +187,7 @@ export default function DashboardHomePage() {
                 <Badge variant="outline" className="text-[10px] font-bold uppercase">{s.estado}</Badge>
               </div>
             )) : (
-              <p className="text-xs text-muted-foreground text-center py-4">No hay operaciones registradas.</p>
+              <p className="text-xs text-muted-foreground text-center py-4">No hay operaciones registradas en la nube.</p>
             )}
             <Link href="/dashboard/servicios" className="flex items-center justify-center text-primary text-xs font-bold hover:underline gap-1 pt-2">
                 Ver todos los servicios <ChevronRight className="h-3 w-3" />
