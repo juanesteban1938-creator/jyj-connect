@@ -32,6 +32,7 @@ export default function FacturacionPage() {
   const { user } = useUser();
 
   useEffect(() => {
+    // CRÍTICO: No iniciar la escucha si no hay usuario autenticado
     if (!user) return;
 
     const servicesCol = collection(db, 'services');

@@ -60,6 +60,7 @@ export default function DashboardHomePage() {
   const { user } = useUser();
 
   const servicesQuery = useMemoFirebase(() => {
+    // CRÍTICO: No ejecutar la consulta si no hay usuario autenticado
     if (!db || !user) return null;
     return query(collection(db, 'services'), limit(10));
   }, [db, user]);

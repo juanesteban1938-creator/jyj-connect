@@ -53,6 +53,7 @@ export default function ServiciosPage() {
     if (v) setVehiculos(JSON.parse(v));
     if (c) setConductores(JSON.parse(c));
 
+    // CRÍTICO: No iniciar la escucha si no hay usuario autenticado
     if (!user || !db) return;
 
     setIsLoading(true);
