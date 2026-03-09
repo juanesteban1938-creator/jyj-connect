@@ -41,6 +41,7 @@ export default function FacturacionPage() {
       q, 
       (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log('Firestore query SUCCESS (Facturacion Page)');
         setServicios(data);
       }, 
       async (error) => {

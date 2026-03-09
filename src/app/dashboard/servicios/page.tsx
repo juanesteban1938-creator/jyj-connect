@@ -57,13 +57,13 @@ export default function ServiciosPage() {
 
     setIsLoading(true);
     const servicesCol = collection(db, 'services');
-    const q = query(servicesCol); // Consulta base sin ordenamiento para evitar problemas de índices
+    const q = query(servicesCol);
     
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Servicio[];
-        // Ordenar en memoria en el cliente
+        console.log('Firestore query SUCCESS (Servicios Page)');
         setServicios(data.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()));
         setIsLoading(false);
       },

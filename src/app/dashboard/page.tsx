@@ -59,15 +59,19 @@ export default function DashboardHomePage() {
   const db = useFirestore();
   const { user } = useUser();
 
-  // Consulta simplificada para el tablero
   const servicesQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, 'services'), limit(10));
   }, [db, user]);
 
-  // CORRECCIÓN: Eliminada referencia circular de serviciosRaw
   const { data: serviciosRaw, isLoading: isServicesLoading, error } = useCollection(servicesQuery);
   const servicios = serviciosRaw || [];
+
+  useEffect(() => {
+    if (serviciosRaw) {
+      console.log('Firestore query SUCCESS (Dashboard)');
+    }
+  }, [serviciosRaw]);
 
   useEffect(() => {
     const v = localStorage.getItem('vehiculos');
