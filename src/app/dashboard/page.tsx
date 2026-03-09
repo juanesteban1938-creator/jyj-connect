@@ -65,6 +65,7 @@ export default function DashboardHomePage() {
     return query(collection(db, 'services'), limit(10));
   }, [db, user]);
 
+  // CORRECCIÓN: Eliminada referencia circular de serviciosRaw
   const { data: serviciosRaw, isLoading: isServicesLoading, error } = useCollection(servicesQuery);
   const servicios = serviciosRaw || [];
 
