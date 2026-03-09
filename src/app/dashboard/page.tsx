@@ -21,22 +21,18 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useEffect, useState, useMemo } from 'react';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, limit } from 'firebase/firestore';
+import { collection, query, limit } from 'firebase/firestore';
 
 const StatCard = ({
   title,
   value,
   icon: Icon,
-  change,
-  changeType,
   iconColor,
   bgColor,
 }: {
   title: string;
   value: string;
   icon: any;
-  change?: string;
-  changeType?: 'positive' | 'negative' | 'neutral';
   iconColor: string;
   bgColor: string;
 }) => (
@@ -50,14 +46,6 @@ const StatCard = ({
       </div>
       <div className="flex flex-col gap-1">
         <p className="text-2xl font-bold">{value}</p>
-        {change && (
-          <p className="text-xs flex items-center gap-1">
-            <span className={changeType === 'positive' ? 'text-green-600 font-bold' : changeType === 'negative' ? 'text-red-600 font-bold' : 'text-muted-foreground'}>
-              {change}
-            </span>
-            <span className="text-muted-foreground">crecimiento</span>
-          </p>
-        )}
       </div>
     </CardContent>
   </Card>
@@ -71,13 +59,13 @@ export default function DashboardHomePage() {
   const db = useFirestore();
   const { user } = useUser();
 
-  // Query optimizada: Solo se activa si hay base de datos y usuario autenticado
+  // Consulta simplificada sin orderBy para descartar errores de índice
   const servicesQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'services'), orderBy('fecha', 'desc'), limit(5));
+    return query(collection(db, 'services'), limit(10));
   }, [db, user]);
 
-  const { data: serviciosRaw, isLoading: isServicesLoading, error } = useCollection(servicesQuery);
+  const { data: serviciosRaw, isLoading: isServicesLoading, error } = useCollection(serviciosRaw === undefined ? null : servicesQuery);
   const servicios = serviciosRaw || [];
 
   useEffect(() => {
@@ -115,7 +103,7 @@ export default function DashboardHomePage() {
       {error && (
         <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg text-orange-800 text-[11px] font-bold flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 shrink-0" />
-            CONECTANDO CON LA NUBE... SI EL ERROR PERSISTE, REFRESCAR PÁGINA (F5).
+            CONECTANDO CON LA NUBE... SI EL ERROR PERSISTE, POR FAVOR REFRESCAR (F5).
         </div>
       )}
 
@@ -178,7 +166,7 @@ export default function DashboardHomePage() {
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 <span className="text-[10px] text-muted-foreground uppercase font-bold">Cargando datos...</span>
               </div>
-            ) : servicios.length > 0 ? servicios.map(s => (
+            ) : servicios.length > 0 ? servicios.slice(0, 5).map(s => (
               <div key={s.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
                 <div>
                   <p className="font-bold text-sm">Servicio {s.consecutivo}</p>

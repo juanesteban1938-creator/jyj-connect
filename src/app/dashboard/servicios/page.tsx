@@ -17,9 +17,10 @@ import {
   PlayCircle,
   CheckCircle,
   XCircle,
-  MoreVertical
+  MoreVertical,
+  Loader2
 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs';
 import { Badge } from '@/components/ui/badge';
 import { format, isValid } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -29,7 +30,7 @@ import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
 import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { doc, setDoc, Timestamp, updateDoc, collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { doc, setDoc, Timestamp, updateDoc, collection, onSnapshot, query } from 'firebase/firestore';
 import type { Servicio } from '@/lib/types';
 
 export default function ServiciosPage() {
@@ -38,12 +39,13 @@ export default function ServiciosPage() {
   const [vehiculos, setVehiculos] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('activos');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isResumenOpen, setIsResumenOpen] = useState(false);
   const [selected, setSelected] = useState<Servicio | null>(null);
   const { toast } = useToast();
   const db = useFirestore();
-  const { user, isUserLoading } = useUser();
+  const { user } = useUser();
 
   useEffect(() => {
     const v = localStorage.getItem('vehiculos');
@@ -51,22 +53,27 @@ export default function ServiciosPage() {
     if (v) setVehiculos(JSON.parse(v));
     if (c) setConductores(JSON.parse(c));
 
-    if (!user) return;
+    if (!user || !db) return;
 
+    setIsLoading(true);
     const servicesCol = collection(db, 'services');
-    const q = query(servicesCol, orderBy('fecha', 'desc'));
+    const q = query(servicesCol); // Consulta base sin ordenamiento para evitar problemas de índices
     
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Servicio[];
-        setServicios(data);
+        // Ordenar en memoria en el cliente
+        setServicios(data.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()));
+        setIsLoading(false);
       },
       async (error) => {
+        console.error('[Servicios] Error de carga:', error);
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: servicesCol.path,
           operation: 'list'
         }));
+        setIsLoading(false);
       }
     );
 
@@ -82,7 +89,7 @@ export default function ServiciosPage() {
     const docRef = doc(db, 'services', id);
     updateDoc(docRef, { estado: nuevoEstado })
       .then(() => {
-        toast({ title: `Servicio ${nuevoEstado}`, description: `El estado se ha actualizado correctamente.` });
+        toast({ title: `Servicio ${nuevoEstado}` });
       })
       .catch(async (error) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -95,79 +102,35 @@ export default function ServiciosPage() {
 
   const handleSave = async (formData: any) => {
     setIsFormOpen(false);
-    
     const esNuevo = !selected || !selected.id;
     const servicioId = esNuevo ? String(Date.now()) : selected.id;
-    const estadoActual = selected?.estado || 'Programado';
-
-    const cleanPhone = (phone: string): string => {
-      let cleaned = String(phone || '').replace(/\D/g, '');
-      return '57' + cleaned.slice(-10);
-    };
-
-    let horaRecogidaTimestamp = null;
-    if (formData.fechaRecogida && formData.horaRecogida) {
-      try {
-        const fechaStr = formData.fechaRecogida instanceof Date 
-          ? formData.fechaRecogida.toISOString().split('T')[0] 
-          : new Date(formData.fechaRecogida).toISOString().split('T')[0];
-        const fechaUTC = new Date(`${fechaStr}T${formData.horaRecogida}:00-05:00`);
-        if (isValid(fechaUTC)) {
-          horaRecogidaTimestamp = Timestamp.fromDate(fechaUTC);
-        }
-      } catch (e) {}
-    }
 
     const payload: Servicio = {
       id: servicioId,
       consecutivo: selected?.consecutivo || `JJ-${servicios.length + 1001}`,
       cliente: formData.nombreCliente,
       clienteNombre: formData.nombreCliente,
-      clienteIniciales: (formData.nombreCliente || '').substring(0, 2).toUpperCase(),
       origen: formData.direccionRecogida,
       destino: formData.direccionDestino,
-      telefonoCliente: cleanPhone(formData.telefonoCliente),
-      fecha: formData.fechaRecogida instanceof Date ? formData.fechaRecogida.toISOString() : new Date(formData.fechaRecogida).toISOString(),
+      telefonoCliente: formData.telefonoCliente,
+      fecha: formData.fechaRecogida.toISOString(),
       hora: formData.horaRecogida,
       nitCliente: formData.nitCliente,
-      emailCliente: formData.emailCliente || '',
-      vehiculo: formData.esVehiculoNoRegistrado ? `OTRO • ${formData.vehiculoOtro}` : (vehiculos.find(v => v.id === formData.vehiculoId)?.placa || 'N/A'),
-      vehiculoPlaca: formData.esVehiculoNoRegistrado ? formData.vehiculoOtro : (vehiculos.find(v => v.id === formData.vehiculoId)?.placa || 'N/A'),
+      vehiculoPlaca: formData.esVehiculoNoRegistrado ? formData.vehiculoOtro : (vehiculos.find(v => v.id === formData.vehiculoId)?.placa || ''),
       conductor: formData.esConductorNoRegistrado ? formData.conductorOtro : (conductores.find(c => c.id === formData.conductorId) ? `${conductores.find(c => c.id === formData.conductorId).nombres} ${conductores.find(c => c.id === formData.conductorId).apellidos}` : 'No asignado'),
-      conductorTelefono: formData.esConductorNoRegistrado ? formData.conductorTelefonoOtro : (conductores.find(c => c.id === formData.conductorId)?.telefono || ''),
-      estado: estadoActual,
+      estado: selected?.estado || 'Programado',
       valorServicio: Number(formData.valorServicio) || 0,
       anticipo: Number(formData.anticipo) || 0,
-      costoOperacion: Number(formData.costoOperacion) || 0,
       saldo: (Number(formData.valorServicio) || 0) - (Number(formData.anticipo) || 0),
       metodoPago: formData.metodoPago,
       estadoPago: formData.estadoPago,
+      costoOperacion: Number(formData.costoOperacion) || 0,
       notificacionEnviada: selected?.notificacionEnviada || false,
       notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false,
-      horaRecogidaTimestamp: horaRecogidaTimestamp,
     };
 
     const docRef = doc(db, 'services', servicioId);
     setDoc(docRef, payload, { merge: true })
-      .then(async () => {
-        if (esNuevo && !payload.notificacionEnviada) {
-          const resultado = await enviarNotificacionServicio({
-            clienteNombre: payload.clienteNombre || payload.cliente,
-            clienteTelefono: payload.telefonoCliente,
-            fecha: format(new Date(payload.fecha), 'dd/MM/yyyy'),
-            hora: payload.hora,
-            origen: payload.origen,
-            destino: payload.destino,
-            placa: payload.vehiculoPlaca || 'N/A',
-            conductor: payload.conductor,
-            telefonoConductor: payload.conductorTelefono || 'N/A'
-          });
-          
-          if (resultado.success) {
-            updateDoc(docRef, { notificacionEnviada: true });
-          }
-        }
-      })
       .catch(async (error) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: docRef.path,
@@ -191,21 +154,14 @@ export default function ServiciosPage() {
     <div className="page-container">
       <header>
         <h1 className="page-title">Gestión de Servicios</h1>
-        <p className="page-subtitle">Administra y supervisa los traslados de Transportes Especiales J&J.</p>
+        <p className="page-subtitle">Administra y supervisa los traslados en tiempo real.</p>
       </header>
-
-      {isUserLoading && (
-        <div className="flex justify-center p-8">
-           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-           <span className="ml-3 text-sm text-muted-foreground">Sincronizando con la nube...</span>
-        </div>
-      )}
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
-            placeholder="Buscar por cliente, conductor o placa..." 
+            placeholder="Buscar servicios..." 
             className="pl-9"
             value={searchTerm} 
             onChange={e => setSearchTerm(e.target.value)} 
@@ -217,14 +173,19 @@ export default function ServiciosPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-white p-1 border">
-          <TabsTrigger value="activos" className="px-6 font-bold uppercase text-[10px] tracking-widest">Servicios Activos</TabsTrigger>
-          <TabsTrigger value="historial" className="px-6 font-bold uppercase text-[10px] tracking-widest">Historial</TabsTrigger>
+        <TabsList className="bg-white border">
+          <TabsTrigger value="activos" className="px-6 font-bold uppercase text-[10px]">Activos</TabsTrigger>
+          <TabsTrigger value="historial" className="px-6 font-bold uppercase text-[10px]">Historial</TabsTrigger>
         </TabsList>
         <TabsContent value={activeTab} className="space-y-4">
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center p-20 gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground font-bold uppercase">Sincronizando servicios...</p>
+            </div>
+          ) : filtered.length === 0 ? (
             <Card className="p-12 text-center text-muted-foreground">
-              {!user ? 'Inicie sesión para ver los servicios.' : 'No se encontraron servicios en la nube.'}
+              No se encontraron servicios registrados.
             </Card>
           ) : filtered.map(s => (
             <Card key={s.id} className="p-6 hover:shadow-md transition-shadow">
@@ -233,60 +194,29 @@ export default function ServiciosPage() {
                   <div className="flex items-center gap-2">
                     <p className="text-xl font-bold text-primary">{s.hora}</p>
                     <span className="text-xs font-bold text-muted-foreground">|</span>
-                    <p className="text-xs font-bold uppercase tracking-wider">{s.consecutivo}</p>
+                    <p className="text-xs font-bold uppercase">{s.consecutivo}</p>
                   </div>
-                  <p className="text-sm font-semibold">{s.origen} <span className="text-primary mx-1">➔</span> {s.destino}</p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground font-medium">
-                    <p className="uppercase"><Briefcase className="inline h-3 w-3 mr-1"/> {s.cliente}</p>
-                    <p className="uppercase"><UserIcon className="inline h-3 w-3 mr-1"/> {s.conductor}</p>
-                    <p className="uppercase font-bold text-primary"><Truck className="inline h-3 w-3 mr-1"/> {s.vehiculoPlaca}</p>
+                  <p className="text-sm font-semibold">{s.origen} ➔ {s.destino}</p>
+                  <div className="flex flex-wrap gap-x-4 text-[11px] text-muted-foreground font-medium uppercase">
+                    <p><Briefcase className="inline h-3 w-3 mr-1"/> {s.cliente}</p>
+                    <p><UserIcon className="inline h-3 w-3 mr-1"/> {s.conductor}</p>
+                    <p className="text-primary font-bold"><Truck className="inline h-3 w-3 mr-1"/> {s.vehiculoPlaca}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <Badge variant={s.estado === 'Programado' ? 'secondary' : s.estado === 'En Servicio' ? 'default' : 'outline'} className="text-[10px] font-bold uppercase">{s.estado}</Badge>
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => { setSelected(s); setIsResumenOpen(true); }}><Eye className="mr-2 h-4 w-4" /> Ver Detalles</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setSelected(s); setIsFormOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar Información</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setSelected(s); setIsFormOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      
-                      {(s.estado === 'Programado' || s.estado === 'En Servicio') && (
-                        <>
-                          {s.estado === 'Programado' && (
-                            <DropdownMenuItem onClick={() => handleUpdateEstado(s.id, 'En Servicio')} className="text-blue-600 font-bold">
-                              <PlayCircle className="mr-2 h-4 w-4" /> Iniciar Servicio
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem onClick={() => handleUpdateEstado(s.id, 'Finalizado')} className="text-green-600 font-bold">
-                            <CheckCircle className="mr-2 h-4 w-4" /> Finalizar Servicio
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateEstado(s.id, 'Cancelado')} className="text-red-600">
-                            <XCircle className="mr-2 h-4 w-4" /> Cancelar Servicio
-                          </DropdownMenuItem>
-                        </>
+                      {s.estado === 'Programado' && (
+                        <DropdownMenuItem onClick={() => handleUpdateEstado(s.id, 'En Servicio')} className="text-blue-600 font-bold"><PlayCircle className="mr-2 h-4 w-4" /> Iniciar</DropdownMenuItem>
                       )}
-
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-muted-foreground" onClick={() => {
-                         enviarNotificacionServicio({
-                          clienteNombre: s.clienteNombre || s.cliente,
-                          clienteTelefono: s.telefonoCliente,
-                          fecha: format(new Date(s.fecha), 'dd/MM/yyyy'),
-                          hora: s.hora,
-                          origen: s.origen,
-                          destino: s.destino,
-                          placa: s.vehiculoPlaca || 'N/A',
-                          conductor: s.conductor,
-                          telefonoConductor: s.conductorTelefono || 'N/A'
-                        }).then(res => {
-                           if (res.success) toast({ title: "Re-notificación enviada ✅" });
-                        });
-                      }}><MessageSquare className="mr-2 h-4 w-4" /> Re-enviar Notificación</DropdownMenuItem>
+                      {(s.estado === 'Programado' || s.estado === 'En Servicio') && (
+                        <DropdownMenuItem onClick={() => handleUpdateEstado(s.id, 'Finalizado')} className="text-green-600 font-bold"><CheckCircle className="mr-2 h-4 w-4" /> Finalizar</DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -298,7 +228,7 @@ export default function ServiciosPage() {
 
       <Dialog open={isFormOpen} onOpenChange={o => { setIsFormOpen(o); if(!o) setSelected(null); }}>
         <DialogContent className="sm:max-w-4xl">
-          <VisuallyHidden><DialogHeader><DialogTitle>{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader></VisuallyHidden>
+          <VisuallyHidden><DialogHeader><DialogTitle>Programar Servicio</DialogTitle></DialogHeader></VisuallyHidden>
           <DialogHeader><DialogTitle className="text-2xl font-bold">{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader>
           <ServicioForm servicio={selected} onSave={handleSave} onCancel={() => setIsFormOpen(false)} conductores={conductores} vehiculos={vehiculos} />
         </DialogContent>
@@ -306,7 +236,7 @@ export default function ServiciosPage() {
 
       <Dialog open={isResumenOpen} onOpenChange={o => { setIsResumenOpen(o); if(!o) setSelected(null); }}>
         <DialogContent className="sm:max-w-lg">
-          <VisuallyHidden><DialogHeader><DialogTitle>Resumen del Servicio</DialogTitle></DialogHeader></VisuallyHidden>
+          <VisuallyHidden><DialogHeader><DialogTitle>Detalles del Servicio</DialogTitle></DialogHeader></VisuallyHidden>
           {selected && <ResumenServicio servicio={selected} />}
         </DialogContent>
       </Dialog>

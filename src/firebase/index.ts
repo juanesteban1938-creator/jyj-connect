@@ -6,43 +6,26 @@ import { getFirestore } from 'firebase/firestore';
 import { firebaseConfig } from './config';
 
 /**
- * Inicialización centralizada de Firebase.
- * Proyecto activo: jj-connect--18988325-5ab9e
- * Este archivo solo debe ejecutarse en el cliente ('use client').
+ * Inicialización centralizada y limpia de Firebase.
+ * Proyecto: jj-connect--18988325-5ab9e
  */
 export function initializeFirebase() {
   let app: FirebaseApp;
   
-  // Limpieza estricta del Project ID
-  const cleanProjectId = firebaseConfig.projectId.trim();
-
-  // Logs para depuración técnica en F12
-  if (typeof window !== 'undefined') {
-    console.log('=== NOVA FIREBASE BOOT ===');
-    console.log('Target Project:', cleanProjectId);
-    console.log('Auth Domain:', firebaseConfig.authDomain);
-  }
-
   const cleanConfig = {
     ...firebaseConfig,
-    projectId: cleanProjectId
+    projectId: 'jj-connect--18988325-5ab9e'.trim()
   };
 
   if (!getApps().length) {
     app = initializeApp(cleanConfig);
-    if (typeof window !== 'undefined') console.log('Firebase: Nueva instancia creada');
+    console.log('[Firebase] Inicialización exitosa:', app.options.projectId);
   } else {
     app = getApp();
-    if (typeof window !== 'undefined') console.log('Firebase: Reutilizando instancia existente');
   }
 
   const auth = getAuth(app);
   const firestore = getFirestore(app);
-
-  if (typeof window !== 'undefined') {
-    console.log('Firestore: Sincronizado para', app.options.projectId);
-    console.log('==========================');
-  }
 
   return { firebaseApp: app, auth, firestore };
 }
