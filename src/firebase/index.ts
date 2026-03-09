@@ -12,6 +12,12 @@ import { firebaseConfig } from './config';
 export function initializeFirebase() {
   let app: FirebaseApp;
   
+  // LOGS TEMPORALES PARA DEPURACIÓN SOLICITADOS POR EL USUARIO
+  console.log('=== FIREBASE CONFIG ===');
+  console.log('projectId:', firebaseConfig.projectId);
+  console.log('authDomain:', firebaseConfig.authDomain);
+  console.log('======================');
+
   // Limpieza de espacios en el projectId para evitar errores de red
   const cleanConfig = {
     ...firebaseConfig,
