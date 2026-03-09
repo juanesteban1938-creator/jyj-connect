@@ -1,14 +1,8 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // REGLAS GLOBALES - J&J CONNECT V2.0
-    // Proyecto: jj-connect--18988325-5ab9e
-    // ID de Despliegue Forzado: v4_production_final_sync
-    
-    // Permitir lectura y escritura total a cualquier usuario autenticado (incluyendo anónimos)
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
   }
 }
