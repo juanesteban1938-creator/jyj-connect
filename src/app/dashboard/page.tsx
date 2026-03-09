@@ -59,13 +59,13 @@ export default function DashboardHomePage() {
   const db = useFirestore();
   const { user } = useUser();
 
-  // Consulta simplificada sin orderBy para descartar errores de índice
+  // Consulta simplificada para el tablero
   const servicesQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, 'services'), limit(10));
   }, [db, user]);
 
-  const { data: serviciosRaw, isLoading: isServicesLoading, error } = useCollection(serviciosRaw === undefined ? null : servicesQuery);
+  const { data: serviciosRaw, isLoading: isServicesLoading, error } = useCollection(servicesQuery);
   const servicios = serviciosRaw || [];
 
   useEffect(() => {
