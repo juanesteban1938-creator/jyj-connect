@@ -1,6 +1,7 @@
+
 'use client';
 
-import type { Servicio } from "@/app/dashboard/servicios/page";
+import type { Servicio } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { Printer, Mail } from "lucide-react";
@@ -128,7 +129,6 @@ export function CuentaCobro({ servicio }: Props) {
                         boxSizing: 'border-box'
                     }}
                 >
-                    {/* CABECERA */}
                     <section className="flex justify-between items-start mb-6" style={{ pageBreakInside: 'avoid' }}>
                         <div className="flex items-center gap-4">
                             <Image src="https://i.ibb.co/zhzhTrvV/logo-cxc.png" alt="Logo" width={120} height={68} className="object-contain" style={{ height: '68px', width: 'auto' }} />
@@ -140,14 +140,12 @@ export function CuentaCobro({ servicio }: Props) {
                         </div>
                     </section>
 
-                    {/* CLIENTE DINÁMICO */}
                     <section className="text-center mb-8" style={{ pageBreakInside: 'avoid' }}>
                         <h1 className="font-bold uppercase text-[18px]" style={{ letterSpacing: '3px', marginBottom: '8px' }}>{servicio.cliente}</h1>
                         <p className="font-bold text-[14px] mt-[6px]">NIT {servicio.nitCliente}</p>
                         <p className="text-gray-700 text-[14px] mt-[4px]">{servicio.emailCliente}</p>
                     </section>
 
-                    {/* PRESTADOR FIJO */}
                     <section className="mb-6" style={{ pageBreakInside: 'avoid' }}>
                         <p className="font-bold mb-1">Prestado a</p>
                         <table className="w-full border-collapse border border-[#999]">
@@ -164,7 +162,6 @@ export function CuentaCobro({ servicio }: Props) {
                         </table>
                     </section>
 
-                    {/* TABLA DE OPERACIÓN */}
                     <section className="mb-6" style={{ pageBreakInside: 'avoid' }}>
                         <div className="bg-[#9e9e9e] text-white py-2 text-center font-bold text-sm tracking-wider uppercase">Detalle da operación</div>
                         <table className="w-full border-collapse border border-[#999]">
@@ -182,7 +179,7 @@ export function CuentaCobro({ servicio }: Props) {
                                     <td className="border border-[#999] p-4 align-top">
                                         <p className="font-bold uppercase text-sm mb-2">Transporte especial de pasajeros</p>
                                         <div className="text-gray-700 space-y-1">
-                                            <p><span className="font-bold uppercase text-[10px]">Vehículo:</span> {servicio.vehiculo.split('•')[1]?.trim() || servicio.vehiculo}</p>
+                                            <p><span className="font-bold uppercase text-[10px]">Vehículo:</span> {servicio.vehiculoPlaca || servicio.vehiculo}</p>
                                             <p><span className="font-bold uppercase text-[10px]">Trayecto:</span> {servicio.origen} ➔ {servicio.destino}</p>
                                         </div>
                                     </td>
@@ -197,12 +194,10 @@ export function CuentaCobro({ servicio }: Props) {
                         </table>
                     </section>
 
-                    {/* PAGO */}
                     <section className="mb-10" style={{ pageBreakInside: 'avoid' }}>
                         <p className="text-sm font-medium">Por favor, realize su transferancie a Cuenta-Ahorros 99642554661 de Bancolombia.</p>
                     </section>
 
-                    {/* FIRMA */}
                     <section className="mt-auto flex flex-col items-start pt-6 border-t" style={{ pageBreakInside: 'avoid' }}>
                         <Image src="https://i.ibb.co/qYMKZWVt/firma-cxc.png" alt="Firma" width={150} height={44} className="object-contain mb-2" style={{ height: '44px', width: 'auto' }} />
                         <div className="w-72 border-t border-black pt-2">

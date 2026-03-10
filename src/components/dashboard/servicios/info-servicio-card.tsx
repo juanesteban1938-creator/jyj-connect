@@ -1,6 +1,7 @@
+
 'use client';
 
-import type { Servicio } from "@/app/dashboard/servicios/page";
+import type { Servicio } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { User, Truck, Briefcase, Phone, MapPin, Clock } from "lucide-react";
@@ -23,7 +24,7 @@ const InfoRow = ({ label, value, icon: Icon, iconClassName }: { label: string, v
 
 export function InfoServicioCard({ servicio }: Props) {
 
-    const placa = servicio.vehiculo.split('•')[1]?.trim() || servicio.vehiculo;
+    const placa = servicio.vehiculoPlaca || servicio.vehiculo;
     
     const conductorDisplay = servicio.conductorTelefono 
         ? `${servicio.conductor} - ${servicio.conductorTelefono}`

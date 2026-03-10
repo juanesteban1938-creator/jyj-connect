@@ -1,11 +1,12 @@
+
 'use client';
 
-import type { Servicio } from "@/app/dashboard/servicios/page";
+import type { Servicio } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Banknote, Landmark, Hash, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { Landmark, Hash, CheckCircle, Clock, AlertCircle } from "lucide-react";
 import { InfoServicioCard } from "@/components/dashboard/servicios/info-servicio-card";
 
 type Props = {

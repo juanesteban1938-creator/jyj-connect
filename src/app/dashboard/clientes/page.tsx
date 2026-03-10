@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -42,15 +43,7 @@ import { useToast } from '@/hooks/use-toast';
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, doc, setDoc, deleteDoc } from 'firebase/firestore';
-
-export type Cliente = {
-  id: string; 
-  razonSocial: string;
-  nit: string;
-  telefono: string;
-  email?: string;
-  tipo: 'Institucional' | 'Corporativo' | 'ONG' | 'Turismo' | 'Particular';
-};
+import type { Cliente } from '@/lib/types';
 
 const ITEMS_PER_PAGE = 8;
 
@@ -80,7 +73,7 @@ export default function ClientesPage() {
       await setDoc(docRef, { ...clienteData, id }, { merge: true });
       setIsFormOpen(false);
       setSelectedCliente(null);
-      toast({ title: "Cliente Guardado en la Nube" });
+      toast({ title: "Cliente Guardado" });
     } catch (e) {
       toast({ variant: "destructive", title: "Error al guardar cliente" });
     }
@@ -108,7 +101,7 @@ export default function ClientesPage() {
     <div className="page-container">
       <header>
         <h1 className="page-title">Cartera de Clientes</h1>
-        <p className="page-subtitle">Gestione la información de sus clientes en la nube de J&J Connect.</p>
+        <p className="page-subtitle">Gestione la información de sus clientes en la nube.</p>
       </header>
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
@@ -132,7 +125,7 @@ export default function ClientesPage() {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center p-20 gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm font-medium text-muted-foreground">Sincronizando clientes...</p>
+            <p className="text-sm font-medium text-muted-foreground">Cargando clientes...</p>
           </div>
         ) : (
           <>

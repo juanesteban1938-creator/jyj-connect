@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,8 +21,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { DollarSign, Wallet } from 'lucide-react';
-import type { Servicio } from '@/app/dashboard/servicios/page';
+import { DollarSign } from 'lucide-react';
+import type { Servicio } from '@/lib/types';
 import { useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 

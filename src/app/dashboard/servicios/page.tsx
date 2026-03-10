@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -20,7 +21,7 @@ import {
   MoreVertical,
   Loader2
 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { format, isValid } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -28,7 +29,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
-import { enviarNotificacionServicio } from '@/lib/whatsapp';
 import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { doc, setDoc, Timestamp, updateDoc, collection, onSnapshot, query } from 'firebase/firestore';
 import type { Servicio } from '@/lib/types';
@@ -53,7 +53,6 @@ export default function ServiciosPage() {
     if (v) setVehiculos(JSON.parse(v));
     if (c) setConductores(JSON.parse(c));
 
-    // CRÍTICO: No iniciar la escucha si no hay usuario autenticado para evitar token "custom" nulo
     if (!user || !db) return;
 
     setIsLoading(true);
@@ -64,12 +63,10 @@ export default function ServiciosPage() {
       q,
       (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Servicio[];
-        console.log('Firestore query SUCCESS (Servicios Page)');
         setServicios(data.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()));
         setIsLoading(false);
       },
       async (error) => {
-        console.error('[Servicios] Error de carga:', error);
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: servicesCol.path,
           operation: 'list'
@@ -128,6 +125,7 @@ export default function ServiciosPage() {
       costoOperacion: Number(formData.costoOperacion) || 0,
       notificacionEnviada: selected?.notificacionEnviada || false,
       notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false,
+      clienteIniciales: formData.nombreCliente.substring(0, 2).toUpperCase(),
     };
 
     const docRef = doc(db, 'services', servicioId);

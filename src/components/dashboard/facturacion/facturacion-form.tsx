@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,7 +22,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { DollarSign, Wallet } from 'lucide-react';
-import type { Servicio } from '@/app/dashboard/servicios/page';
+import type { Servicio } from '@/lib/types';
 import { useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -51,30 +52,11 @@ type Props = {
 };
 
 const bancosColombia = [
-  "Bancolombia",
-  "Banco de Bogotá",
-  "Davivienda",
-  "BBVA Colombia",
-  "Banco de Occidente",
-  "Banco Popular",
-  "Banco AV Villas",
-  "Itaú Corpbanca Colombia",
-  "Scotiabank Colpatria",
-  "GNB Sudameris",
-  "Banco Caja Social",
-  "Citibank Colombia",
-  "Banco Agrario de Colombia",
-  "Bancamía",
-  "Banco W",
-  "Bancoomeva",
-  "Banco Falabella",
-  "Banco Pichincha",
-  "Banco Serfinanza",
-  "RappiPay",
-  "Lulo Bank",
-  "Nequi",
+  "Bancolombia", "Banco de Bogotá", "Davivienda", "BBVA Colombia", "Banco de Occidente", "Banco Popular", "Banco AV Villas",
+  "Itaú Corpbanca Colombia", "Scotiabank Colpatria", "GNB Sudameris", "Banco Caja Social", "Citibank Colombia",
+  "Banco Agrario de Colombia", "Bancamía", "Banco W", "Bancoomeva", "Banco Falabella", "Banco Pichincha",
+  "Banco Serfinanza", "RappiPay", "Lulo Bank", "Nequi",
 ];
-
 
 export function FacturacionForm({ servicio, onSave, onCancel }: Props) {
   
@@ -228,5 +210,3 @@ export function FacturacionForm({ servicio, onSave, onCancel }: Props) {
     </Form>
   );
 }
-
-    

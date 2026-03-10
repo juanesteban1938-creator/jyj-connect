@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Cliente } from '@/app/dashboard/clientes/page';
+import type { Cliente } from '@/lib/types';
 import { useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
