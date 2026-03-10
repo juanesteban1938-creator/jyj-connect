@@ -1,29 +1,37 @@
 'use client';
 import {
-  Auth, // Import Auth type for type hinting
+  Auth,
   signInAnonymously,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  // Assume getAuth and app are initialized elsewhere
 } from 'firebase/auth';
 
-/** Initiate anonymous sign-in (non-blocking). */
-export function initiateAnonymousSignIn(authInstance: Auth): void {
-  // CRITICAL: Call signInAnonymously directly. Do NOT use 'await signInAnonymously(...)'.
-  signInAnonymously(authInstance);
-  // Code continues immediately. Auth state change is handled by onAuthStateChanged listener.
+/** 
+ * Inicia sesión anónima. 
+ * Se ha actualizado a async/await para garantizar que el token esté listo.
+ */
+export async function initiateAnonymousSignIn(authInstance: Auth): Promise<void> {
+  try {
+    await signInAnonymously(authInstance);
+  } catch (error) {
+    console.error("[Firebase Auth] Error initiateAnonymousSignIn:", error);
+  }
 }
 
-/** Initiate email/password sign-up (non-blocking). */
-export function initiateEmailSignUp(authInstance: Auth, email: string, password: string): void {
-  // CRITICAL: Call createUserWithEmailAndPassword directly. Do NOT use 'await createUserWithEmailAndPassword(...)'.
-  createUserWithEmailAndPassword(authInstance, email, password);
-  // Code continues immediately. Auth state change is handled by onAuthStateChanged listener.
+/** Inicia registro por email. */
+export async function initiateEmailSignUp(authInstance: Auth, email: string, password: string): Promise<void> {
+  try {
+    await createUserWithEmailAndPassword(authInstance, email, password);
+  } catch (error) {
+    console.error("[Firebase Auth] Error initiateEmailSignUp:", error);
+  }
 }
 
-/** Initiate email/password sign-in (non-blocking). */
-export function initiateEmailSignIn(authInstance: Auth, email: string, password: string): void {
-  // CRITICAL: Call signInWithEmailAndPassword directly. Do NOT use 'await signInWithEmailAndPassword(...)'.
-  signInWithEmailAndPassword(authInstance, email, password);
-  // Code continues immediately. Auth state change is handled by onAuthStateChanged listener.
+/** Inicia sesión por email. */
+export async function initiateEmailSignIn(authInstance: Auth, email: string, password: string): Promise<void> {
+  try {
+    await signInWithEmailAndPassword(authInstance, email, password);
+  } catch (error) {
+    console.error("[Firebase Auth] Error initiateEmailSignIn:", error);
+  }
 }
