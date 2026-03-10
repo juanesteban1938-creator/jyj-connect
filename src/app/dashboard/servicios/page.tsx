@@ -53,7 +53,7 @@ export default function ServiciosPage() {
     if (v) setVehiculos(JSON.parse(v));
     if (c) setConductores(JSON.parse(c));
 
-    // CRÍTICO: No iniciar la escucha si no hay usuario autenticado
+    // CRÍTICO: No iniciar la escucha si no hay usuario autenticado para evitar token "custom" nulo
     if (!user || !db) return;
 
     setIsLoading(true);

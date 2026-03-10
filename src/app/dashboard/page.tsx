@@ -20,7 +20,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useEffect, useState, useMemo } from 'react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, limit } from 'firebase/firestore';
 
 const StatCard = ({
@@ -57,11 +57,12 @@ export default function DashboardHomePage() {
   const [vehiculos, setVehiculos] = useState<any[]>([]);
   const [conductores, setConductores] = useState<any[]>([]);
   const db = useFirestore();
+  const { user } = useUser();
 
   const servicesQuery = useMemoFirebase(() => {
-    if (!db) return null;
+    if (!db || !user) return null;
     return query(collection(db, 'services'), limit(10));
-  }, [db]);
+  }, [db, user]);
 
   const { data: serviciosRaw, isLoading: isServicesLoading } = useCollection(servicesQuery);
   const servicios = serviciosRaw || [];
