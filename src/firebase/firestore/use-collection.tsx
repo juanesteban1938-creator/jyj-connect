@@ -9,6 +9,7 @@ import {
   QuerySnapshot,
   CollectionReference,
 } from 'firebase/firestore';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -50,36 +51,52 @@ export function useCollection<T = any>(
     setIsLoading(true);
     setError(null);
 
-    const unsubscribe = onSnapshot(
-      memoizedTargetRefOrQuery,
-      (snapshot: QuerySnapshot<DocumentData>) => {
-        const results: ResultItemType[] = [];
-        for (const doc of snapshot.docs) {
-          results.push({ ...(doc.data() as T), id: doc.id });
-        }
-        setData(results);
-        setError(null);
-        setIsLoading(false);
-      },
-      (error: FirestoreError) => {
-        const path: string =
-          memoizedTargetRefOrQuery.type === 'collection'
-            ? (memoizedTargetRefOrQuery as CollectionReference).path
-            : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString()
+    const auth = getAuth();
+    let unsubscribeSnapshot: (() => void) | undefined;
 
-        const contextualError = new FirestorePermissionError({
-          operation: 'list',
-          path,
-        })
-
-        setError(contextualError)
-        setData(null)
-        setIsLoading(false)
-        errorEmitter.emit('permission-error', contextualError);
+    // GARANTÍA: La consulta solo se ejecuta dentro del callback de estado de autenticación
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        console.log("[useCollection] Esperando autenticación...");
+        return;
       }
-    );
 
-    return () => unsubscribe();
+      console.log("[useCollection] Autenticación confirmada. Iniciando suscripción Firestore.");
+      
+      unsubscribeSnapshot = onSnapshot(
+        memoizedTargetRefOrQuery,
+        (snapshot: QuerySnapshot<DocumentData>) => {
+          const results: ResultItemType[] = [];
+          for (const doc of snapshot.docs) {
+            results.push({ ...(doc.data() as T), id: doc.id });
+          }
+          setData(results);
+          setError(null);
+          setIsLoading(false);
+        },
+        (err: FirestoreError) => {
+          const path: string =
+            memoizedTargetRefOrQuery.type === 'collection'
+              ? (memoizedTargetRefOrQuery as CollectionReference).path
+              : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString();
+
+          const contextualError = new FirestorePermissionError({
+            operation: 'list',
+            path,
+          });
+
+          setError(contextualError);
+          setData(null);
+          setIsLoading(false);
+          errorEmitter.emit('permission-error', contextualError);
+        }
+      );
+    });
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeSnapshot) unsubscribeSnapshot();
+    };
   }, [memoizedTargetRefOrQuery]);
 
   return { data, isLoading, error };

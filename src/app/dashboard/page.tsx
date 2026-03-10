@@ -65,7 +65,7 @@ export default function DashboardHomePage() {
     return query(collection(db, 'services'), limit(10));
   }, [db, user]);
 
-  const { data: serviciosRaw, isLoading: isServicesLoading, error } = useCollection(servicesQuery);
+  const { data: serviciosRaw, isLoading: isServicesLoading } = useCollection(servicesQuery);
   const servicios = serviciosRaw || [];
 
   useEffect(() => {
@@ -105,13 +105,6 @@ export default function DashboardHomePage() {
         <h1 className="page-title">Panel de Control</h1>
         <p className="page-subtitle">Gestión centralizada de Transportes Especiales J&J.</p>
       </header>
-
-      {error && (
-        <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg text-orange-800 text-[11px] font-bold flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-            CONECTANDO CON LA NUBE... SI EL ERROR PERSISTE, POR FAVOR REFRESCAR (F5).
-        </div>
-      )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
         <StatCard

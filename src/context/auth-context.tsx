@@ -8,7 +8,7 @@ import {
   useEffect,
   ReactNode,
 } from 'react';
-import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { signInAnonymously, onAuthStateChanged, signOut } from 'firebase/auth';
 import { initializeFirebase } from '@/firebase';
 
 type AuthContextType = {
@@ -29,23 +29,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { auth } = initializeFirebase();
     
-    // 1. Sincronizar estado local con localStorage
+    // Sincronizar estado local con localStorage
     const storedAuth = localStorage.getItem('isAuthenticated');
-    if (storedAuth === 'true') {
-      setIsAuthenticated(true);
-      
-      // 2. Asegurar sesión en Firebase si no existe
-      if (!auth.currentUser) {
-        signInAnonymously(auth).catch((err) => {
-          console.error("[Auth Context] Error sesión anónima automática:", err);
-        });
+    
+    const initSession = async () => {
+      if (storedAuth === 'true') {
+        setIsAuthenticated(true);
+        try {
+          // CRÍTICO: Limpiar sesión anterior potencialmente corrupta y forzar una nueva
+          await signOut(auth);
+          await signInAnonymously(auth);
+          console.log("[Auth Context] Sesión anónima renovada automáticamente.");
+        } catch (err) {
+          console.error("[Auth Context] Error al renovar sesión:", err);
+        }
       }
-    }
+    };
 
-    // 3. Listener de estado de autenticación
+    initSession();
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        console.log("[Auth Context] Firebase Auth sincronizado (UID):", user.uid);
+        console.log("[Auth Context] Firebase Auth ACTIVO (UID):", user.uid);
+      } else {
+        console.log("[Auth Context] Firebase Auth INACTIVO.");
       }
     });
 
@@ -54,20 +61,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, pass: string) => {
     if (email === CORRECT_EMAIL && pass === CORRECT_PASS) {
-      localStorage.setItem('isAuthenticated', 'true');
-      setIsAuthenticated(true);
-      
       const { auth } = initializeFirebase();
       try {
-        // CRÍTICO: Esperar a que la autenticación anónima se complete
-        // Esto evita que Firestore rechace las peticiones por falta de token válido.
+        // CRÍTICO: Forzar limpieza y nuevo login para evitar tokens 'custom'
+        await signOut(auth);
         await signInAnonymously(auth);
-        console.log("[Auth Context] Inicio de sesión anónimo exitoso.");
+        
+        localStorage.setItem('isAuthenticated', 'true');
+        setIsAuthenticated(true);
+        console.log("[Auth Context] Login exitoso y sesión anónima iniciada.");
         
         router.push('/dashboard');
         return true;
       } catch (err) {
-        console.error("[Auth Context] Error crítico al iniciar sesión anónima:", err);
+        console.error("[Auth Context] Fallo crítico en el proceso de login:", err);
         return false;
       }
     }
