@@ -47,15 +47,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, pass: string) => {
     const { auth } = initializeFirebase();
     try {
-      // Nota: El usuario solicitó explícitamente el flujo de credenciales.
-      // Se usa signInWithEmailAndPassword para validar el acceso del administrador.
-      await signInWithEmailAndPassword(auth, email, pass);
-      localStorage.setItem('isAuthenticated', 'true');
-      setIsAuthenticated(true);
-      router.push('/dashboard');
-      return true;
-    } catch (err) {
-      console.error("[Auth Context] Error de login:", err);
+      console.log("[Auth] Intentando acceso para:", email);
+      const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+      
+      if (userCredential.user) {
+        localStorage.setItem('isAuthenticated', 'true');
+        setIsAuthenticated(true);
+        console.log("[Auth] Acceso concedido.");
+        router.push('/dashboard');
+        return true;
+      }
+      return false;
+    } catch (err: any) {
+      console.error("[Auth Context] Error de login detallado:", err.code, err.message);
+      // Los errores comunes son 'auth/invalid-credential', 'auth/user-not-found', 'auth/wrong-password'
       return false;
     }
   };
