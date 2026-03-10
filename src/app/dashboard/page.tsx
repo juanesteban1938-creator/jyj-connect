@@ -20,7 +20,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useEffect, useState, useMemo } from 'react';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, limit } from 'firebase/firestore';
 
 const StatCard = ({
@@ -57,22 +57,14 @@ export default function DashboardHomePage() {
   const [vehiculos, setVehiculos] = useState<any[]>([]);
   const [conductores, setConductores] = useState<any[]>([]);
   const db = useFirestore();
-  const { user } = useUser();
 
   const servicesQuery = useMemoFirebase(() => {
-    // CRÍTICO: No ejecutar la consulta si no hay usuario autenticado
-    if (!db || !user) return null;
+    if (!db) return null;
     return query(collection(db, 'services'), limit(10));
-  }, [db, user]);
+  }, [db]);
 
   const { data: serviciosRaw, isLoading: isServicesLoading } = useCollection(servicesQuery);
   const servicios = serviciosRaw || [];
-
-  useEffect(() => {
-    if (serviciosRaw) {
-      console.log('Firestore query SUCCESS (Dashboard)');
-    }
-  }, [serviciosRaw]);
 
   useEffect(() => {
     const v = localStorage.getItem('vehiculos');

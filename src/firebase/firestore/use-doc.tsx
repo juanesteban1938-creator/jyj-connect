@@ -8,7 +8,6 @@ import {
   FirestoreError,
   DocumentSnapshot,
 } from 'firebase/firestore';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -40,42 +39,31 @@ export function useDoc<T = any>(
     setIsLoading(true);
     setError(null);
 
-    const auth = getAuth();
-    let unsubscribeSnapshot: (() => void) | undefined;
-
-    // GARANTÍA: La consulta solo se ejecuta dentro del callback de estado de autenticación
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      if (!user) return;
-
-      unsubscribeSnapshot = onSnapshot(
-        memoizedDocRef,
-        (snapshot: DocumentSnapshot<DocumentData>) => {
-          if (snapshot.exists()) {
-            setData({ ...(snapshot.data() as T), id: snapshot.id });
-          } else {
-            setData(null);
-          }
-          setError(null);
-          setIsLoading(false);
-        },
-        (err: FirestoreError) => {
-          const contextualError = new FirestorePermissionError({
-            operation: 'get',
-            path: memoizedDocRef.path,
-          });
-
-          setError(contextualError);
+    const unsubscribe = onSnapshot(
+      memoizedDocRef,
+      (snapshot: DocumentSnapshot<DocumentData>) => {
+        if (snapshot.exists()) {
+          setData({ ...(snapshot.data() as T), id: snapshot.id });
+        } else {
           setData(null);
-          setIsLoading(false);
-          errorEmitter.emit('permission-error', contextualError);
         }
-      );
-    });
+        setError(null);
+        setIsLoading(false);
+      },
+      (err: FirestoreError) => {
+        const contextualError = new FirestorePermissionError({
+          operation: 'get',
+          path: memoizedDocRef.path,
+        });
 
-    return () => {
-      unsubscribeAuth();
-      if (unsubscribeSnapshot) unsubscribeSnapshot();
-    };
+        setError(contextualError);
+        setData(null);
+        setIsLoading(false);
+        errorEmitter.emit('permission-error', contextualError);
+      }
+    );
+
+    return () => unsubscribe();
   }, [memoizedDocRef]);
 
   return { data, isLoading, error };

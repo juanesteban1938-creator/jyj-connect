@@ -8,7 +8,7 @@ import {
   useEffect,
   ReactNode,
 } from 'react';
-import { signInAnonymously, onAuthStateChanged, signOut } from 'firebase/auth';
+import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import { initializeFirebase } from '@/firebase';
 
 type AuthContextType = {
@@ -25,29 +25,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const { auth } = initializeFirebase();
-    
-    // Verificamos si el usuario ya estaba marcado como autenticado localmente
     const storedAuth = localStorage.getItem('isAuthenticated');
     
-    const initSession = async () => {
-      if (storedAuth === 'true') {
-        setIsAuthenticated(true);
-        try {
-          // CRÍTICO: Limpiar sesión anterior para purgar proveedores 'custom'
-          await signOut(auth);
-          await signInAnonymously(auth);
-          console.log("[Auth Context] Sesión purgada y renovada como anónima.");
-        } catch (err) {
-          console.error("[Auth Context] Error al purgar sesión:", err);
-        }
-      }
-    };
-
-    initSession();
+    if (storedAuth === 'true') {
+      setIsAuthenticated(true);
+    }
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        console.log("[Auth Context] Usuario activo (UID):", user.uid, "Provider:", user.providerData[0]?.providerId || 'anonymous');
+        setIsAuthenticated(true);
+        localStorage.setItem('isAuthenticated', 'true');
+      } else {
+        setIsAuthenticated(false);
+        localStorage.removeItem('isAuthenticated');
       }
     });
 
@@ -57,19 +47,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, pass: string) => {
     const { auth } = initializeFirebase();
     try {
-      // Forzamos limpieza absoluta
-      await signOut(auth);
-      // Iniciamos sesión anónima (único método permitido para evitar errores de Firestore)
-      await signInAnonymously(auth);
-      
+      // Nota: El usuario solicitó explícitamente el flujo de credenciales.
+      // Se usa signInWithEmailAndPassword para validar el acceso del administrador.
+      await signInWithEmailAndPassword(auth, email, pass);
       localStorage.setItem('isAuthenticated', 'true');
       setIsAuthenticated(true);
-      console.log("[Auth Context] Acceso concedido mediante sesión anónima pura.");
-      
       router.push('/dashboard');
       return true;
     } catch (err) {
-      console.error("[Auth Context] Fallo al iniciar sesión anónima:", err);
+      console.error("[Auth Context] Error de login:", err);
       return false;
     }
   };
@@ -77,10 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     localStorage.removeItem('isAuthenticated');
     setIsAuthenticated(false);
-    
     const { auth } = initializeFirebase();
     signOut(auth).catch(console.error);
-
     router.push('/login');
   };
 
