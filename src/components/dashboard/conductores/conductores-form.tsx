@@ -29,7 +29,7 @@ import { Calendar } from '@/components/jj-ui/calendar';
 import { CalendarIcon, Upload, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import type { Conductor } from '@/app/dashboard/conductores/page';
+import type { Conductor } from '@/lib/types';
 import { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';

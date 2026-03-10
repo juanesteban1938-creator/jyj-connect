@@ -29,7 +29,7 @@ import { Calendar } from '@/components/jj-ui/calendar';
 import { CalendarIcon, Car, ShieldCheck, Shield, Wrench, FileText, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import type { Vehiculo } from '@/app/dashboard/vehiculos/page';
+import type { Vehiculo } from '@/lib/types';
 import { useState, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';

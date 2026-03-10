@@ -22,18 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { VehiculoForm } from '@/components/dashboard/vehiculos/vehiculos-form';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-
-export type Vehiculo = {
-  id: string;
-  marca: string;
-  linea: string;
-  modelo: string;
-  tipoVehiculo: 'BUS' | 'BUSETA' | 'MICROBUS' | 'CAMIONETA' | 'OTRO';
-  capacidad: number;
-  placa: string;
-  vencimientoSoat?: string;
-  vencimientoTecnomecanica?: string;
-};
+import type { Vehiculo } from '@/lib/types';
 
 export default function VehiculosPage() {
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);

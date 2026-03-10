@@ -4,18 +4,17 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
-import { DollarSign, LineChart as LineChartIcon, CreditCard, Search, ArrowUp, ArrowDown } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { DollarSign, LineChart as LineChartIcon, CreditCard, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { RentabilidadForms } from '@/components/dashboard/rentabilidad/rentabilidad-forms';
 import { Badge } from '@/components/ui/badge';
+import type { Transaccion } from '@/lib/types';
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 });
-const COLORS = ['#F97316', '#10B981', '#3B82F6', '#6366F1'];
 
 export default function RentabilidadPage() {
-  const [transacciones, setTransacciones] = useState<any[]>([]);
+  const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {

@@ -39,19 +39,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { format, isBefore, addMonths } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-
-export type Conductor = {
-  id: string;
-  nombres: string;
-  apellidos: string;
-  cedula: string;
-  direccion: string;
-  barrio: string;
-  telefono: string;
-  categoriaLicencia: 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | 'C3';
-  vencimientoLicencia: string;
-  avatarUrl?: string;
-};
+import type { Conductor } from '@/lib/types';
 
 const ITEMS_PER_PAGE = 5;
 

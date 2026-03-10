@@ -1,4 +1,3 @@
-
 export type Servicio = {
   id: string;
   consecutivo: string;
