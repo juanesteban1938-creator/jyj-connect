@@ -19,9 +19,6 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const CORRECT_EMAIL = 'transportes.especialesjyj@gmail.com';
-const CORRECT_PASS = 'Kamus1938*';
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const router = useRouter();
@@ -29,19 +26,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { auth } = initializeFirebase();
     
-    // Sincronizar estado local con localStorage
+    // Verificamos si el usuario ya estaba marcado como autenticado localmente
     const storedAuth = localStorage.getItem('isAuthenticated');
     
     const initSession = async () => {
       if (storedAuth === 'true') {
         setIsAuthenticated(true);
         try {
-          // CRÍTICO: Limpiar sesión anterior potencialmente corrupta y forzar una nueva
+          // CRÍTICO: Limpiar sesión anterior para purgar proveedores 'custom'
           await signOut(auth);
           await signInAnonymously(auth);
-          console.log("[Auth Context] Sesión anónima renovada automáticamente.");
+          console.log("[Auth Context] Sesión purgada y renovada como anónima.");
         } catch (err) {
-          console.error("[Auth Context] Error al renovar sesión:", err);
+          console.error("[Auth Context] Error al purgar sesión:", err);
         }
       }
     };
@@ -50,9 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        console.log("[Auth Context] Firebase Auth ACTIVO (UID):", user.uid);
-      } else {
-        console.log("[Auth Context] Firebase Auth INACTIVO.");
+        console.log("[Auth Context] Usuario activo (UID):", user.uid, "Provider:", user.providerData[0]?.providerId || 'anonymous');
       }
     });
 
@@ -60,25 +55,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, pass: string) => {
-    if (email === CORRECT_EMAIL && pass === CORRECT_PASS) {
-      const { auth } = initializeFirebase();
-      try {
-        // CRÍTICO: Forzar limpieza y nuevo login para evitar tokens 'custom'
-        await signOut(auth);
-        await signInAnonymously(auth);
-        
-        localStorage.setItem('isAuthenticated', 'true');
-        setIsAuthenticated(true);
-        console.log("[Auth Context] Login exitoso y sesión anónima iniciada.");
-        
-        router.push('/dashboard');
-        return true;
-      } catch (err) {
-        console.error("[Auth Context] Fallo crítico en el proceso de login:", err);
-        return false;
-      }
+    const { auth } = initializeFirebase();
+    try {
+      // Forzamos limpieza absoluta
+      await signOut(auth);
+      // Iniciamos sesión anónima (único método permitido para evitar errores de Firestore)
+      await signInAnonymously(auth);
+      
+      localStorage.setItem('isAuthenticated', 'true');
+      setIsAuthenticated(true);
+      console.log("[Auth Context] Acceso concedido mediante sesión anónima pura.");
+      
+      router.push('/dashboard');
+      return true;
+    } catch (err) {
+      console.error("[Auth Context] Fallo al iniciar sesión anónima:", err);
+      return false;
     }
-    return false;
   };
 
   const logout = () => {
@@ -86,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticated(false);
     
     const { auth } = initializeFirebase();
-    auth.signOut().catch(console.error);
+    signOut(auth).catch(console.error);
 
     router.push('/login');
   };

@@ -2,36 +2,19 @@
 import {
   Auth,
   signInAnonymously,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
 } from 'firebase/auth';
 
 /** 
- * Inicia sesión anónima. 
- * Se ha actualizado a async/await para garantizar que el token esté listo.
+ * Inicia sesión anónima de forma exclusiva. 
+ * Se ha eliminado cualquier otro método de autenticación para evitar tokens 'custom'.
  */
 export async function initiateAnonymousSignIn(authInstance: Auth): Promise<void> {
   try {
+    // Forzamos el cierre de cualquier sesión previa antes de iniciar la nueva
+    await authInstance.signOut();
     await signInAnonymously(authInstance);
+    console.log("[Firebase Auth] Sesión anónima iniciada correctamente.");
   } catch (error) {
     console.error("[Firebase Auth] Error initiateAnonymousSignIn:", error);
-  }
-}
-
-/** Inicia registro por email. */
-export async function initiateEmailSignUp(authInstance: Auth, email: string, password: string): Promise<void> {
-  try {
-    await createUserWithEmailAndPassword(authInstance, email, password);
-  } catch (error) {
-    console.error("[Firebase Auth] Error initiateEmailSignUp:", error);
-  }
-}
-
-/** Inicia sesión por email. */
-export async function initiateEmailSignIn(authInstance: Auth, email: string, password: string): Promise<void> {
-  try {
-    await signInWithEmailAndPassword(authInstance, email, password);
-  } catch (error) {
-    console.error("[Firebase Auth] Error initiateEmailSignIn:", error);
   }
 }
