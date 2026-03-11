@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -27,7 +28,7 @@ import {
 } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/jj-ui/calendar';
-import { Calendar as CalendarIcon, User, Briefcase, MapPin, Clock, Loader2, DollarSign } from 'lucide-react';
+import { Calendar as CalendarIcon, User, Briefcase, MapPin, Clock, Loader2, DollarSign, Mail } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { useState, useEffect } from 'react';
@@ -159,15 +160,18 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                     <Briefcase className="h-5 w-5 text-primary"/>
                     <h3 className="text-lg font-semibold">Información del Cliente</h3>
                 </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <FormField name="nombreCliente" control={form.control} render={({ field }) => (
-                        <FormItem className="sm:col-span-3"><FormLabel>Nombre del Cliente</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem className="lg:col-span-2"><FormLabel>Nombre del Cliente</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField name="nitCliente" control={form.control} render={({ field }) => (
                         <FormItem><FormLabel>NIT / Cédula</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField name="telefonoCliente" control={form.control} render={({ field }) => (
                         <FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField name="emailCliente" control={form.control} render={({ field }) => (
+                        <FormItem className="lg:col-span-2"><FormLabel>Correo Electrónico</FormLabel><FormControl><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input className="pl-9" placeholder="correo@ejemplo.com" {...field} /></div></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
             </div>
