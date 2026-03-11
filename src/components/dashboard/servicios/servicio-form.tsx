@@ -265,7 +265,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                     <FormItem><FormLabel>Origen</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                  )} />
                  <FormField name="direccionDestino" control={form.control} render={({ field }) => (
-                    <FormItem><FormLabel>Destino</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormMessage>
+                    <FormItem><FormLabel>Destino</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                  )} />
             </div>
 
