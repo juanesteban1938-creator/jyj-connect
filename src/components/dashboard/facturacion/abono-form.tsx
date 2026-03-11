@@ -21,10 +21,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { DollarSign } from 'lucide-react';
+import { DollarSign, Wallet, Landmark, Hash } from 'lucide-react';
 import type { Servicio } from '@/lib/types';
 import { useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 
 const formSchema = z.object({
   valorAbono: z.coerce.number().positive('El valor del abono debe ser mayor a cero'),
@@ -87,22 +88,28 @@ export function AbonoForm({ servicio, onSave, onCancel }: Props) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="space-y-4 p-1">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="space-y-6 p-1">
+            <div className="flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-bold uppercase tracking-tight">Registro de Pago</h3>
+            </div>
+            <Separator className="bg-primary/20" />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <FormItem>
-                    <FormLabel>Saldo Anterior</FormLabel>
+                    <FormLabel>Saldo Actual Pendiente</FormLabel>
                     <div className="relative">
                         <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input type="text" readOnly disabled className="pl-9 font-semibold text-red-600" value={currencyFormatter.format(saldoAnterior)} />
+                        <Input type="text" readOnly disabled className="pl-9 font-bold text-red-600 bg-muted" value={currencyFormatter.format(saldoAnterior)} />
                     </div>
                 </FormItem>
                 <FormField name="valorAbono" control={form.control} render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Valor del Abono</FormLabel>
+                        <FormLabel>Valor del Nuevo Abono</FormLabel>
                         <FormControl>
                             <div className="relative">
-                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input type="number" className="pl-9" placeholder="0.00" {...field} />
+                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
+                                <Input type="number" className="pl-9 font-bold border-primary" placeholder="0.00" {...field} />
                             </div>
                         </FormControl>
                         <FormMessage />
@@ -110,43 +117,43 @@ export function AbonoForm({ servicio, onSave, onCancel }: Props) {
                 )} />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <FormField name="metodoPago" control={form.control} render={({ field }) => (
                     <FormItem>
                         <FormLabel>Método de Pago</FormLabel>
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Seleccione método" /></SelectTrigger></FormControl>
                             <SelectContent>
                                 <SelectItem value="Efectivo">Pago en Efectivo</SelectItem>
-                                <SelectItem value="Transferencia">Transferencia</SelectItem>
+                                <SelectItem value="Transferencia">Transferencia Bancaria</SelectItem>
                             </SelectContent>
                         </Select>
                         <FormMessage />
                     </FormItem>
                 )} />
                 <FormItem>
-                    <FormLabel>Nuevo Saldo</FormLabel>
+                    <FormLabel>Saldo Restante</FormLabel>
                     <div className="relative">
                         <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input type="text" readOnly disabled className="pl-9 font-semibold" value={currencyFormatter.format(nuevoSaldo)} />
+                        <Input type="text" readOnly disabled className="pl-9 font-bold bg-muted" value={currencyFormatter.format(Math.max(0, nuevoSaldo))} />
                     </div>
                  </FormItem>
             </div>
             
             {metodoPago === 'Transferencia' && (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/10 p-4 rounded-lg border border-dashed">
                     <FormField name="numeroComprobante" control={form.control} render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Número de Comprobante</FormLabel>
-                            <FormControl><Input placeholder="Ej. 12345678" {...field} value={field.value ?? ''} /></FormControl>
+                            <FormLabel className="text-xs">Número de Comprobante / Ref</FormLabel>
+                            <FormControl><div className="relative"><Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground"/><Input placeholder="Ej. 123456" className="pl-9" {...field} value={field.value ?? ''} /></div></FormControl>
                             <FormMessage />
                         </FormItem>
                     )} />
                     <FormField name="banco" control={form.control} render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Banco</FormLabel>
+                            <FormLabel className="text-xs">Banco de Destino</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un banco..." /></SelectTrigger></FormControl>
+                                <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Seleccione banco" /></SelectTrigger></FormControl>
                                 <SelectContent>
                                     <ScrollArea className="h-48">
                                     {bancosColombia.map(banco => (
@@ -161,9 +168,9 @@ export function AbonoForm({ servicio, onSave, onCancel }: Props) {
                 </div>
             )}
         </div>
-        <div className="flex justify-end gap-2 pt-4">
+        <div className="flex justify-end gap-3 pt-6 border-t">
             <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
-            <Button type="submit">Guardar Abono</Button>
+            <Button type="submit" className="min-w-[150px] font-bold">Registrar Abono</Button>
         </div>
       </form>
     </Form>

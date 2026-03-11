@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,7 +27,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/jj-ui/calendar';
-import { CalendarIcon, Car, ShieldCheck, Shield, Wrench, FileText, Users } from 'lucide-react';
+import { CalendarIcon, Car, ShieldCheck, Shield, Wrench, FileText, Users, Tag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import type { Vehiculo } from '@/lib/types';
@@ -76,7 +77,7 @@ const DatePickerField = ({ name, control, label }: { name: any, control: any, la
                                     variant={'outline'}
                                     type="button"
                                     className={cn(
-                                        'w-full pl-3 text-left font-normal',
+                                        'w-full pl-3 text-left font-normal h-10',
                                         !field.value && 'text-muted-foreground'
                                     )}
                                 >
@@ -92,8 +93,6 @@ const DatePickerField = ({ name, control, label }: { name: any, control: any, la
                         <PopoverContent
                             className="w-auto p-0"
                             align="start"
-                            onInteractOutside={(e) => e.preventDefault()}
-                            onPointerDownOutside={(e) => e.preventDefault()}
                         >
                             <Calendar
                                 mode="single"
@@ -178,32 +177,31 @@ export function VehiculoForm({ vehiculo, onSave, onCancel }: Props) {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <ScrollArea className="h-[70vh] w-full">
-         <div className="space-y-6 p-1">
+         <div className="space-y-8 p-1">
+            {/* Datos Generales */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <Car className="h-5 w-5 text-primary"/>
-                    <h3 className="text-lg font-semibold">Datos Generales</h3>
+                    <h3 className="text-lg font-bold uppercase tracking-tight">Información Técnica del Vehículo</h3>
                 </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <Separator className="bg-primary/20" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <FormField name="marca" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Marca</FormLabel><FormControl><Input placeholder="Ej: Chevrolet" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Marca</FormLabel><FormControl><Input placeholder="Ej. Chevrolet" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField name="linea" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Línea</FormLabel><FormControl><Input placeholder="Ej: NHR" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Línea / Referencia</FormLabel><FormControl><Input placeholder="Ej. NHR" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField name="modelo" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Modelo (Año)</FormLabel><FormControl><Input placeholder="Ej: 2024" type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Modelo (Año)</FormLabel><FormControl><Input placeholder="2024" type="number" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
-                </div>
-                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    
                     <FormField name="tipoVehiculo" control={form.control} render={({ field }) => (
                         <FormItem>
                             <FormLabel>Tipo de Vehículo</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                    {['BUS', 'BUSETA', 'MICROBUS', 'CAMIONETA', 'OTRO'].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                                </SelectContent>
+                                <SelectContent>{['BUS', 'BUSETA', 'MICROBUS', 'CAMIONETA', 'OTRO'].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                             </Select>
                             <FormMessage />
                         </FormItem>
@@ -212,70 +210,62 @@ export function VehiculoForm({ vehiculo, onSave, onCancel }: Props) {
                         <FormItem><FormLabel>Capacidad (Pasajeros)</FormLabel><FormControl><div className="relative"><Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" placeholder="0" {...field} /></div></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField name="placa" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Placa</FormLabel><FormControl><Input placeholder="XXX-000" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Placa (Matrícula)</FormLabel><FormControl><div className="relative"><Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="XXX-000" className="pl-9 font-bold uppercase" {...field} /></div></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
             </div>
 
-            <Separator />
-            
+            {/* Documentación */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <FileText className="h-5 w-5 text-primary"/>
-                    <h3 className="text-lg font-semibold">Documentación y Vencimientos</h3>
+                    <h3 className="text-lg font-bold uppercase tracking-tight">Vencimientos y Seguros</h3>
                 </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    <Card>
-                        <CardHeader className="flex-row items-center gap-2 space-y-0 p-4"><ShieldCheck className="h-5 w-5 text-green-600"/><CardTitle className="text-base">SOAT</CardTitle></CardHeader>
-                        <CardContent className="space-y-4 p-4 pt-0">
+                <Separator className="bg-primary/20" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <Card className="shadow-sm border-muted">
+                        <CardHeader className="flex-row items-center gap-2 space-y-0 p-3 bg-muted/5"><ShieldCheck className="h-4 w-4 text-green-600"/><CardTitle className="text-sm font-bold uppercase">SOAT</CardTitle></CardHeader>
+                        <CardContent className="space-y-4 p-4">
                             <FormField name="numeroPolizaSoat" control={form.control} render={({ field }) => (
-                                <FormItem><FormLabel>Número de Póliza</FormLabel><FormControl><Input placeholder="Ej: 123456789" {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem><FormLabel className="text-xs">Número de Póliza</FormLabel><FormControl><Input placeholder="123456789" className="h-9" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
-                            <DatePickerField name="vencimientoSoat" control={form.control} label="Fecha Vencimiento" />
+                            <DatePickerField name="vencimientoSoat" control={form.control} label="Vencimiento" />
                         </CardContent>
                     </Card>
-                    <Card>
-                        <CardHeader className="flex-row items-center gap-2 space-y-0 p-4"><Shield className="h-5 w-5 text-blue-600"/><CardTitle className="text-base">Póliza RCC</CardTitle></CardHeader>
-                        <CardContent className="space-y-4 p-4 pt-0">
+                    <Card className="shadow-sm border-muted">
+                        <CardHeader className="flex-row items-center gap-2 space-y-0 p-3 bg-muted/5"><Shield className="h-4 w-4 text-blue-600"/><CardTitle className="text-sm font-bold uppercase">Póliza RCC</CardTitle></CardHeader>
+                        <CardContent className="space-y-4 p-4">
                             <FormField name="numeroPolizaRcc" control={form.control} render={({ field }) => (
-                                <FormItem><FormLabel>Número de Póliza</FormLabel><FormControl><Input placeholder="Ej: RCC-001" {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem><FormLabel className="text-xs">Número de Póliza</FormLabel><FormControl><Input placeholder="RCC-001" className="h-9" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
-                            <DatePickerField name="vencimientoRcc" control={form.control} label="Fecha Vencimiento" />
+                            <DatePickerField name="vencimientoRcc" control={form.control} label="Vencimiento" />
                         </CardContent>
                     </Card>
-                    <Card>
-                        <CardHeader className="flex-row items-center gap-2 space-y-0 p-4"><Shield className="h-5 w-5 text-blue-600"/><CardTitle className="text-base">Póliza RCE</CardTitle></CardHeader>
-                        <CardContent className="space-y-4 p-4 pt-0">
+                    <Card className="shadow-sm border-muted">
+                        <CardHeader className="flex-row items-center gap-2 space-y-0 p-3 bg-muted/5"><Shield className="h-4 w-4 text-blue-600"/><CardTitle className="text-sm font-bold uppercase">Póliza RCE</CardTitle></CardHeader>
+                        <CardContent className="space-y-4 p-4">
                             <FormField name="numeroPolizaRce" control={form.control} render={({ field }) => (
-                                <FormItem><FormLabel>Número de Póliza</FormLabel><FormControl><Input placeholder="Ej: RCE-001" {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem><FormLabel className="text-xs">Número de Póliza</FormLabel><FormControl><Input placeholder="RCE-001" className="h-9" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
-                            <DatePickerField name="vencimientoRce" control={form.control} label="Fecha Vencimiento" />
+                            <DatePickerField name="vencimientoRce" control={form.control} label="Vencimiento" />
                         </CardContent>
                     </Card>
-                    <Card>
-                        <CardHeader className="flex-row items-center gap-2 space-y-0 p-4"><Wrench className="h-5 w-5 text-gray-600"/><CardTitle className="text-base">Tecnomecánica</CardTitle></CardHeader>
-                        <CardContent className="space-y-4 p-4 pt-0">
-                             <DatePickerField name="vencimientoTecnomecanica" control={form.control} label="Fecha Vencimiento" />
-                        </CardContent>
+                    <Card className="shadow-sm border-muted">
+                        <CardHeader className="flex-row items-center gap-2 space-y-0 p-3 bg-muted/5"><Wrench className="h-4 w-4 text-gray-600"/><CardTitle className="text-sm font-bold uppercase">Tecnomecánica</CardTitle></CardHeader>
+                        <CardContent className="p-4"><DatePickerField name="vencimientoTecnomecanica" control={form.control} label="Vencimiento Certificado" /></CardContent>
                     </Card>
-                    <Card>
-                        <CardHeader className="flex-row items-center gap-2 space-y-0 p-4"><FileText className="h-5 w-5 text-purple-600"/><CardTitle className="text-base">Tarjeta de Operación</CardTitle></CardHeader>
-                        <CardContent className="space-y-4 p-4 pt-0">
-                            <DatePickerField name="vencimientoTarjetaOperacion" control={form.control} label="Fecha Vencimiento" />
-                        </CardContent>
+                    <Card className="shadow-sm border-muted">
+                        <CardHeader className="flex-row items-center gap-2 space-y-0 p-3 bg-muted/5"><FileText className="h-4 w-4 text-purple-600"/><CardTitle className="text-sm font-bold uppercase">Tarjeta Operación</CardTitle></CardHeader>
+                        <CardContent className="p-4"><DatePickerField name="vencimientoTarjetaOperacion" control={form.control} label="Vencimiento Tarjeta" /></CardContent>
                     </Card>
                 </div>
             </div>
         </div>
       </ScrollArea>
 
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel}>
-            Cancelar
-        </Button>
-        <Button type="submit">
-          Guardar Vehículo
-        </Button>
+      <div className="flex justify-end gap-3 pt-6 border-t">
+        <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
+        <Button type="submit" className="min-w-[150px] font-bold">Guardar Vehículo</Button>
       </div>
       </form>
     </Form>

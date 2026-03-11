@@ -24,6 +24,8 @@ import {
 import type { Cliente } from '@/lib/types';
 import { useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { User, Mail, Phone, Building2 } from 'lucide-react';
 
 const formSchema = z.object({
   razonSocial: z.string().min(1, 'La razón social es requerida'),
@@ -80,106 +82,109 @@ export function ClienteForm({ cliente, onSave, onCancel }: Props) {
   
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <ScrollArea className="h-[60vh] w-full pr-4">
-         <div className="space-y-4 p-1">
-          <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
+         <div className="space-y-8 p-1">
+          {/* Identificación del Cliente */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-bold uppercase tracking-tight">Identificación Legal</h3>
+            </div>
+            <Separator className="bg-primary/20" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <FormField
                 control={form.control}
                 name="razonSocial"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="md:col-span-3">
                     <FormLabel>Razón Social / Nombre Completo</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ej. Tecnologías del Sur S.A.S" {...field} />
-                    </FormControl>
+                    <FormControl><Input placeholder="Ej. Tecnologías del Sur S.A.S" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </div>
-             <FormField
+              <FormField
                 control={form.control}
                 name="nit"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>NIT / Documento de Identidad</FormLabel>
+                  <FormItem className="md:col-span-1">
+                    <FormLabel>NIT / Documento Identidad</FormLabel>
+                    <FormControl><Input placeholder="900.123.456-1" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="tipo"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-1">
+                    <FormLabel>Tipo de Cliente</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Seleccione tipo" /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        {['Institucional', 'Corporativo', 'ONG', 'Turismo', 'Particular'].map((cat) => (
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+
+          {/* Datos de Contacto */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+                <User className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-bold uppercase tracking-tight">Contacto Directo</h3>
+            </div>
+            <Separator className="bg-primary/20" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <FormField
+                control={form.control}
+                name="telefono"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-1">
+                    <FormLabel>Número Telefónico</FormLabel>
                     <FormControl>
-                      <Input placeholder="900.123.456-1" {...field} />
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input placeholder="+57 300 123 4567" className="pl-9" {...field} />
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            <FormField
-              control={form.control}
-              name="tipo"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tipo de Cliente</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                    value={field.value}
-                  >
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-3">
+                    <FormLabel>Correo Electrónico (Facturación)</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccione un tipo" />
-                      </SelectTrigger>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input placeholder="cliente@correo.com" className="pl-9" {...field} />
+                      </div>
                     </FormControl>
-                    <SelectContent>
-                      {['Institucional', 'Corporativo', 'ONG', 'Turismo', 'Particular'].map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {cat}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="sm:col-span-2">
-               <h3 className="font-bold text-sm uppercase text-primary tracking-widest mt-2">Información de Contacto</h3>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
-             <FormField
-              control={form.control}
-              name="telefono"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Número de Teléfono</FormLabel>
-                  <FormControl>
-                    <Input placeholder="+57 300 123 4567" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Correo Electrónico (Para envío de CxC)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="cliente@correo.com" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
           </div>
         </div>
       </ScrollArea>
 
-       <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button type="button" variant="ghost" onClick={onCancel}>
-              Cancelar
-          </Button>
-          <Button type="submit" className="w-full sm:w-auto">
-            {cliente ? 'Guardar Cambios' : 'Crear Cliente'}
+       <div className="flex justify-end gap-3 pt-6 border-t">
+          <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
+          <Button type="submit" className="min-w-[150px] font-bold uppercase tracking-wide">
+            {cliente ? 'Actualizar Cliente' : 'Crear Cliente'}
           </Button>
        </div>
       </form>

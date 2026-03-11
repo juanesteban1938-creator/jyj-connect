@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,7 +27,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/jj-ui/calendar';
-import { CalendarIcon, Upload, User } from 'lucide-react';
+import { CalendarIcon, Upload, User, IdCard, MapPin, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import type { Conductor } from '@/lib/types';
@@ -122,215 +123,112 @@ export function ConductorForm({ conductor, onSave }: Props) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <ScrollArea className="h-[60vh] w-full">
-         <div className="space-y-4 p-1">
-          <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="nombres"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nombres</FormLabel>
-                  <FormControl>
-                    <Input placeholder="John" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="apellidos"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Apellidos</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Doe" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <ScrollArea className="h-[70vh] w-full pr-4">
+         <div className="space-y-8 p-1">
+          {/* Foto de Perfil */}
+          <div className="flex flex-col items-center gap-4">
+              <Avatar className="h-28 w-28 border-4 border-primary/20 shadow-md">
+                <AvatarImage src={avatarPreview || ''} alt="Avatar" />
+                <AvatarFallback className="bg-muted"><User className="h-12 w-12 text-muted-foreground" /></AvatarFallback>
+              </Avatar>
+              <div className="relative">
+                  <Button asChild variant="outline" size="sm" className="cursor-pointer">
+                    <label htmlFor="avatar-upload" className="flex items-center gap-2 cursor-pointer">
+                      <Upload className="h-4 w-4" /> Subir Fotografía
+                    </label>
+                  </Button>
+                  <input id="avatar-upload" type="file" className="sr-only" accept="image/*" onChange={handleAvatarChange} />
+              </div>
+          </div>
 
-            <div className="sm:col-span-2">
-              <FormField
-                control={form.control}
-                name="cedula"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Número de Cédula</FormLabel>
-                    <FormControl>
-                      <Input placeholder="123456789" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          {/* Información Personal */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+                <User className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-bold uppercase tracking-tight">Datos Personales</h3>
             </div>
-
-            <div className="sm:col-span-2">
-              <FormField
-                control={form.control}
-                name="direccion"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Dirección de Residencia</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Calle 123 #45-67" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <Separator className="bg-primary/20" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField control={form.control} name="nombres" render={({ field }) => (
+                <FormItem><FormLabel>Nombres</FormLabel><FormControl><Input placeholder="Ej. John" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="apellidos" render={({ field }) => (
+                <FormItem><FormLabel>Apellidos</FormLabel><FormControl><Input placeholder="Ej. Doe" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="cedula" render={({ field }) => (
+                <FormItem className="md:col-span-1"><FormLabel>Número de Cédula</FormLabel><FormControl><div className="relative"><IdCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/><Input placeholder="123456789" className="pl-9" {...field} /></div></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="telefono" render={({ field }) => (
+                <FormItem className="md:col-span-1"><FormLabel>Número de Teléfono</FormLabel><FormControl><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/><Input placeholder="300 123 4567" className="pl-9" {...field} /></div></FormControl><FormMessage /></FormItem>
+              )} />
             </div>
+          </div>
 
-            <FormField
-              control={form.control}
-              name="barrio"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Barrio</FormLabel>
-                  <FormControl>
-                    <Input placeholder="El Poblado" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          {/* Residencia */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-bold uppercase tracking-tight">Información de Residencia</h3>
+            </div>
+            <Separator className="bg-primary/20" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <FormField control={form.control} name="direccion" render={({ field }) => (
+                <FormItem className="md:col-span-3"><FormLabel>Dirección Completa</FormLabel><FormControl><Input placeholder="Calle 123 #45-67" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="barrio" render={({ field }) => (
+                <FormItem className="md:col-span-1"><FormLabel>Barrio</FormLabel><FormControl><Input placeholder="Ej. El Poblado" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+            </div>
+          </div>
 
-            <FormField
-              control={form.control}
-              name="telefono"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Número de Teléfono</FormLabel>
-                  <FormControl>
-                    <Input placeholder="3001234567" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="categoriaLicencia"
-              render={({ field }) => (
+          {/* Licencia */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+                <IdCard className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-bold uppercase tracking-tight">Licencia de Conducción</h3>
+            </div>
+            <Separator className="bg-primary/20" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField control={form.control} name="categoriaLicencia" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Categoría de Licencia</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                    value={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccione una categoría" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {['A2', 'B1', 'B2', 'C1', 'C2', 'C3'].map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {cat}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Seleccione categoría" /></SelectTrigger></FormControl>
+                    <SelectContent>{['A2', 'B1', 'B2', 'C1', 'C2', 'C3'].map((cat) => (<SelectItem key={cat} value={cat}>{cat}</SelectItem>))}</SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="vencimientoLicencia"
-              render={({ field }) => (
+              )} />
+              <FormField control={form.control} name="vencimientoLicencia" render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel className="mb-1.5">Vencimiento Licencia</FormLabel>
+                  <FormLabel className="mb-1.5">Vencimiento de Licencia</FormLabel>
                    <Popover modal={true} open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                     <PopoverTrigger asChild>
                       <FormControl>
-                        <Button
-                          variant={'outline'}
-                          type="button"
-                          className={cn(
-                            'w-full pl-3 text-left font-normal',
-                            !field.value && 'text-muted-foreground'
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, 'dd/MM/yyyy')
-                          ) : (
-                            <span>Seleccione una fecha</span>
-                          )}
+                        <Button variant={'outline'} type="button" className={cn('w-full pl-3 text-left font-normal h-10', !field.value && 'text-muted-foreground')}>
+                          {field.value ? format(field.value, 'dd/MM/yyyy') : <span>Seleccione fecha</span>}
                           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
-                    <PopoverContent
-                      className="w-auto p-0"
-                      align="start"
-                      onInteractOutside={(e) => e.preventDefault()}
-                      onPointerDownOutside={(e) => e.preventDefault()}
-                    >
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={(date) => {
-                           if (date) {
-                            field.onChange(date);
-                            setIsCalendarOpen(false);
-                           }
-                        }}
-                        disabled={(date) => date < new Date('1900-01-01')}
-                        initialFocus
-                      />
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={field.value} onSelect={(date) => { if (date) { field.onChange(date); setIsCalendarOpen(false); } }} disabled={(date) => date < new Date('1900-01-01')} initialFocus />
                     </PopoverContent>
                   </Popover>
                   <FormMessage />
                 </FormItem>
-              )}
-            />
-          </div>
-          
-          <Separator className="my-4 sm:col-span-2" />
-
-          <div className="sm:col-span-2">
-            <FormField
-              control={form.control}
-              name="avatarUrl"
-              render={({ field }) => (
-                <FormItem className="flex flex-col items-center gap-2">
-                  <FormLabel className="text-center font-semibold">Foto del Conductor</FormLabel>
-                  <Avatar className="h-24 w-24">
-                    <AvatarImage src={avatarPreview || ''} alt="Avatar de conductor" />
-                    <AvatarFallback>
-                      <User className="h-10 w-10 text-muted-foreground" />
-                    </AvatarFallback>
-                  </Avatar>
-                  <FormControl>
-                    <div className="relative">
-                      <Button asChild variant="outline">
-                        <label htmlFor="avatar-upload" className="cursor-pointer">
-                          <Upload className="mr-2 h-4 w-4" />
-                          Subir Foto
-                        </label>
-                      </Button>
-                      <input id="avatar-upload" type="file" className="sr-only" accept="image/*" onChange={handleAvatarChange} />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              )} />
+            </div>
           </div>
         </div>
       </ScrollArea>
 
-        <Button type="submit" className="w-full">
-          Guardar Conductor
-        </Button>
+        <div className="flex justify-end gap-3 pt-6 border-t">
+          <Button type="submit" className="w-full h-11 text-base font-bold">
+            {conductor ? 'Actualizar Información' : 'Registrar Conductor'}
+          </Button>
+        </div>
       </form>
     </Form>
   );
