@@ -42,6 +42,7 @@ export default function ServiciosPage() {
   const [activeTab, setActiveTab] = useState('activos');
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isResumenOpen, setIsResumenOpen] = useState(false);
   const [selected, setSelected] = useState<Servicio | null>(null);
@@ -97,7 +98,7 @@ export default function ServiciosPage() {
     if (result.success) {
       toast({ title: "Notificación enviada", description: "El cliente ha sido notificado por Nova." });
       const docRef = doc(db, 'services', s.id);
-      updateDoc(docRef, { notificacionEnviada: true }).catch(() => {});
+      await updateDoc(docRef, { notificacionEnviada: true }).catch(() => {});
     } else {
       toast({ variant: "destructive", title: "Error Nova", description: result.error || "No se pudo enviar el WhatsApp." });
     }
@@ -108,22 +109,23 @@ export default function ServiciosPage() {
     setIsFormOpen(true);
   };
 
-  const handleUpdateEstado = (id: string, nuevoEstado: Servicio['estado']) => {
+  const handleUpdateEstado = async (id: string, nuevoEstado: Servicio['estado']) => {
     const docRef = doc(db, 'services', id);
-    updateDoc(docRef, { estado: nuevoEstado })
-      .then(() => {
-        toast({ title: `Servicio ${nuevoEstado}` });
-      })
-      .catch(async (error) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: docRef.path,
-          operation: 'update',
-          requestResourceData: { estado: nuevoEstado }
-        }));
-      });
+    try {
+      await updateDoc(docRef, { estado: nuevoEstado });
+      toast({ title: `Servicio ${nuevoEstado}` });
+    } catch (error) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'update',
+        requestResourceData: { estado: nuevoEstado }
+      }));
+      toast({ variant: "destructive", title: "Error al actualizar estado" });
+    }
   };
 
   const handleSave = async (formData: any) => {
+    setIsSaving(true);
     try {
       const esNuevo = !selected || !selected.id;
       const servicioId = esNuevo ? String(Date.now()) : selected.id;
@@ -159,25 +161,21 @@ export default function ServiciosPage() {
         clienteIniciales: formData.nombreCliente.substring(0, 2).toUpperCase(),
       };
 
-      setIsFormOpen(false);
       const docRef = doc(db, 'services', servicioId);
-      setDoc(docRef, payload, { merge: true })
-        .then(() => {
-          if (esNuevo) {
-            handleEnviarWhatsApp(payload);
-          }
-          toast({ title: esNuevo ? "Servicio Programado" : "Servicio Actualizado" });
-        })
-        .catch(async (error) => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'write',
-            requestResourceData: payload
-          }));
-        });
+      await setDoc(docRef, payload, { merge: true });
+      
+      if (esNuevo) {
+        await handleEnviarWhatsApp(payload);
+      }
+      
+      toast({ title: esNuevo ? "Servicio Programado" : "Servicio Actualizado" });
+      setIsFormOpen(false);
+      setSelected(null);
     } catch (e) {
       console.error("Error al guardar servicio:", e);
       toast({ variant: "destructive", title: "Error al procesar el servicio" });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -269,11 +267,18 @@ export default function ServiciosPage() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={isFormOpen} onOpenChange={o => { setIsFormOpen(o); if(!o) setSelected(null); }}>
+      <Dialog open={isFormOpen} onOpenChange={o => { if(!isSaving) { setIsFormOpen(o); if(!o) setSelected(null); } }}>
         <DialogContent className="sm:max-w-4xl">
           <VisuallyHidden><DialogHeader><DialogTitle>Programar Servicio</DialogTitle></DialogHeader></VisuallyHidden>
           <DialogHeader><DialogTitle className="text-2xl font-bold">{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader>
-          <ServicioForm servicio={selected} onSave={handleSave} onCancel={() => setIsFormOpen(false)} conductores={conductores} vehiculos={vehiculos} />
+          <ServicioForm 
+            servicio={selected} 
+            onSave={handleSave} 
+            onCancel={() => setIsFormOpen(false)} 
+            conductores={conductores} 
+            vehiculos={vehiculos} 
+            isSaving={isSaving}
+          />
         </DialogContent>
       </Dialog>
 

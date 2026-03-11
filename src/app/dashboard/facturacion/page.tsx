@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -5,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, DollarSign, TrendingUp, AlertTriangle, FileText, MoreHorizontal, CheckCircle, Mail, Edit } from 'lucide-react';
+import { Search, DollarSign, TrendingUp, AlertTriangle, FileText, MoreHorizontal, CheckCircle, Mail, Edit, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -27,12 +28,12 @@ export default function FacturacionPage() {
   const [isFacturaOpen, setIsFacturaOpen] = useState(false);
   const [isAbonoOpen, setIsAbonoOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
   const { user } = useUser();
 
   useEffect(() => {
-    // CRÍTICO: No iniciar la escucha si no hay usuario autenticado
     if (!user) return;
 
     const servicesCol = collection(db, 'services');
@@ -42,7 +43,6 @@ export default function FacturacionPage() {
       q, 
       (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        console.log('Firestore query SUCCESS (Facturacion Page)');
         setServicios(data);
       }, 
       async (error) => {
@@ -73,52 +73,83 @@ export default function FacturacionPage() {
     }, { total: 0, ganancia: 0, cartera: 0 });
   }, [servicios]);
 
-  const updateServicioFirestore = (id: string, updates: any) => {
-    const docRef = doc(db, 'services', id);
-    updateDoc(docRef, updates)
-      .catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: docRef.path,
-          operation: 'update',
-          requestResourceData: updates
-        }));
-      });
-  };
-
-  const handleMarcarPagada = (servicio: any) => {
+  const handleMarcarPagada = async (servicio: any) => {
+    setIsProcessing(true);
+    const docRef = doc(db, 'services', servicio.id);
     const valor = Number(servicio.valorServicio) || 0;
-    updateServicioFirestore(servicio.id, { estadoPago: 'Pagado', saldo: 0, anticipo: valor });
-    toast({ title: "Servicio Pagado" });
+    const updates = { estadoPago: 'Pagado', saldo: 0, anticipo: valor };
+    
+    try {
+      await updateDoc(docRef, updates);
+      toast({ title: "Servicio Pagado" });
+    } catch (err) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'update',
+        requestResourceData: updates
+      }));
+      toast({ variant: "destructive", title: "Error al actualizar pago" });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleSaveAbono = (data: AbonoFormValues) => {
+  const handleSaveAbono = async (data: AbonoFormValues) => {
     if (!selected) return;
+    setIsProcessing(true);
+    const docRef = doc(db, 'services', selected.id);
     const valorOriginal = Number(selected.valorServicio) || 0;
     const anticipoAnterior = Number(selected.anticipo) || 0;
     const nuevoAnticipo = anticipoAnterior + Number(data.valorAbono);
     const nuevoSaldo = valorOriginal - nuevoAnticipo;
     
-    updateServicioFirestore(selected.id, { 
+    const updates = { 
       anticipo: nuevoAnticipo, 
       saldo: nuevoSaldo, 
       estadoPago: data.nuevoEstadoPago,
       metodoPago: data.metodoPago,
       numeroComprobante: data.numeroComprobante,
       banco: data.banco
-    });
-    setIsAbonoOpen(false);
-    toast({ title: "Abono Registrado" });
+    };
+
+    try {
+      await updateDoc(docRef, updates);
+      setIsAbonoOpen(false);
+      toast({ title: "Abono Registrado" });
+    } catch (err) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'update',
+        requestResourceData: updates
+      }));
+      toast({ variant: "destructive", title: "Error al registrar abono" });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleSaveEdit = (data: FacturacionFormValues) => {
+  const handleSaveEdit = async (data: FacturacionFormValues) => {
     if (!selected) return;
+    setIsProcessing(true);
+    const docRef = doc(db, 'services', selected.id);
     const valor = Number(data.valorServicio) || 0;
     const anticipo = Number(data.anticipo) || 0;
     const saldo = valor - anticipo;
     
-    updateServicioFirestore(selected.id, { ...data, saldo });
-    setIsEditOpen(false);
-    toast({ title: "Facturación Actualizada" });
+    try {
+      await updateDoc(docRef, { ...data, saldo });
+      setIsEditOpen(false);
+      toast({ title: "Facturación Actualizada" });
+    } catch (err) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'update',
+        requestResourceData: data
+      }));
+      toast({ variant: "destructive", title: "Error al actualizar facturación" });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const filtered = servicios.filter(s => s.cliente?.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -165,6 +196,7 @@ export default function FacturacionPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Buscar por cliente..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
+        {isProcessing && <Loader2 className="ml-4 h-5 w-5 animate-spin text-primary" />}
       </div>
 
       <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none overflow-hidden">
@@ -190,7 +222,7 @@ export default function FacturacionPage() {
                   </TableCell>
                   <TableCell className="p-4 text-center">
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" disabled={isProcessing}><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => { setSelected(s); setIsFacturaOpen(true); }}><FileText className="mr-2 h-4 w-4" /> Ver Cuenta de Cobro</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => { setSelected(s); setIsAbonoOpen(true); }}><DollarSign className="mr-2 h-4 w-4" /> Registrar Pago/Abono</DropdownMenuItem>
@@ -228,7 +260,7 @@ export default function FacturacionPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isAbonoOpen} onOpenChange={setIsAbonoOpen}>
+      <Dialog open={isAbonoOpen} onOpenChange={o => { if(!isProcessing) setIsAbonoOpen(o); }}>
         <DialogContent className="sm:max-w-md">
           <VisuallyHidden>
             <DialogHeader>
@@ -236,11 +268,11 @@ export default function FacturacionPage() {
             </DialogHeader>
           </VisuallyHidden>
           <DialogHeader><DialogTitle>Registrar Pago / Abono</DialogTitle></DialogHeader>
-          {selected && <AbonoForm servicio={selected} onSave={handleSaveAbono} onCancel={() => setIsAbonoOpen(false)} />}
+          {selected && <AbonoForm servicio={selected} onSave={handleSaveAbono} onCancel={() => setIsAbonoOpen(false)} isProcessing={isProcessing} />}
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+      <Dialog open={isEditOpen} onOpenChange={o => { if(!isProcessing) setIsEditOpen(o); }}>
         <DialogContent className="sm:max-w-lg">
           <VisuallyHidden>
             <DialogHeader>
@@ -248,7 +280,7 @@ export default function FacturacionPage() {
             </DialogHeader>
           </VisuallyHidden>
           <DialogHeader><DialogTitle>Editar Facturación</DialogTitle></DialogHeader>
-          {selected && <FacturacionForm servicio={selected} onSave={handleSaveEdit} onCancel={() => setIsEditOpen(false)} />}
+          {selected && <FacturacionForm servicio={selected} onSave={handleSaveEdit} onCancel={() => setIsEditOpen(false)} isProcessing={isProcessing} />}
         </DialogContent>
       </Dialog>
     </div>

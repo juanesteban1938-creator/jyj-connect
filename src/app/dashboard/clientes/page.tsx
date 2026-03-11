@@ -41,7 +41,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
-import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useUser, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import type { Cliente } from '@/lib/types';
 
@@ -52,6 +52,7 @@ export default function ClientesPage() {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
   const { toast } = useToast();
   const db = useFirestore();
@@ -66,6 +67,7 @@ export default function ClientesPage() {
   const clientes = clientesRaw || [];
   
   const handleSave = async (clienteData: Omit<Cliente, 'id'>) => {
+    setIsSaving(true);
     const id = selectedCliente ? selectedCliente.id : clienteData.nit.replace(/\W/g, '');
     const docRef = doc(db, 'clientes', id);
     
@@ -75,16 +77,28 @@ export default function ClientesPage() {
       setSelectedCliente(null);
       toast({ title: "Cliente Guardado" });
     } catch (e) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'write',
+        requestResourceData: clienteData
+      }));
       toast({ variant: "destructive", title: "Error al guardar cliente" });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('¿Desea eliminar este cliente?')) return;
+    const docRef = doc(db, 'clientes', id);
     try {
-      await deleteDoc(doc(db, 'clientes', id));
+      await deleteDoc(docRef);
       toast({ title: "Cliente eliminado" });
     } catch (e) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'delete'
+      }));
       toast({ variant: "destructive", title: "No se pudo eliminar el cliente" });
     }
   };
@@ -109,14 +123,19 @@ export default function ClientesPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Buscar por nombre o NIT..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
-        <Dialog open={isFormOpen} onOpenChange={o => { setIsFormOpen(o); if(!o) setSelectedCliente(null); }}>
+        <Dialog open={isFormOpen} onOpenChange={o => { if(!isSaving) { setIsFormOpen(o); if(!o) setSelectedCliente(null); } }}>
           <DialogTrigger asChild>
             <Button className="btn-action"><PlusCircle className="mr-2 h-4 w-4" /> Añadir Cliente</Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-xl">
             <VisuallyHidden><DialogHeader><DialogTitle>{selectedCliente ? 'Editar' : 'Nuevo'} Cliente</DialogTitle></DialogHeader></VisuallyHidden>
             <DialogHeader><DialogTitle>{selectedCliente ? 'Editar' : 'Nuevo'} Cliente</DialogTitle></DialogHeader>
-            <ClienteForm cliente={selectedCliente} onSave={handleSave} onCancel={() => setIsFormOpen(false)} />
+            <ClienteForm 
+              cliente={selectedCliente} 
+              onSave={handleSave} 
+              onCancel={() => setIsFormOpen(false)}
+              isSaving={isSaving}
+            />
           </DialogContent>
         </Dialog>
       </div>
