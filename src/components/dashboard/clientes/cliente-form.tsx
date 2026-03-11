@@ -74,7 +74,7 @@ export function ClienteForm({ cliente, onSave, onCancel }: Props) {
           tipo: 'Particular',
         });
     }
-  }, [cliente, form]);
+  }, [cliente]); // eslint-disable-line react-hooks/exhaustive-deps
   
   const onSubmit = (data: ClienteFormValues) => {
     onSave(data);

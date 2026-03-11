@@ -50,6 +50,7 @@ type Props = {
   servicio: Servicio;
   onSave: (data: FacturacionFormValues) => void;
   onCancel: () => void;
+  isProcessing?: boolean;
 };
 
 const bancosColombia = [
@@ -59,7 +60,7 @@ const bancosColombia = [
   "Banco Serfinanza", "RappiPay", "Lulo Bank", "Nequi",
 ];
 
-export function FacturacionForm({ servicio, onSave, onCancel }: Props) {
+export function FacturacionForm({ servicio, onSave, onCancel, isProcessing }: Props) {
   
   const form = useForm<FacturacionFormValues>({
     resolver: zodResolver(formSchema),
@@ -86,7 +87,7 @@ export function FacturacionForm({ servicio, onSave, onCancel }: Props) {
         banco: servicio.banco,
       });
     }
-  }, [servicio, form]);
+  }, [servicio]); // eslint-disable-line react-hooks/exhaustive-deps
   
   const onSubmit = (data: FacturacionFormValues) => {
     onSave(data);
@@ -102,7 +103,7 @@ export function FacturacionForm({ servicio, onSave, onCancel }: Props) {
     } else if (estadoPago === 'Pendiente' || estadoPago === 'Anulado') {
         form.setValue('anticipo', 0);
     }
-  }, [estadoPago, valorServicio, form]);
+  }, [estadoPago, valorServicio]); // eslint-disable-line react-hooks/exhaustive-deps
   
   const anticipo = form.watch('anticipo') || 0;
   const saldo = valorServicio - anticipo;
@@ -213,7 +214,7 @@ export function FacturacionForm({ servicio, onSave, onCancel }: Props) {
 
       <div className="flex justify-end gap-3 pt-6 border-t">
         <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
-        <Button type="submit" className="min-w-[150px] font-bold">Actualizar Facturación</Button>
+        <Button type="submit" className="min-w-[150px] font-bold" disabled={isProcessing}>Actualizar Facturación</Button>
       </div>
       </form>
     </Form>

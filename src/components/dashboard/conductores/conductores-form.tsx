@@ -91,7 +91,7 @@ export function ConductorForm({ conductor, onSave }: Props) {
         });
         setAvatarPreview(null);
     }
-  }, [conductor, form]);
+  }, [conductor]); // eslint-disable-line react-hooks/exhaustive-deps
   
   const onSubmit = async (data: ConductorFormValues) => {
     try {

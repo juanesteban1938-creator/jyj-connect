@@ -123,7 +123,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
             vehiculoOtro: servicio.vehiculoPlaca || ''
         });
     }
-  }, [servicio, form, conductores, vehiculos]);
+  }, [servicio, conductores, vehiculos]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const valorServicio = form.watch('valorServicio') || 0;
   const estadoPago = form.watch('estadoPago');

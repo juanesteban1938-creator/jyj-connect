@@ -128,7 +128,7 @@ export function VehiculoForm({ vehiculo, onSave, onCancel }: Props) {
         vencimientoTarjetaOperacion: undefined,
       });
     }
-  }, [vehiculo, form]);
+  }, [vehiculo]); // eslint-disable-line react-hooks/exhaustive-deps
   
   const onSubmit = async (data: VehiculoFormValues) => {
     try {

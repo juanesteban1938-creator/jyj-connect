@@ -44,6 +44,7 @@ type Props = {
   servicio: Servicio;
   onSave: (data: AbonoFormValues) => void;
   onCancel: () => void;
+  isProcessing?: boolean;
 };
 
 const bancosColombia = [
@@ -55,7 +56,7 @@ const bancosColombia = [
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 });
 
-export function AbonoForm({ servicio, onSave, onCancel }: Props) {
+export function AbonoForm({ servicio, onSave, onCancel, isProcessing }: Props) {
   
   const form = useForm<AbonoFormValues>({
     resolver: zodResolver(formSchema),
@@ -83,7 +84,7 @@ export function AbonoForm({ servicio, onSave, onCancel }: Props) {
     } else {
       form.setValue('nuevoEstadoPago', 'Anticipo');
     }
-  }, [nuevoSaldo, form]);
+  }, [nuevoSaldo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Form {...form}>
@@ -170,7 +171,7 @@ export function AbonoForm({ servicio, onSave, onCancel }: Props) {
         </div>
         <div className="flex justify-end gap-3 pt-6 border-t">
             <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
-            <Button type="submit" className="min-w-[150px] font-bold">Registrar Abono</Button>
+            <Button type="submit" className="min-w-[150px] font-bold" disabled={isProcessing}>Registrar Abono</Button>
         </div>
       </form>
     </Form>
