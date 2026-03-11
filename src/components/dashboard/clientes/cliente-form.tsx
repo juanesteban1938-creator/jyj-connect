@@ -56,7 +56,13 @@ export function ClienteForm({ cliente, onSave, onCancel }: Props) {
 
   useEffect(() => {
     if (cliente) {
-        form.reset(cliente);
+        form.reset({
+          razonSocial: cliente.razonSocial || '',
+          nit: cliente.nit || '',
+          telefono: cliente.telefono || '',
+          email: cliente.email || '',
+          tipo: cliente.tipo || 'Particular',
+        });
     } else {
         form.reset({
           razonSocial: '',
@@ -75,7 +81,7 @@ export function ClienteForm({ cliente, onSave, onCancel }: Props) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <ScrollArea className="h-[60vh] w-full">
+        <ScrollArea className="h-[60vh] w-full pr-4">
          <div className="space-y-4 p-1">
           <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
@@ -136,7 +142,7 @@ export function ClienteForm({ cliente, onSave, onCancel }: Props) {
             />
 
             <div className="sm:col-span-2">
-               <h3 className="font-medium my-2">Información de Contacto</h3>
+               <h3 className="font-bold text-sm uppercase text-primary tracking-widest mt-2">Información de Contacto</h3>
             </div>
              <FormField
               control={form.control}
@@ -156,9 +162,9 @@ export function ClienteForm({ cliente, onSave, onCancel }: Props) {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Correo Electrónico (Opcional)</FormLabel>
+                  <FormLabel>Correo Electrónico (Para envío de CxC)</FormLabel>
                   <FormControl>
-                    <Input placeholder="contacto@ejemplo.com" {...field} />
+                    <Input placeholder="cliente@correo.com" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -168,7 +174,7 @@ export function ClienteForm({ cliente, onSave, onCancel }: Props) {
         </div>
       </ScrollArea>
 
-       <div className="flex justify-end gap-2 pt-4">
+       <div className="flex justify-end gap-2 pt-4 border-t">
           <Button type="button" variant="ghost" onClick={onCancel}>
               Cancelar
           </Button>
