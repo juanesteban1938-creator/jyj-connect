@@ -33,9 +33,7 @@ import { format, parseISO } from 'date-fns';
 import { useState, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { Conductor } from '@/app/dashboard/conductores/page';
-import type { Vehiculo } from '@/app/dashboard/vehiculos/page';
-import type { Servicio } from '@/lib/types';
+import type { Servicio, Conductor, Vehiculo } from '@/lib/types';
 
 const formSchema = z.object({
     nombreCliente: z.string().min(1, 'El nombre es requerido'),
@@ -103,10 +101,8 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
     },
   });
 
-  // useEffect: Reseteo de campos cuando cambia el prop 'servicio'
   useEffect(() => {
     if (servicio) {
-        console.log('[Nova] ServicioForm - Reseteando con servicio:', servicio.id);
         const conductorMatched = conductores.find(c => `${c.nombres} ${c.apellidos}` === servicio.conductor);
         const vehiculoMatched = vehiculos.find(v => v.placa === servicio.vehiculoPlaca);
 
@@ -130,31 +126,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
             conductorTelefonoOtro: conductorMatched ? '' : (servicio.conductorTelefono || ''),
             esVehiculoNoRegistrado: !vehiculoMatched,
             vehiculoId: vehiculoMatched?.id || '',
-            vehiculoOtro: servicio.vehiculoPlaca || servicio.placa || ''
-        });
-    } else {
-        console.log('[Nova] ServicioForm - Reseteando a valores por defecto (Nuevo Servicio)');
-        form.reset({
-          nombreCliente: '',
-          nitCliente: '',
-          telefonoCliente: '',
-          emailCliente: '',
-          esConductorNoRegistrado: false,
-          conductorId: '',
-          conductorOtro: '',
-          conductorTelefonoOtro: '',
-          esVehiculoNoRegistrado: false,
-          vehiculoId: '',
-          vehiculoOtro: '',
-          horaRecogida: '00:00',
-          direccionRecogida: '',
-          direccionDestino: '',
-          metodoPago: 'Facturacion',
-          valorServicio: 0,
-          costoOperacion: 0,
-          estadoPago: 'Pendiente',
-          anticipo: 0,
-          fechaRecogida: new Date(),
+            vehiculoOtro: servicio.vehiculoPlaca || ''
         });
     }
   }, [servicio, form, conductores, vehiculos]);
@@ -174,17 +146,12 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
   const saldo = Math.max(0, valorServicio - anticipo);
   
   const handleFormSubmit = (data: ServicioFormValues) => {
-    console.log('[Nova] ServicioForm - Formulario validado con éxito');
     onSave(data);
-  };
-
-  const handleFormError = (errors: any) => {
-    console.log('[Nova] ServicioForm - ERROR VALIDACIÓN:', errors);
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleFormSubmit, handleFormError)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
         <ScrollArea className="h-[70vh] w-full">
          <div className="space-y-6 p-1">
             <div className="space-y-4">
@@ -298,7 +265,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                     <FormItem><FormLabel>Origen</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                  )} />
                  <FormField name="direccionDestino" control={form.control} render={({ field }) => (
-                    <FormItem><FormLabel>Destino</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Destino</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormMessage>
                  )} />
             </div>
 
