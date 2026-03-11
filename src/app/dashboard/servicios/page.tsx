@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -164,13 +163,14 @@ export default function ServiciosPage() {
       const docRef = doc(db, 'services', servicioId);
       await setDoc(docRef, payload, { merge: true });
       
-      if (esNuevo) {
-        await handleEnviarWhatsApp(payload);
-      }
-      
       toast({ title: esNuevo ? "Servicio Programado" : "Servicio Actualizado" });
       setIsFormOpen(false);
       setSelected(null);
+      
+      if (esNuevo) {
+        handleEnviarWhatsApp(payload); // Sin await - no bloquea el formulario
+      }
+      
     } catch (e) {
       console.error("Error al guardar servicio:", e);
       toast({ variant: "destructive", title: "Error al procesar el servicio" });
