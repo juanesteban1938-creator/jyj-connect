@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Search, MoreHorizontal, PlusCircle, Edit, Trash2, Truck } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { VehiculoForm } from '@/components/dashboard/vehiculos/vehiculos-form';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -72,7 +72,8 @@ export default function VehiculosPage() {
           <DialogTrigger asChild>
             <Button className="btn-action"><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Vehículo</Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-3xl">
+          <DialogContent className="sm:max-w-3xl" aria-describedby={undefined}>
+            <DialogDescription className="sr-only">Formulario para la gestión de vehículos, SOAT y revisiones técnicas.</DialogDescription>
             <DialogHeader><DialogTitle>{selected ? 'Editar' : 'Nuevo'} Vehículo</DialogTitle></DialogHeader>
             <VehiculoForm vehiculo={selected} onSave={handleSave} onCancel={() => setIsFormOpen(false)} />
           </DialogContent>

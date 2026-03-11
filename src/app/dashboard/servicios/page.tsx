@@ -25,7 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
@@ -138,7 +138,7 @@ export default function ServiciosPage() {
         cliente: formData.nombreCliente,
         clienteNombre: formData.nombreCliente,
         origen: formData.direccionRecogida,
-        destino: formData.direccionDestino,
+        destino: formData.destino,
         telefonoCliente: formData.telefonoCliente,
         emailCliente: formData.emailCliente,
         fecha: formData.fechaRecogida.toISOString(),
@@ -268,7 +268,8 @@ export default function ServiciosPage() {
       </Tabs>
 
       <Dialog open={isFormOpen} onOpenChange={o => { if(!isSaving) { setIsFormOpen(o); if(!o) setSelected(null); } }}>
-        <DialogContent className="sm:max-w-4xl">
+        <DialogContent className="sm:max-w-4xl" aria-describedby={undefined}>
+          <DialogDescription className="sr-only">Formulario para la programación y edición de servicios de transporte especial.</DialogDescription>
           <VisuallyHidden><DialogHeader><DialogTitle>Programar Servicio</DialogTitle></DialogHeader></VisuallyHidden>
           <DialogHeader><DialogTitle className="text-2xl font-bold">{selected ? 'Editar' : 'Programar'} Servicio</DialogTitle></DialogHeader>
           <ServicioForm 
@@ -283,7 +284,8 @@ export default function ServiciosPage() {
       </Dialog>
 
       <Dialog open={isResumenOpen} onOpenChange={o => { setIsResumenOpen(o); if(!o) setSelected(null); }}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
+          <DialogDescription className="sr-only">Vista detallada de los datos del servicio, conductor, vehículo y estado financiero.</DialogDescription>
           <VisuallyHidden><DialogHeader><DialogTitle>Detalles del Servicio</DialogTitle></DialogHeader></VisuallyHidden>
           {selected && <ResumenServicio servicio={selected} />}
         </DialogContent>

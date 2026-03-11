@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -10,7 +9,7 @@ import { Search, DollarSign, TrendingUp, AlertTriangle, FileText, MoreHorizontal
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { CuentaCobro } from '@/components/dashboard/facturacion/cuenta-cobro';
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
@@ -250,7 +249,8 @@ export default function FacturacionPage() {
       </Card>
 
       <Dialog open={isFacturaOpen} onOpenChange={setIsFacturaOpen}>
-        <DialogContent className="max-w-4xl bg-[#f0f0f0] p-0 overflow-hidden border-none">
+        <DialogContent className="max-w-4xl bg-[#f0f0f0] p-0 overflow-hidden border-none" aria-describedby={undefined}>
+          <DialogDescription className="sr-only">Vista previa de la cuenta de cobro para el cliente.</DialogDescription>
           <VisuallyHidden>
             <DialogHeader>
               <DialogTitle>Vista Previa de Cuenta de Cobro</DialogTitle>
@@ -261,7 +261,8 @@ export default function FacturacionPage() {
       </Dialog>
 
       <Dialog open={isAbonoOpen} onOpenChange={o => { if(!isProcessing) setIsAbonoOpen(o); }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+          <DialogDescription className="sr-only">Formulario para registrar abonos o pagos parciales de servicios.</DialogDescription>
           <VisuallyHidden>
             <DialogHeader>
               <DialogTitle>Registrar Pago / Abono</DialogTitle>
@@ -273,7 +274,8 @@ export default function FacturacionPage() {
       </Dialog>
 
       <Dialog open={isEditOpen} onOpenChange={o => { if(!isProcessing) setIsEditOpen(o); }}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
+          <DialogDescription className="sr-only">Formulario para editar detalles de facturación, costos y estados de pago.</DialogDescription>
           <VisuallyHidden>
             <DialogHeader>
               <DialogTitle>Editar Facturación</DialogTitle>

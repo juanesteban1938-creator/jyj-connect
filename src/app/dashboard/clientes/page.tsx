@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -34,6 +33,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { ClienteForm } from '@/components/dashboard/clientes/cliente-form';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -127,7 +127,8 @@ export default function ClientesPage() {
           <DialogTrigger asChild>
             <Button className="btn-action"><PlusCircle className="mr-2 h-4 w-4" /> Añadir Cliente</Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-xl">
+          <DialogContent className="sm:max-w-xl" aria-describedby={undefined}>
+            <DialogDescription className="sr-only">Formulario para la gestión de clientes en J&J Connect.</DialogDescription>
             <VisuallyHidden><DialogHeader><DialogTitle>{selectedCliente ? 'Editar' : 'Nuevo'} Cliente</DialogTitle></DialogHeader></VisuallyHidden>
             <DialogHeader><DialogTitle>{selectedCliente ? 'Editar' : 'Nuevo'} Cliente</DialogTitle></DialogHeader>
             <ClienteForm 

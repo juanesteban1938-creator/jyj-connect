@@ -32,6 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { ConductorForm } from '@/components/dashboard/conductores/conductores-form';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -108,7 +109,8 @@ export default function ConductoresPage() {
           <DialogTrigger asChild>
             <Button className="btn-action"><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Conductor</Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent aria-describedby={undefined}>
+            <DialogDescription className="sr-only">Formulario para la gestión de conductores y licencias.</DialogDescription>
             <DialogHeader><DialogTitle>{selectedConductor ? 'Editar' : 'Nuevo'} Conductor</DialogTitle></DialogHeader>
             <ConductorForm conductor={selectedConductor} onSave={handleSave} />
           </DialogContent>
