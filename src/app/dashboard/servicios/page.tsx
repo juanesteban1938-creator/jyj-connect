@@ -19,7 +19,8 @@ import {
   CheckCircle,
   XCircle,
   MoreVertical,
-  Loader2
+  Loader2,
+  Send
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -31,12 +32,13 @@ import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { doc, setDoc, Timestamp, updateDoc, collection, onSnapshot, query } from 'firebase/firestore';
-import type { Servicio } from '@/lib/types';
+import { enviarNotificacionServicio } from '@/lib/whatsapp';
+import type { Servicio, Conductor, Vehiculo } from '@/lib/types';
 
 export default function ServiciosPage() {
   const [servicios, setServicios] = useState<Servicio[]>([]);
-  const [conductores, setConductores] = useState<any[]>([]);
-  const [vehiculos, setVehiculos] = useState<any[]>([]);
+  const [conductores, setConductores] = useState<Conductor[]>([]);
+  const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
   const [activeTab, setActiveTab] = useState('activos');
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -78,6 +80,29 @@ export default function ServiciosPage() {
     return () => unsubscribe();
   }, [db, user]);
 
+  const handleEnviarWhatsApp = async (s: Servicio) => {
+    toast({ title: "Nova", description: "Enviando notificación por WhatsApp..." });
+    const result = await enviarNotificacionServicio({
+      clienteNombre: s.clienteNombre || s.cliente,
+      clienteTelefono: s.telefonoCliente,
+      fecha: format(new Date(s.fecha), 'dd/MM/yyyy'),
+      hora: s.hora,
+      origen: s.origen,
+      destino: s.destino,
+      placa: s.vehiculoPlaca || s.vehiculo || 'No asignada',
+      conductor: s.conductor || 'No asignado',
+      telefonoConductor: s.conductorTelefono || 'No disponible'
+    });
+
+    if (result.success) {
+      toast({ title: "Notificación enviada", description: "El cliente ha sido notificado por Nova." });
+      const docRef = doc(db, 'services', s.id);
+      updateDoc(docRef, { notificacionEnviada: true }).catch(() => {});
+    } else {
+      toast({ variant: "destructive", title: "Error Nova", description: result.error || "No se pudo enviar el WhatsApp." });
+    }
+  };
+
   const handleNuevoServicio = () => {
     setSelected(null); 
     setIsFormOpen(true);
@@ -103,6 +128,9 @@ export default function ServiciosPage() {
     const esNuevo = !selected || !selected.id;
     const servicioId = esNuevo ? String(Date.now()) : selected.id;
 
+    const conductorAsignado = conductores.find(c => c.id === formData.conductorId);
+    const vehiculoAsignado = vehiculos.find(v => v.id === formData.vehiculoId);
+
     const payload: Servicio = {
       id: servicioId,
       consecutivo: selected?.consecutivo || `JJ-${servicios.length + 1001}`,
@@ -111,11 +139,14 @@ export default function ServiciosPage() {
       origen: formData.direccionRecogida,
       destino: formData.direccionDestino,
       telefonoCliente: formData.telefonoCliente,
+      emailCliente: formData.emailCliente,
       fecha: formData.fechaRecogida.toISOString(),
       hora: formData.horaRecogida,
       nitCliente: formData.nitCliente,
-      vehiculoPlaca: formData.esVehiculoNoRegistrado ? formData.vehiculoOtro : (vehiculos.find(v => v.id === formData.vehiculoId)?.placa || ''),
-      conductor: formData.esConductorNoRegistrado ? formData.conductorOtro : (conductores.find(c => c.id === formData.conductorId) ? `${conductores.find(c => c.id === formData.conductorId).nombres} ${conductores.find(c => c.id === formData.conductorId).apellidos}` : 'No asignado'),
+      vehiculoPlaca: formData.esVehiculoNoRegistrado ? formData.vehiculoOtro : (vehiculoAsignado?.placa || ''),
+      vehiculo: formData.esVehiculoNoRegistrado ? formData.vehiculoOtro : (vehiculoAsignado ? `${vehiculoAsignado.marca} ${vehiculoAsignado.linea}` : ''),
+      conductor: formData.esConductorNoRegistrado ? formData.conductorOtro : (conductorAsignado ? `${conductorAsignado.nombres} ${conductorAsignado.apellidos}` : 'No asignado'),
+      conductorTelefono: formData.esConductorNoRegistrado ? formData.conductorTelefonoOtro : (conductorAsignado?.telefono || ''),
       estado: selected?.estado || 'Programado',
       valorServicio: Number(formData.valorServicio) || 0,
       anticipo: Number(formData.anticipo) || 0,
@@ -130,6 +161,12 @@ export default function ServiciosPage() {
 
     const docRef = doc(db, 'services', servicioId);
     setDoc(docRef, payload, { merge: true })
+      .then(() => {
+        if (esNuevo) {
+          handleEnviarWhatsApp(payload);
+        }
+        toast({ title: esNuevo ? "Servicio Programado" : "Servicio Actualizado" });
+      })
       .catch(async (error) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: docRef.path,
@@ -194,6 +231,7 @@ export default function ServiciosPage() {
                     <p className="text-xl font-bold text-primary">{s.hora}</p>
                     <span className="text-xs font-bold text-muted-foreground">|</span>
                     <p className="text-xs font-bold uppercase">{s.consecutivo}</p>
+                    {s.notificacionEnviada && <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none ml-2 px-1 py-0 h-4 text-[9px]"><Send className="h-2 w-2 mr-1"/> Notificado</Badge>}
                   </div>
                   <p className="text-sm font-semibold">{s.origen} ➔ {s.destino}</p>
                   <div className="flex flex-wrap gap-x-4 text-[11px] text-muted-foreground font-medium uppercase">
@@ -209,6 +247,7 @@ export default function ServiciosPage() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => { setSelected(s); setIsResumenOpen(true); }}><Eye className="mr-2 h-4 w-4" /> Ver Detalles</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setSelected(s); setIsFormOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleEnviarWhatsApp(s)}><MessageSquare className="mr-2 h-4 w-4" /> Notificar WhatsApp</DropdownMenuItem>
                       <DropdownMenuSeparator />
                       {s.estado === 'Programado' && (
                         <DropdownMenuItem onClick={() => handleUpdateEstado(s.id, 'En Servicio')} className="text-blue-600 font-bold"><PlayCircle className="mr-2 h-4 w-4" /> Iniciar</DropdownMenuItem>
