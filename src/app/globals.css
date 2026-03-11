@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -65,24 +66,38 @@
   }
 }
 
-/* Calendar Styles for dropdowns */
-.rdp-dropdown {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 4px center;
-  padding-right: 18px !important;
-  cursor: pointer;
+/* react-datepicker overrides */
+.react-datepicker-wrapper {
+  width: 100%;
 }
 
-.rdp-caption_dropdowns {
-  @apply flex gap-1 items-center;
+.react-datepicker {
+  font-family: inherit;
+  border-color: hsl(var(--border)) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+  background-color: white !important;
 }
 
-.rdp-vhidden {
-  @apply hidden;
+.react-datepicker__header {
+  background-color: hsl(var(--muted)) !important;
+  border-bottom-color: hsl(var(--border)) !important;
 }
 
-.rdp-months { display: flex !important; flex-direction: column !important; }
-/* .rdp-head_row, .rdp-row { display: grid !important; grid-template-columns: repeat(7, 1fr) !important; } */
-.rdp-cell { width: 36px !important; height: 36px !important; text-align: center !important; }
+.react-datepicker__day--selected, 
+.react-datepicker__day--keyboard-selected {
+  background-color: #F97316 !important;
+  color: white !important;
+  border-radius: var(--radius) !important;
+}
+
+.react-datepicker__day:hover {
+  background-color: #FFF7ED !important;
+  color: #F97316 !important;
+  border-radius: var(--radius) !important;
+}
+
+.react-datepicker__month-select,
+.react-datepicker__year-select {
+  @apply rounded border border-input bg-background px-1 py-0.5 text-xs font-medium focus:ring-2 focus:ring-orange-500 outline-none;
+}

@@ -24,14 +24,14 @@ import {
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { format, isValid } from 'date-fns';
+import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { doc, setDoc, Timestamp, updateDoc, collection, onSnapshot, query } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, collection, onSnapshot, query } from 'firebase/firestore';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
 import type { Servicio, Conductor, Vehiculo } from '@/lib/types';
 
@@ -124,56 +124,61 @@ export default function ServiciosPage() {
   };
 
   const handleSave = async (formData: any) => {
-    setIsFormOpen(false);
-    const esNuevo = !selected || !selected.id;
-    const servicioId = esNuevo ? String(Date.now()) : selected.id;
+    try {
+      const esNuevo = !selected || !selected.id;
+      const servicioId = esNuevo ? String(Date.now()) : selected.id;
 
-    const conductorAsignado = conductores.find(c => c.id === formData.conductorId);
-    const vehiculoAsignado = vehiculos.find(v => v.id === formData.vehiculoId);
+      const conductorAsignado = conductores.find(c => c.id === formData.conductorId);
+      const vehiculoAsignado = vehiculos.find(v => v.id === formData.vehiculoId);
 
-    const payload: Servicio = {
-      id: servicioId,
-      consecutivo: selected?.consecutivo || `JJ-${servicios.length + 1001}`,
-      cliente: formData.nombreCliente,
-      clienteNombre: formData.nombreCliente,
-      origen: formData.direccionRecogida,
-      destino: formData.direccionDestino,
-      telefonoCliente: formData.telefonoCliente,
-      emailCliente: formData.emailCliente,
-      fecha: formData.fechaRecogida.toISOString(),
-      hora: formData.horaRecogida,
-      nitCliente: formData.nitCliente,
-      vehiculoPlaca: formData.esVehiculoNoRegistrado ? formData.vehiculoOtro : (vehiculoAsignado?.placa || ''),
-      vehiculo: formData.esVehiculoNoRegistrado ? formData.vehiculoOtro : (vehiculoAsignado ? `${vehiculoAsignado.marca} ${vehiculoAsignado.linea}` : ''),
-      conductor: formData.esConductorNoRegistrado ? formData.conductorOtro : (conductorAsignado ? `${conductorAsignado.nombres} ${conductorAsignado.apellidos}` : 'No asignado'),
-      conductorTelefono: formData.esConductorNoRegistrado ? formData.conductorTelefonoOtro : (conductorAsignado?.telefono || ''),
-      estado: selected?.estado || 'Programado',
-      valorServicio: Number(formData.valorServicio) || 0,
-      anticipo: Number(formData.anticipo) || 0,
-      saldo: (Number(formData.valorServicio) || 0) - (Number(formData.anticipo) || 0),
-      metodoPago: formData.metodoPago,
-      estadoPago: formData.estadoPago,
-      costoOperacion: Number(formData.costoOperacion) || 0,
-      notificacionEnviada: selected?.notificacionEnviada || false,
-      notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false,
-      clienteIniciales: formData.nombreCliente.substring(0, 2).toUpperCase(),
-    };
+      const payload: Servicio = {
+        id: servicioId,
+        consecutivo: selected?.consecutivo || `JJ-${servicios.length + 1001}`,
+        cliente: formData.nombreCliente,
+        clienteNombre: formData.nombreCliente,
+        origen: formData.direccionRecogida,
+        destino: formData.direccionDestino,
+        telefonoCliente: formData.telefonoCliente,
+        emailCliente: formData.emailCliente,
+        fecha: formData.fechaRecogida.toISOString(),
+        hora: formData.horaRecogida,
+        nitCliente: formData.nitCliente,
+        vehiculoPlaca: formData.esVehiculoNoRegistrado ? formData.vehiculoOtro : (vehiculoAsignado?.placa || ''),
+        vehiculo: formData.esVehiculoNoRegistrado ? formData.vehiculoOtro : (vehiculoAsignado ? `${vehiculoAsignado.marca} ${vehiculoAsignado.linea}` : ''),
+        conductor: formData.esConductorNoRegistrado ? formData.conductorOtro : (conductorAsignado ? `${conductorAsignado.nombres} ${conductorAsignado.apellidos}` : 'No asignado'),
+        conductorTelefono: formData.esConductorNoRegistrado ? formData.conductorTelefonoOtro : (conductorAsignado?.telefono || ''),
+        estado: selected?.estado || 'Programado',
+        valorServicio: Number(formData.valorServicio) || 0,
+        anticipo: Number(formData.anticipo) || 0,
+        saldo: (Number(formData.valorServicio) || 0) - (Number(formData.anticipo) || 0),
+        metodoPago: formData.metodoPago,
+        estadoPago: formData.estadoPago,
+        costoOperacion: Number(formData.costoOperacion) || 0,
+        notificacionEnviada: selected?.notificacionEnviada || false,
+        notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false,
+        clienteIniciales: formData.nombreCliente.substring(0, 2).toUpperCase(),
+      };
 
-    const docRef = doc(db, 'services', servicioId);
-    setDoc(docRef, payload, { merge: true })
-      .then(() => {
-        if (esNuevo) {
-          handleEnviarWhatsApp(payload);
-        }
-        toast({ title: esNuevo ? "Servicio Programado" : "Servicio Actualizado" });
-      })
-      .catch(async (error) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: docRef.path,
-          operation: 'write',
-          requestResourceData: payload
-        }));
-      });
+      setIsFormOpen(false);
+      const docRef = doc(db, 'services', servicioId);
+      setDoc(docRef, payload, { merge: true })
+        .then(() => {
+          if (esNuevo) {
+            handleEnviarWhatsApp(payload);
+          }
+          toast({ title: esNuevo ? "Servicio Programado" : "Servicio Actualizado" });
+        })
+        .catch(async (error) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'write',
+            requestResourceData: payload
+          }));
+        });
+    } catch (e) {
+      console.error("Error al guardar servicio:", e);
+      toast({ variant: "destructive", title: "Error al procesar el servicio" });
+    }
   };
 
   const filtered = servicios.filter(s => {

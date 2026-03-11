@@ -21,17 +21,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Calendar } from '@/components/jj-ui/calendar';
-import { Calendar as CalendarIcon, User, Briefcase, MapPin, Clock, Loader2, DollarSign, Mail } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { User, Briefcase, MapPin, Clock, Loader2, DollarSign, Mail, Calendar as CalendarIcon } from 'lucide-react';
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import { format, parseISO } from 'date-fns';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Servicio, Conductor, Vehiculo } from '@/lib/types';
@@ -75,8 +70,6 @@ type Props = {
 };
 
 export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculos, isSaving }: Props) {
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  
   const form = useForm<ServicioFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -146,8 +139,12 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
   const anticipo = form.watch('anticipo') || 0;
   const saldo = Math.max(0, valorServicio - anticipo);
   
-  const handleFormSubmit = (data: ServicioFormValues) => {
-    onSave(data);
+  const handleFormSubmit = async (data: ServicioFormValues) => {
+    try {
+      await onSave(data);
+    } catch (error) {
+      console.error("Error al procesar el formulario:", error);
+    }
   };
 
   return (
@@ -155,7 +152,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
       <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
         <ScrollArea className="h-[70vh] w-full">
          <div className="space-y-8 p-1">
-            {/* Sección 1: Cliente */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <Briefcase className="h-5 w-5 text-primary"/>
@@ -199,7 +195,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                 </div>
             </div>
             
-            {/* Sección 2: Recursos */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <User className="h-5 w-5 text-primary"/>
@@ -207,7 +202,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                 </div>
                 <Separator className="bg-primary/20" />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Conductor */}
                     <div className="space-y-4 border p-4 rounded-lg bg-muted/5">
                          <FormField
                             control={form.control}
@@ -241,7 +235,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                              )} />
                         )}
                     </div>
-                    {/* Vehículo */}
                     <div className="space-y-4 border p-4 rounded-lg bg-muted/5">
                         <FormField
                             control={form.control}
@@ -273,7 +266,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                 </div>
             </div>
 
-            {/* Sección 3: Ruta */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <MapPin className="h-5 w-5 text-primary"/>
@@ -284,10 +276,19 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                     <FormField control={form.control} name="fechaRecogida" render={({ field }) => (
                         <FormItem className="flex flex-col">
                             <FormLabel>Fecha del Servicio</FormLabel>
-                            <Popover modal={true} open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                                <PopoverTrigger asChild><Button variant={'outline'} className={cn('w-full pl-3 text-left font-normal h-10', !field.value && 'text-muted-foreground')}>{field.value ? format(field.value, 'dd/MM/yyyy') : <span>Seleccione fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(date) => { if(date) { field.onChange(date); setIsCalendarOpen(false); } }} initialFocus /></PopoverContent>
-                            </Popover>
+                            <div className="relative">
+                                <DatePicker
+                                    selected={field.value}
+                                    onChange={(date) => field.onChange(date)}
+                                    showMonthDropdown
+                                    showYearDropdown
+                                    dropdownMode="select"
+                                    dateFormat="dd/MM/yyyy"
+                                    placeholderText="Seleccione fecha"
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                />
+                                <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 pointer-events-none" />
+                            </div>
                             <FormMessage />
                         </FormItem>
                     )} />
@@ -296,14 +297,14 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                             <FormLabel>Hora de Recogida</FormLabel>
                             <FormControl>
                                 <div className="relative">
-                                    <input type="time" {...field} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-10" />
+                                    <input type="time" {...field} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-10" />
                                     <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 </div>
                             </FormControl>
                             <FormMessage />
                         </FormItem>
                     )} />
-                    <div className="md:col-span-1"></div> {/* Espacio vacío para completar la fila de 3 */}
+                    <div className="md:col-span-1"></div>
                     
                     <FormField name="direccionRecogida" control={form.control} render={({ field }) => (
                         <FormItem className="md:col-span-3"><FormLabel>Dirección de Origen / Recogida</FormLabel><FormControl><Input placeholder="Ej. Calle 123 #45-67" {...field} /></FormControl><FormMessage /></FormItem>
@@ -314,7 +315,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                  </div>
             </div>
 
-            {/* Sección 4: Finanzas */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <DollarSign className="h-5 w-5 text-primary"/>
@@ -342,7 +342,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
 
       <div className="flex justify-end gap-3 pt-6 border-t">
         <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
-        <Button type="submit" className="min-w-[150px]">
+        <Button type="submit" className="min-w-[150px]" disabled={isSaving}>
             {isSaving ? (
                 <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

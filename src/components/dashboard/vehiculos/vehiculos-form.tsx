@@ -21,17 +21,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { Calendar } from '@/components/jj-ui/calendar';
-import { CalendarIcon, Car, ShieldCheck, Shield, Wrench, FileText, Users, Tag } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { Car, ShieldCheck, Shield, Wrench, FileText, Users, Tag, Calendar as CalendarIcon } from 'lucide-react';
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import type { Vehiculo } from '@/lib/types';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,7 +56,6 @@ type Props = {
 };
 
 const DatePickerField = ({ name, control, label }: { name: any, control: any, label: string }) => {
-    const [isOpen, setIsOpen] = useState(false);
     return (
         <FormField
             control={control}
@@ -70,42 +63,19 @@ const DatePickerField = ({ name, control, label }: { name: any, control: any, la
             render={({ field }) => (
                 <FormItem className="flex flex-col">
                     <FormLabel>{label}</FormLabel>
-                    <Popover modal={true} open={isOpen} onOpenChange={setIsOpen}>
-                        <PopoverTrigger asChild>
-                            <FormControl>
-                                <Button
-                                    variant={'outline'}
-                                    type="button"
-                                    className={cn(
-                                        'w-full pl-3 text-left font-normal h-10',
-                                        !field.value && 'text-muted-foreground'
-                                    )}
-                                >
-                                    {field.value ? (
-                                        format(field.value, 'dd/MM/yyyy')
-                                    ) : (
-                                        <span>Seleccione fecha</span>
-                                    )}
-                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                </Button>
-                            </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent
-                            className="w-auto p-0"
-                            align="start"
-                        >
-                            <Calendar
-                                mode="single"
-                                selected={field.value}
-                                onSelect={(date) => {
-                                    field.onChange(date);
-                                    setIsOpen(false);
-                                }}
-                                disabled={(date) => date < new Date('1900-01-01')}
-                                initialFocus
-                            />
-                        </PopoverContent>
-                    </Popover>
+                    <div className="relative">
+                        <DatePicker
+                            selected={field.value}
+                            onChange={(date) => field.onChange(date)}
+                            showMonthDropdown
+                            showYearDropdown
+                            dropdownMode="select"
+                            dateFormat="dd/MM/yyyy"
+                            placeholderText="Seleccione fecha"
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        />
+                        <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 pointer-events-none" />
+                    </div>
                     <FormMessage />
                 </FormItem>
             )}
@@ -114,7 +84,6 @@ const DatePickerField = ({ name, control, label }: { name: any, control: any, la
 };
 
 export function VehiculoForm({ vehiculo, onSave, onCancel }: Props) {
-  
   const form = useForm<VehiculoFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -161,16 +130,20 @@ export function VehiculoForm({ vehiculo, onSave, onCancel }: Props) {
     }
   }, [vehiculo, form]);
   
-  const onSubmit = (data: VehiculoFormValues) => {
-    const vehiculoData = {
-        ...data,
-        vencimientoSoat: data.vencimientoSoat?.toISOString(),
-        vencimientoRcc: data.vencimientoRcc?.toISOString(),
-        vencimientoRce: data.vencimientoRce?.toISOString(),
-        vencimientoTecnomecanica: data.vencimientoTecnomecanica?.toISOString(),
-        vencimientoTarjetaOperacion: data.vencimientoTarjetaOperacion?.toISOString(),
-    };
-    onSave(vehiculoData);
+  const onSubmit = async (data: VehiculoFormValues) => {
+    try {
+      const vehiculoData = {
+          ...data,
+          vencimientoSoat: data.vencimientoSoat?.toISOString(),
+          vencimientoRcc: data.vencimientoRcc?.toISOString(),
+          vencimientoRce: data.vencimientoRce?.toISOString(),
+          vencimientoTecnomecanica: data.vencimientoTecnomecanica?.toISOString(),
+          vencimientoTarjetaOperacion: data.vencimientoTarjetaOperacion?.toISOString(),
+      };
+      await onSave(vehiculoData);
+    } catch (error) {
+      console.error("Error al guardar vehículo:", error);
+    }
   };
 
   return (
@@ -178,7 +151,6 @@ export function VehiculoForm({ vehiculo, onSave, onCancel }: Props) {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <ScrollArea className="h-[70vh] w-full">
          <div className="space-y-8 p-1">
-            {/* Datos Generales */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <Car className="h-5 w-5 text-primary"/>
@@ -215,7 +187,6 @@ export function VehiculoForm({ vehiculo, onSave, onCancel }: Props) {
                 </div>
             </div>
 
-            {/* Documentación */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <FileText className="h-5 w-5 text-primary"/>

@@ -21,15 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { Calendar } from '@/components/jj-ui/calendar';
-import { CalendarIcon, Upload, User, IdCard, MapPin, Phone } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { Upload, User, IdCard, MapPin, Phone, Calendar as CalendarIcon } from 'lucide-react';
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import type { Conductor } from '@/lib/types';
 import { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -60,7 +54,6 @@ type Props = {
 export function ConductorForm({ conductor, onSave }: Props) {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [newAvatarFile, setNewAvatarFile] = useState<File | undefined>(undefined);
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   const form = useForm<ConductorFormValues>({
     resolver: zodResolver(formSchema),
@@ -100,13 +93,17 @@ export function ConductorForm({ conductor, onSave }: Props) {
     }
   }, [conductor, form]);
   
-  const onSubmit = (data: ConductorFormValues) => {
-    onSave({
-      id: conductor?.id || '',
-      ...data,
-      vencimientoLicencia: data.vencimientoLicencia.toISOString(),
-      avatarUrl: avatarPreview || `https://i.pravatar.cc/150?u=${data.cedula}`,
-    }, newAvatarFile);
+  const onSubmit = async (data: ConductorFormValues) => {
+    try {
+      await onSave({
+        id: conductor?.id || '',
+        ...data,
+        vencimientoLicencia: data.vencimientoLicencia.toISOString(),
+        avatarUrl: avatarPreview || `https://i.pravatar.cc/150?u=${data.cedula}`,
+      }, newAvatarFile);
+    } catch (error) {
+      console.error("Error al guardar conductor:", error);
+    }
   };
   
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,7 +123,6 @@ export function ConductorForm({ conductor, onSave }: Props) {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <ScrollArea className="h-[70vh] w-full pr-4">
          <div className="space-y-8 p-1">
-          {/* Foto de Perfil */}
           <div className="flex flex-col items-center gap-4">
               <Avatar className="h-28 w-28 border-4 border-primary/20 shadow-md">
                 <AvatarImage src={avatarPreview || ''} alt="Avatar" />
@@ -142,7 +138,6 @@ export function ConductorForm({ conductor, onSave }: Props) {
               </div>
           </div>
 
-          {/* Información Personal */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
                 <User className="h-5 w-5 text-primary" />
@@ -165,7 +160,6 @@ export function ConductorForm({ conductor, onSave }: Props) {
             </div>
           </div>
 
-          {/* Residencia */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-primary" />
@@ -182,7 +176,6 @@ export function ConductorForm({ conductor, onSave }: Props) {
             </div>
           </div>
 
-          {/* Licencia */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
                 <IdCard className="h-5 w-5 text-primary" />
@@ -203,19 +196,19 @@ export function ConductorForm({ conductor, onSave }: Props) {
               <FormField control={form.control} name="vencimientoLicencia" render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel className="mb-1.5">Vencimiento de Licencia</FormLabel>
-                   <Popover modal={true} open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button variant={'outline'} type="button" className={cn('w-full pl-3 text-left font-normal h-10', !field.value && 'text-muted-foreground')}>
-                          {field.value ? format(field.value, 'dd/MM/yyyy') : <span>Seleccione fecha</span>}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={field.value} onSelect={(date) => { if (date) { field.onChange(date); setIsCalendarOpen(false); } }} disabled={(date) => date < new Date('1900-01-01')} initialFocus />
-                    </PopoverContent>
-                  </Popover>
+                  <div className="relative">
+                    <DatePicker
+                      selected={field.value}
+                      onChange={(date) => field.onChange(date)}
+                      showMonthDropdown
+                      showYearDropdown
+                      dropdownMode="select"
+                      dateFormat="dd/MM/yyyy"
+                      placeholderText="Seleccione fecha"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 pointer-events-none" />
+                  </div>
                   <FormMessage />
                 </FormItem>
               )} />

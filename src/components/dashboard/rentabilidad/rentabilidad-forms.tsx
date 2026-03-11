@@ -1,5 +1,5 @@
+
 'use client';
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -8,14 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/jj-ui/calendar';
-import { AlertCircle, CalendarIcon, DollarSign } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { AlertCircle, DollarSign, Calendar as CalendarIcon } from 'lucide-react';
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import type { Transaccion, Vehiculo } from '@/lib/types';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useState } from 'react';
 
 const gastoSchema = z.object({
   vehiculoId: z.string().min(1, 'Seleccione un vehículo'),
@@ -41,16 +40,19 @@ type Props = {
 };
 
 function GastoForm({ vehiculos, onSave, onDone }: { vehiculos: Vehiculo[]; onSave: (data: GastoFormValues) => void, onDone: () => void }) {
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const form = useForm<GastoFormValues>({
     resolver: zodResolver(gastoSchema),
     defaultValues: { vehiculoId: '', categoria: 'Combustible', descripcion: '', valor: 0 },
   });
 
-  function onSubmit(data: GastoFormValues) {
-    onSave(data);
-    form.reset();
-    onDone();
+  async function onSubmit(data: GastoFormValues) {
+    try {
+      await onSave(data);
+      form.reset();
+      onDone();
+    } catch (e) {
+      console.error("Error al registrar gasto:", e);
+    }
   }
 
   return (
@@ -61,7 +63,23 @@ function GastoForm({ vehiculos, onSave, onDone }: { vehiculos: Vehiculo[]; onSav
         )} />
         <div className="grid grid-cols-2 gap-4">
           <FormField name="fecha" control={form.control} render={({ field }) => (
-            <FormItem className="flex flex-col"><FormLabel>Fecha</FormLabel><Popover modal open={isCalendarOpen} onOpenChange={setIsCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" type="button" className={cn("text-sm justify-start text-left font-normal",!field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, 'dd/MM/yy') : <span>Fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" onPointerDownOutside={(e) => e.preventDefault()}><Calendar mode="single" selected={field.value} onSelect={(date) => {if(date) {field.onChange(date); setIsCalendarOpen(false);}}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+            <FormItem className="flex flex-col">
+              <FormLabel>Fecha</FormLabel>
+              <div className="relative">
+                <DatePicker
+                  selected={field.value}
+                  onChange={(date) => field.onChange(date)}
+                  showMonthDropdown
+                  showYearDropdown
+                  dropdownMode="select"
+                  dateFormat="dd/MM/yyyy"
+                  placeholderText="Fecha"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 pointer-events-none" />
+              </div>
+              <FormMessage />
+            </FormItem>
           )}/>
           <FormField name="categoria" control={form.control} render={({ field }) => (
             <FormItem><FormLabel>Categoría</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{['Combustible', 'Mantenimiento', 'Peajes', 'Otros'].map(c=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
@@ -80,16 +98,19 @@ function GastoForm({ vehiculos, onSave, onDone }: { vehiculos: Vehiculo[]; onSav
 }
 
 function IngresoForm({ vehiculos, onSave, onDone }: { vehiculos: Vehiculo[]; onSave: (data: IngresoFormValues) => void, onDone: () => void }) {
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const form = useForm<IngresoFormValues>({
     resolver: zodResolver(ingresoSchema),
     defaultValues: { vehiculoId: '', descripcion: '', valor: 0 },
   });
 
-  function onSubmit(data: IngresoFormValues) {
-    onSave(data);
-    form.reset();
-    onDone();
+  async function onSubmit(data: IngresoFormValues) {
+    try {
+      await onSave(data);
+      form.reset();
+      onDone();
+    } catch (e) {
+      console.error("Error al registrar ingreso:", e);
+    }
   }
 
   return (
@@ -99,7 +120,23 @@ function IngresoForm({ vehiculos, onSave, onDone }: { vehiculos: Vehiculo[]; onS
           <FormItem><FormLabel>Vehículo (Opcional)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger></FormControl><SelectContent>{vehiculos.map(v => <SelectItem key={v.id} value={v.id}>{v.marca} {v.linea} ({v.placa})</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
         )} />
         <FormField name="fecha" control={form.control} render={({ field }) => (
-          <FormItem className="flex flex-col"><FormLabel>Fecha</FormLabel><Popover modal open={isCalendarOpen} onOpenChange={setIsCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" type="button" className={cn("text-sm justify-start text-left font-normal",!field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, 'dd/MM/yy') : <span>Fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" onPointerDownOutside={(e) => e.preventDefault()}><Calendar mode="single" selected={field.value} onSelect={(date) => {if(date) {field.onChange(date); setIsCalendarOpen(false);}}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+          <FormItem className="flex flex-col">
+            <FormLabel>Fecha</FormLabel>
+            <div className="relative">
+              <DatePicker
+                selected={field.value}
+                onChange={(date) => field.onChange(date)}
+                showMonthDropdown
+                showYearDropdown
+                dropdownMode="select"
+                dateFormat="dd/MM/yyyy"
+                placeholderText="Fecha"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 pointer-events-none" />
+            </div>
+            <FormMessage />
+          </FormItem>
         )}/>
         <FormField name="descripcion" control={form.control} render={({field}) => (
           <FormItem><FormLabel>Concepto</FormLabel><FormControl><Input placeholder="Concepto del ingreso" {...field} /></FormControl><FormMessage/></FormItem>
