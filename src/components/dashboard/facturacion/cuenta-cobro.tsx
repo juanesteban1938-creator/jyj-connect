@@ -151,11 +151,26 @@ export function CuentaCobro({ servicio }: Props) {
                     }}
                 >
                     <section className="flex justify-between items-start mb-6" style={{ pageBreakInside: 'avoid' }}>
-                        <div className="flex items-center gap-4">
-                            <Image src="https://i.ibb.co/zhzhTrvV/logo-cxc.png" alt="Logo" width={120} height={68} className="object-contain" style={{ height: '68px', width: 'auto' }} />
-                            {qrCodeUrl && <Image src={qrCodeUrl} alt="QR" width={68} height={68} className="border border-gray-200" />}
+                        <div className="flex items-center gap-4" style={{ maxWidth: '50%' }}>
+                            <Image 
+                                src="https://i.ibb.co/zhzhTrvV/logo-cxc.png" 
+                                alt="Logo" 
+                                width={120} 
+                                height={68} 
+                                className="object-contain" 
+                                style={{ height: '68px', width: 'auto' }} 
+                            />
                         </div>
-                        <div className="text-right">
+                        <div className="text-right flex flex-col items-end gap-2" style={{ maxWidth: '50%' }}>
+                            {qrCodeUrl && (
+                                <Image 
+                                    src={qrCodeUrl} 
+                                    alt="QR" 
+                                    width={68} 
+                                    height={68} 
+                                    className="border border-gray-200" 
+                                />
+                            )}
                             <p className="font-bold text-lg">CUENTA DE COBRO No: {servicio.consecutivo}</p>
                             <p className="font-medium text-base">{format(new Date(servicio.fecha), 'dd/MM/yyyy')}</p>
                         </div>
