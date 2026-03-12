@@ -20,6 +20,7 @@ import {
   PlusCircle,
   MoreHorizontal,
   Loader2,
+  CalendarDays,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -42,7 +43,8 @@ import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { useFirestore, useUser, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, doc, setDoc, deleteDoc, orderBy } from 'firebase/firestore';
+import { format } from 'date-fns';
 import type { Cliente } from '@/lib/types';
 
 const ITEMS_PER_PAGE = 8;
@@ -63,8 +65,16 @@ export default function ClientesPage() {
     return query(collection(db, 'clientes'));
   }, [db, user]);
 
+  const servicesQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'services'), orderBy('fecha', 'desc'));
+  }, [db, user]);
+
   const { data: clientesRaw, isLoading } = useCollection(clientesQuery);
+  const { data: serviciosRaw } = useCollection(servicesQuery);
+  
   const clientes = clientesRaw || [];
+  const servicios = serviciosRaw || [];
   
   const handleSave = async (clienteData: Omit<Cliente, 'id'>) => {
     setIsSaving(true);
@@ -72,7 +82,7 @@ export default function ClientesPage() {
     const docRef = doc(db, 'clientes', id);
     
     try {
-      await setDoc(docRef, { ...clienteData, id }, { merge: true });
+      await setDoc(docRef, { ...clienteData, id, nombre: clienteData.razonSocial }, { merge: true });
       setIsFormOpen(false);
       setSelectedCliente(null);
       toast({ title: "Cliente Guardado" });
@@ -104,7 +114,7 @@ export default function ClientesPage() {
   };
 
   const filtered = clientes.filter(c => 
-    c.razonSocial?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (c.razonSocial || c.nombre || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
     c.nit?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -158,33 +168,47 @@ export default function ClientesPage() {
                   <TableHead className="p-4">CLIENTE / RAZÓN SOCIAL</TableHead>
                   <TableHead className="p-4">NIT / DOCUMENTO</TableHead>
                   <TableHead className="p-4">CONTACTO</TableHead>
+                  <TableHead className="p-4">ÚLTIMO SERVICIO</TableHead>
                   <TableHead className="w-[100px] text-center p-4">ACCIONES</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginated.map((c) => (
-                  <TableRow key={c.id} className="hover:bg-muted/30">
-                    <TableCell className="p-4 text-center"><Checkbox checked={selectedRows.includes(c.id)} onCheckedChange={(checked) => setSelectedRows(prev => checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} /></TableCell>
-                    <TableCell className="p-4"><div className="font-semibold text-sm">{c.razonSocial}</div><Badge variant="outline" className="text-[10px] mt-1 uppercase">{c.tipo}</Badge></TableCell>
-                    <TableCell className="p-4 text-muted-foreground text-sm">{c.nit}</TableCell>
-                    <TableCell className="p-4">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground"><Phone className="h-3 w-3" />{c.telefono}</div>
-                      {c.email && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Mail className="h-3 w-3" />{c.email}</div>}
-                    </TableCell>
-                    <TableCell className="p-4 text-center">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => { setSelectedCliente(c); setIsFormOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-500" onClick={() => handleDelete(c.id)}><Trash2 className="mr-2 h-4 w-4" /> Eliminar</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {paginated.map((c) => {
+                  const ultimoServicio = servicios.find(s => s.nitCliente === c.nit);
+                  return (
+                    <TableRow key={c.id} className="hover:bg-muted/30">
+                      <TableCell className="p-4 text-center"><Checkbox checked={selectedRows.includes(c.id)} onCheckedChange={(checked) => setSelectedRows(prev => checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} /></TableCell>
+                      <TableCell className="p-4"><div className="font-semibold text-sm">{c.razonSocial || c.nombre || 'Sin nombre'}</div><Badge variant="outline" className="text-[10px] mt-1 uppercase">{c.tipo}</Badge></TableCell>
+                      <TableCell className="p-4 text-muted-foreground text-sm">{c.nit}</TableCell>
+                      <TableCell className="p-4">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground"><Phone className="h-3 w-3" />{c.telefono}</div>
+                        {c.email && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Mail className="h-3 w-3" />{c.email}</div>}
+                      </TableCell>
+                      <TableCell className="p-4">
+                        {ultimoServicio ? (
+                          <div className="text-[11px]">
+                            <p className="font-bold flex items-center gap-1 text-primary uppercase"><CalendarDays className="h-3 w-3"/> {format(new Date(ultimoServicio.fecha), 'dd/MM/yyyy')}</p>
+                            <p className="text-muted-foreground truncate max-w-[150px] font-medium">{ultimoServicio.origen} ➔ {ultimoServicio.destino}</p>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground italic font-bold uppercase opacity-50">Sin servicios</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="p-4 text-center">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => { setSelectedCliente(c); setIsFormOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
+                            <DropdownMenuItem className="text-red-500" onClick={() => handleDelete(c.id)}><Trash2 className="mr-2 h-4 w-4" /> Eliminar</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="p-12 text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="p-12 text-center text-muted-foreground">
                       No se encontraron clientes registrados.
                     </TableCell>
                   </TableRow>

@@ -170,6 +170,7 @@ export default function ServiciosPage() {
         await setDoc(clienteRef, {
           id: formData.nitCliente,
           nombre: formData.nombreCliente,
+          razonSocial: formData.nombreCliente,
           nit: formData.nitCliente,
           telefono: formData.telefonoCliente,
           email: formData.emailCliente,
