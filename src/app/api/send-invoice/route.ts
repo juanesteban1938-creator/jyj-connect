@@ -5,16 +5,13 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData();
-    const to = formData.get('to') as string;
-    const nroFactura = formData.get('nroFactura') as string;
-    const pdfFile = formData.get('pdf') as File;
+    const { to, nroFactura, pdfBase64 } = await request.json();
 
-    if (!to || !nroFactura || !pdfFile) {
+    if (!to || !nroFactura || !pdfBase64) {
       return NextResponse.json({ message: 'Faltan datos requeridos.' }, { status: 400 });
     }
 
-    const pdfBuffer = Buffer.from(await pdfFile.arrayBuffer());
+    const pdfBuffer = Buffer.from(pdfBase64, 'base64');
 
     const transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
@@ -61,6 +58,6 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error('Error en /api/send-invoice:', error);
-    return NextResponse.json({ message: 'Error al enviar el correo: ' + error.message }, { status: 500 });
+    return NextResponse.json({ message: 'Error: ' + error.message }, { status: 500 });
   }
 }
