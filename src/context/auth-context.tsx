@@ -47,20 +47,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, pass: string) => {
     const { auth } = initializeFirebase();
     try {
-      console.log("[Auth] Intentando acceso para:", email);
-      // Kamus1938* o Admin2024 (según lo configurado en la consola)
       const userCredential = await signInWithEmailAndPassword(auth, email, pass);
       
       if (userCredential.user) {
         localStorage.setItem('isAuthenticated', 'true');
         setIsAuthenticated(true);
-        console.log("[Auth] Acceso concedido con UID:", userCredential.user.uid);
         router.push('/dashboard');
         return true;
       }
       return false;
     } catch (err: any) {
-      console.error("[Auth Context] Error de login:", err.code, err.message);
+      // Silenciar el error en consola para evitar overlays en desarrollo.
+      // El componente login-form manejará el retorno 'false'.
       return false;
     }
   };
@@ -69,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('isAuthenticated');
     setIsAuthenticated(false);
     const { auth } = initializeFirebase();
-    signOut(auth).catch(console.error);
+    signOut(auth).catch(() => {});
     router.push('/login');
   };
 

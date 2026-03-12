@@ -13,7 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
-import { Loader2, ShieldCheck, Mail, Lock } from 'lucide-react';
+import { Loader2, Mail, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export function LoginForm() {
@@ -37,7 +37,7 @@ export function LoginForm() {
         });
       }
     } catch (err) {
-      console.error('Error al entrar:', err);
+      // Fallo inesperado, manejado silenciosamente ya que login() ya captura errores de auth
     } finally {
       setIsLoading(false);
     }
