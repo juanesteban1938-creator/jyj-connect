@@ -138,7 +138,7 @@ export default function ServiciosPage() {
         cliente: formData.nombreCliente,
         clienteNombre: formData.nombreCliente,
         origen: formData.direccionRecogida,
-        destino: formData.destino,
+        destino: formData.direccionDestino,
         telefonoCliente: formData.telefonoCliente,
         emailCliente: formData.emailCliente,
         fecha: formData.fechaRecogida.toISOString(),
@@ -168,7 +168,7 @@ export default function ServiciosPage() {
       setSelected(null);
       
       if (esNuevo) {
-        handleEnviarWhatsApp(payload); // Sin await - no bloquea el formulario
+        // handleEnviarWhatsApp(payload); // DESACTIVADO PARA PRUEBA
       }
       
     } catch (e) {

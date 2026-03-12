@@ -2,5 +2,11 @@
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
-  }
+  },
+  "apphosting": [
+    {
+      "backendId": "studio",
+      "region": "us-central1"
+    }
+  ]
 }
