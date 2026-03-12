@@ -175,28 +175,58 @@ export default function ClientesPage() {
               <TableBody>
                 {paginated.map((c) => {
                   const ultimoServicio = servicios.find(s => s.nitCliente === c.nit);
+                  const iniciales = (c.razonSocial || c.nombre || '?').substring(0, 2).toUpperCase();
+                  
                   return (
-                    <TableRow key={c.id} className="hover:bg-muted/30">
-                      <TableCell className="p-4 text-center"><Checkbox checked={selectedRows.includes(c.id)} onCheckedChange={(checked) => setSelectedRows(prev => checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} /></TableCell>
-                      <TableCell className="p-4"><div className="font-semibold text-sm">{c.razonSocial || c.nombre || 'Sin nombre'}</div><Badge variant="outline" className="text-[10px] mt-1 uppercase">{c.tipo}</Badge></TableCell>
-                      <TableCell className="p-4 text-muted-foreground text-sm">{c.nit}</TableCell>
+                    <TableRow key={c.id} className="hover:bg-slate-50 transition-colors">
+                      <TableCell className="p-4 text-center">
+                        <Checkbox checked={selectedRows.includes(c.id)} onCheckedChange={(checked) => setSelectedRows(prev => checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} />
+                      </TableCell>
                       <TableCell className="p-4">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground"><Phone className="h-3 w-3" />{c.telefono}</div>
-                        {c.email && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Mail className="h-3 w-3" />{c.email}</div>}
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs">
+                            {iniciales}
+                          </div>
+                          <div className="flex flex-col">
+                            <div className="font-semibold text-sm leading-tight text-foreground">
+                              {c.razonSocial || c.nombre || 'Sin nombre'}
+                            </div>
+                            {c.tipo && (
+                              <Badge variant="outline" className="text-[9px] mt-1 uppercase h-4 px-1 border-primary/20 text-primary/70 font-bold w-fit">
+                                {c.tipo}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="p-4 text-muted-foreground text-sm font-medium">
+                        {c.nit}
+                      </TableCell>
+                      <TableCell className="p-4">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium"><Phone className="h-3 w-3" />{c.telefono}</div>
+                        {c.email && <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium"><Mail className="h-3 w-3" />{c.email}</div>}
                       </TableCell>
                       <TableCell className="p-4">
                         {ultimoServicio ? (
-                          <div className="text-[11px]">
-                            <p className="font-bold flex items-center gap-1 text-primary uppercase"><CalendarDays className="h-3 w-3"/> {format(new Date(ultimoServicio.fecha), 'dd/MM/yyyy')}</p>
-                            <p className="text-muted-foreground truncate max-w-[150px] font-medium">{ultimoServicio.origen} ➔ {ultimoServicio.destino}</p>
+                          <div className="flex flex-col gap-0.5">
+                            <p className="font-bold flex items-center gap-1 text-primary uppercase text-[10px]">
+                              <CalendarDays className="h-2.5 w-2.5"/> {format(new Date(ultimoServicio.fecha), 'dd/MM/yyyy')}
+                            </p>
+                            <p className="text-muted-foreground truncate max-w-[160px] font-medium text-[9px] uppercase tracking-tight">
+                              {ultimoServicio.origen} ➔ {ultimoServicio.destino}
+                            </p>
                           </div>
                         ) : (
-                          <span className="text-[10px] text-muted-foreground italic font-bold uppercase opacity-50">Sin servicios</span>
+                          <span className="text-[9px] text-muted-foreground italic font-bold uppercase opacity-40">Sin servicios</span>
                         )}
                       </TableCell>
                       <TableCell className="p-4 text-center">
                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/5 hover:text-primary transition-colors">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => { setSelectedCliente(c); setIsFormOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
                             <DropdownMenuItem className="text-red-500" onClick={() => handleDelete(c.id)}><Trash2 className="mr-2 h-4 w-4" /> Eliminar</DropdownMenuItem>
