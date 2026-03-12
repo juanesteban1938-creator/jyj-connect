@@ -184,6 +184,16 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
         const msg = `¡Hola, *${data.clienteNombre}*! 👋 Soy *Nova*, asistente de *Transportes Especiales J&J*.\n\nTu servicio ha sido programado con éxito. Arriba te envío la tarjeta con los detalles. 🚐💨`;
         await client.sendMessage(jid, msg);
 
+        // Registrar en historial de Firestore
+        await db.collection('notificaciones_whatsapp').add({
+          clienteNombre: data.clienteNombre,
+          clienteTelefono: data.clienteTelefono,
+          tipo: 'servicio_programado',
+          mensaje: msg,
+          estado: 'enviado',
+          fecha: admin.firestore.FieldValue.serverTimestamp()
+        });
+
         res.json({ success: true });
     } catch (error) {
         console.error('[Nova] Error de envío:', error);
@@ -207,6 +217,17 @@ app.post('/send-departure-notification', checkApiKey, async (req, res) => {
         const text = `⚠️ *¡AVISO DE SALIDA!* ⚠️\n\nHola *${data.clienteNombre}*, tu vehículo de *Transportes Especiales J&J* ya está próximo a iniciar el servicio.\n\n${weatherMsg}\n\n📍 *Seguimiento:* Estamos en camino. Favor estar atento al celular. 🙏`;
         
         await client.sendMessage(jid, text);
+
+        // Registrar en historial de Firestore
+        await db.collection('notificaciones_whatsapp').add({
+          clienteNombre: data.clienteNombre,
+          clienteTelefono: data.clienteTelefono,
+          tipo: 'notificacion_salida',
+          mensaje: text,
+          estado: 'enviado',
+          fecha: admin.firestore.FieldValue.serverTimestamp()
+        });
+
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
