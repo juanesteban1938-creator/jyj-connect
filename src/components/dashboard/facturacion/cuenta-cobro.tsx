@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Servicio } from "@/lib/types";
@@ -97,17 +96,39 @@ export function CuentaCobro({ servicio }: Props) {
         }
         setIsSending(true);
         try {
-            const canvas = await html2canvas(printableAreaRef.current!, { scale: 2 });
+            const canvas = await html2canvas(printableAreaRef.current!, { 
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                onclone: (clonedDoc) => {
+                    // Esperar que todas las imágenes carguen en el clon
+                    const images = clonedDoc.querySelectorAll('img');
+                    return Promise.all(Array.from(images).map(img => {
+                        if (img.complete) return Promise.resolve();
+                        return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
+                    }));
+                }
+            });
             const pdf = new jsPDF('p', 'mm', 'letter');
             pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 215.9, 279.4);
             const response = await fetch('/api/send-invoice', {
                 method: 'POST',
-                body: JSON.stringify({ to: servicio.emailCliente, nroFactura: servicio.consecutivo, pdfBase64: pdf.output('datauristring').split(',')[1] }),
+                body: JSON.stringify({ 
+                    to: servicio.emailCliente, 
+                    nroFactura: servicio.consecutivo, 
+                    pdfBase64: pdf.output('datauristring').split(',')[1] 
+                }),
                 headers: { 'Content-Type': 'application/json' }
             });
-            if (response.ok) toast({ title: '¡Correo Enviado!' });
-        } catch (e) {
-            toast({ variant: 'destructive', title: 'Error al enviar' });
+            if (response.ok) {
+                toast({ title: '¡Correo Enviado!', description: `La cuenta de cobro ha sido enviada a ${servicio.emailCliente}` });
+            } else {
+                const err = await response.json();
+                throw new Error(err.message || 'Error en el servidor');
+            }
+        } catch (e: any) {
+            console.error('Error al enviar:', e);
+            toast({ variant: 'destructive', title: 'Error al enviar', description: e.message || 'No se pudo procesar el envío.' });
         } finally {
             setIsSending(false);
         }
