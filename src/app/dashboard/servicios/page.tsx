@@ -125,6 +125,7 @@ export default function ServiciosPage() {
 
   const handleSave = async (formData: any) => {
     setIsSaving(true);
+    const safetyTimeout = setTimeout(() => setIsSaving(false), 10000); // 10 segundos máximo
     try {
       const esNuevo = !selected || !selected.id;
       const servicioId = esNuevo ? String(Date.now()) : selected.id;
@@ -175,6 +176,7 @@ export default function ServiciosPage() {
       console.error("Error al guardar servicio:", e);
       toast({ variant: "destructive", title: "Error al procesar el servicio" });
     } finally {
+      clearTimeout(safetyTimeout);
       setIsSaving(false);
     }
   };
@@ -267,7 +269,7 @@ export default function ServiciosPage() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={isFormOpen} onOpenChange={o => { if(!isSaving) { setIsFormOpen(o); if(!o) setSelected(null); } }}>
+      <Dialog open={isFormOpen} onOpenChange={o => { setIsFormOpen(o); if(!o) { setSelected(null); setIsSaving(false); } }}>
         <DialogContent className="sm:max-w-4xl" aria-describedby={undefined}>
           <DialogDescription className="sr-only">Formulario para la programación y edición de servicios de transporte especial.</DialogDescription>
           <VisuallyHidden><DialogHeader><DialogTitle>Programar Servicio</DialogTitle></DialogHeader></VisuallyHidden>
