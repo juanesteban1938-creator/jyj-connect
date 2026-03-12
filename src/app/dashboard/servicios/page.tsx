@@ -162,6 +162,21 @@ export default function ServiciosPage() {
 
       const docRef = doc(db, 'services', servicioId);
       await setDoc(docRef, payload, { merge: true });
+
+      // Guardar o actualizar cliente en colección 'clientes'
+      if (formData.nitCliente) {
+        console.log('Guardando cliente:', formData.nitCliente, formData.nombreCliente);
+        const clienteRef = doc(db, 'clientes', formData.nitCliente);
+        await setDoc(clienteRef, {
+          id: formData.nitCliente,
+          nombre: formData.nombreCliente,
+          nit: formData.nitCliente,
+          telefono: formData.telefonoCliente,
+          email: formData.emailCliente,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+        console.log('Cliente guardado exitosamente');
+      }
       
       toast({ title: esNuevo ? "Servicio Programado" : "Servicio Actualizado" });
       setIsFormOpen(false);
