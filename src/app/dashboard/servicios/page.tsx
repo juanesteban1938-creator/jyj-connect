@@ -21,7 +21,7 @@ import {
   Loader2,
   Send
 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
