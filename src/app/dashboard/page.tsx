@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
-import { useEffect, useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, limit } from 'firebase/firestore';
 
@@ -54,25 +54,32 @@ const StatCard = ({
 const currencyFormatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 });
 
 export default function DashboardHomePage() {
-  const [vehiculos, setVehiculos] = useState<any[]>([]);
-  const [conductores, setConductores] = useState<any[]>([]);
   const db = useFirestore();
   const { user } = useUser();
 
+  // Consultas sincronizadas con la nube
   const servicesQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, 'services'), limit(10));
   }, [db, user]);
 
-  const { data: serviciosRaw, isLoading: isServicesLoading } = useCollection(servicesQuery);
-  const servicios = serviciosRaw || [];
+  const conductoresQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'conductores'));
+  }, [db, user]);
 
-  useEffect(() => {
-    const v = localStorage.getItem('vehiculos');
-    const c = localStorage.getItem('conductores');
-    if (v) setVehiculos(JSON.parse(v));
-    if (c) setConductores(JSON.parse(c));
-  }, []);
+  const vehiculosQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'vehiculos'));
+  }, [db, user]);
+
+  const { data: serviciosRaw, isLoading: isServicesLoading } = useCollection(servicesQuery);
+  const { data: conductoresRaw } = useCollection(conductoresQuery);
+  const { data: vehiculosRaw } = useCollection(vehiculosQuery);
+
+  const servicios = serviciosRaw || [];
+  const conductores = conductoresRaw || [];
+  const vehiculos = vehiculosRaw || [];
 
   const stats = useMemo(() => {
     const totalVenta = servicios.reduce((acc, s) => acc + (Number(s.valorServicio) || 0), 0);

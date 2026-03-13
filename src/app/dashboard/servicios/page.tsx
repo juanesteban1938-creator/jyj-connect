@@ -21,7 +21,7 @@ import {
   Loader2,
   Send
 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -29,15 +29,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
-import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirestore, useUser, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, updateDoc, collection, onSnapshot, query } from 'firebase/firestore';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
 import type { Servicio, Conductor, Vehiculo } from '@/lib/types';
 
 export default function ServiciosPage() {
-  const [servicios, setServicios] = useState<Servicio[]>([]);
-  const [conductores, setConductores] = useState<Conductor[]>([]);
-  const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
   const [activeTab, setActiveTab] = useState('activos');
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -49,36 +46,35 @@ export default function ServiciosPage() {
   const db = useFirestore();
   const { user } = useUser();
 
-  useEffect(() => {
-    const v = localStorage.getItem('vehiculos');
-    const c = localStorage.getItem('conductores');
-    if (v) setVehiculos(JSON.parse(v));
-    if (c) setConductores(JSON.parse(c));
-
-    if (!user || !db) return;
-
-    setIsLoading(true);
-    const servicesCol = collection(db, 'services');
-    const q = query(servicesCol);
-    
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Servicio[];
-        setServicios(data.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()));
-        setIsLoading(false);
-      },
-      async (error) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: servicesCol.path,
-          operation: 'list'
-        }));
-        setIsLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
+  // Consultas sincronizadas con la nube para el flujo de servicios
+  const servicesColQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'services'));
   }, [db, user]);
+
+  const conductoresQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'conductores'));
+  }, [db, user]);
+
+  const vehiculosQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'vehiculos'));
+  }, [db, user]);
+
+  const { data: serviciosRaw, isLoading: servicesLoading } = useCollection(servicesColQuery);
+  const { data: conductoresRaw } = useCollection(conductoresQuery);
+  const { data: vehiculosRaw } = useCollection(vehiculosQuery);
+
+  const servicios = serviciosRaw || [];
+  const conductores = conductoresRaw || [];
+  const vehiculos = vehiculosRaw || [];
+
+  useEffect(() => {
+    if (!servicesLoading) {
+      setIsLoading(false);
+    }
+  }, [servicesLoading]);
 
   const handleEnviarWhatsApp = async (s: Servicio) => {
     toast({ title: "Nova", description: "Enviando notificación por WhatsApp..." });
@@ -165,7 +161,6 @@ export default function ServiciosPage() {
 
       // Guardar o actualizar cliente en colección 'clientes'
       if (formData.nitCliente) {
-        console.log('Guardando cliente:', formData.nitCliente, formData.nombreCliente);
         const clienteRef = doc(db, 'clientes', formData.nitCliente);
         await setDoc(clienteRef, {
           id: formData.nitCliente,
@@ -176,13 +171,12 @@ export default function ServiciosPage() {
           email: formData.emailCliente,
           updatedAt: new Date().toISOString()
         }, { merge: true });
-        console.log('Cliente guardado exitosamente');
       }
       
       toast({ title: esNuevo ? "Servicio Programado" : "Servicio Actualizado" });
       
       if (esNuevo) {
-        handleEnviarWhatsApp(payload); // Sin await - no bloquea el formulario
+        handleEnviarWhatsApp(payload);
       }
       
     } catch (e) {
