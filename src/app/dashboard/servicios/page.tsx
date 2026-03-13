@@ -213,6 +213,11 @@ export default function ServiciosPage() {
       
       toast({ title: esNuevo ? "Servicio Programado" : "Servicio Actualizado" });
       
+      setTimeout(() => {
+        setIsFormOpen(false);
+        setSelected(null);
+      }, 100);
+
       if (esNuevo) {
         handleEnviarWhatsApp(payload);
       }
@@ -222,8 +227,6 @@ export default function ServiciosPage() {
       toast({ variant: "destructive", title: "Error al procesar el servicio" });
     } finally {
       setIsSaving(false);
-      setIsFormOpen(false);
-      setSelected(null);
     }
   };
 
