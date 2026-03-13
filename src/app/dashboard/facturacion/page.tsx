@@ -80,13 +80,34 @@ export default function FacturacionPage() {
     
     try {
       await updateDoc(docRef, updates);
-      toast({ title: "Servicio Pagado" });
+      toast({ title: "✅ Servicio Pagado" });
+
+      // Envío automático de cuenta de cobro
+      if (servicio.emailCliente) {
+        toast({ title: "📧 Enviando cuenta de cobro..." });
+        const response = await fetch('/api/send-invoice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: servicio.emailCliente,
+            nroFactura: servicio.consecutivo,
+            servicioData: {
+              cliente: servicio.clienteNombre || servicio.cliente,
+              nit: servicio.nitCliente,
+              fecha: servicio.fecha,
+              origen: servicio.origen,
+              destino: servicio.destino,
+              valor: valor,
+              conductor: servicio.conductor,
+              vehiculo: servicio.vehiculo
+            }
+          })
+        });
+        if (response.ok) {
+          toast({ title: "📧 Cuenta de cobro enviada automáticamente" });
+        }
+      }
     } catch (err) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'update',
-        requestResourceData: updates
-      }));
       toast({ variant: "destructive", title: "Error al actualizar pago" });
     } finally {
       setIsProcessing(false);
