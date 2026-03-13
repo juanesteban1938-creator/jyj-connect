@@ -1,38 +1,95 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useMemo } from 'react';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { DollarSign, LineChart as LineChartIcon, CreditCard, Search } from 'lucide-react';
+import { DollarSign, LineChart as LineChartIcon, CreditCard, Search, Trash2, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { RentabilidadForms } from '@/components/dashboard/rentabilidad/rentabilidad-forms';
 import { Badge } from '@/components/ui/badge';
+import { useFirestore, useUser, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { collection, query, orderBy, addDoc, deleteDoc, doc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 import type { Transaccion } from '@/lib/types';
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 });
 
 export default function RentabilidadPage() {
-  const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
+  const db = useFirestore();
+  const { user } = useUser();
 
-  useEffect(() => {
-    const stored = localStorage.getItem('transacciones');
-    if (stored) setTransacciones(JSON.parse(stored));
-  }, []);
+  // Consultas sincronizadas con la nube
+  const transaccionesQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'transacciones'), orderBy('fecha', 'desc'));
+  }, [db, user]);
+
+  const vehiculosQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'vehiculos'));
+  }, [db, user]);
+
+  const { data: transaccionesRaw, isLoading: isTransLoading } = useCollection(transaccionesQuery);
+  const { data: vehiculosRaw } = useCollection(vehiculosQuery);
+
+  const transacciones = transaccionesRaw || [];
+  const vehiculos = vehiculosRaw || [];
 
   const metrics = useMemo(() => {
-    const ingresos = transacciones.filter(t => t.tipo === 'Ingreso').reduce((sum, t) => sum + t.valor, 0);
-    const gastos = transacciones.filter(t => t.tipo === 'Gasto').reduce((sum, t) => sum + t.valor, 0);
+    const ingresos = transacciones.filter(t => t.tipo === 'Ingreso').reduce((sum, t) => sum + (Number(t.valor) || 0), 0);
+    const gastos = transacciones.filter(t => t.tipo === 'Gasto').reduce((sum, t) => sum + (Number(t.valor) || 0), 0);
     return { ingresos, gastos, utilidad: ingresos - gastos };
   }, [transacciones]);
+
+  const handleSave = async (transaccionData: Omit<Transaccion, 'id'>) => {
+    setIsSaving(true);
+    const colRef = collection(db, 'transacciones');
+    try {
+      await addDoc(colRef, transaccionData);
+      toast({ title: "Transacción Registrada" });
+    } catch (e) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: colRef.path,
+        operation: 'create',
+        requestResourceData: transaccionData
+      }));
+      toast({ variant: "destructive", title: "Error al registrar transacción" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('¿Desea eliminar este registro contable?')) return;
+    const docRef = doc(db, 'transacciones', id);
+    try {
+      await deleteDoc(docRef);
+      toast({ title: "Registro eliminado" });
+    } catch (e) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'delete'
+      }));
+      toast({ variant: "destructive", title: "No se pudo eliminar el registro" });
+    }
+  };
+
+  const filteredTransacciones = transacciones.filter(t => 
+    t.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    t.vehiculoPlaca?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="page-container">
       <header>
         <h1 className="page-title">Gestión de P&G</h1>
-        <p className="page-subtitle">Administración financiera de la flota y rentabilidad.</p>
+        <p className="page-subtitle">Administración financiera de la flota y rentabilidad en la nube.</p>
       </header>
 
       <div className="grid gap-6 md:grid-cols-3 mb-8">
@@ -61,15 +118,22 @@ export default function RentabilidadPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
         <div className="lg:col-span-4">
-          <RentabilidadForms vehiculos={[]} onSave={(t) => {
-            const up = [...transacciones, { ...t, id: Date.now().toString() }];
-            setTransacciones(up);
-            localStorage.setItem('transacciones', JSON.stringify(up));
-          }} />
+          <RentabilidadForms 
+            vehiculos={vehiculos} 
+            onSave={handleSave} 
+          />
         </div>
-        <Card className="lg:col-span-8 rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none p-6 bg-white">
+        <Card className="lg:col-span-8 rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none p-6 bg-white relative">
+          {isTransLoading && (
+            <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
           <CardHeader className="p-0 mb-6"><CardTitle className="text-lg font-bold">Histórico de Transacciones</CardTitle></CardHeader>
-          <div className="relative mb-4"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Buscar transacciones..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Buscar por descripción o placa..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          </div>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader className="bg-muted/50">
@@ -78,17 +142,41 @@ export default function RentabilidadPage() {
                   <TableHead className="p-4">TIPO</TableHead>
                   <TableHead className="p-4">DESCRIPCIÓN</TableHead>
                   <TableHead className="p-4 text-right">VALOR</TableHead>
+                  <TableHead className="p-4 text-center w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {transacciones.filter(t => t.descripcion.toLowerCase().includes(searchTerm.toLowerCase())).map(t => (
+                {filteredTransacciones.map(t => (
                   <TableRow key={t.id} className="hover:bg-muted/30">
                     <TableCell className="p-4 text-sm">{format(new Date(t.fecha), 'dd MMM yyyy', { locale: es })}</TableCell>
-                    <TableCell className="p-4"><Badge variant="outline" className={`text-[10px] font-bold uppercase ${t.tipo === 'Ingreso' ? 'text-green-600' : 'text-red-600'}`}>{t.tipo}</Badge></TableCell>
-                    <TableCell className="p-4 text-sm font-medium">{t.descripcion}</TableCell>
-                    <TableCell className={`p-4 text-sm text-right font-bold ${t.tipo === 'Ingreso' ? 'text-green-600' : 'text-red-600'}`}>{t.tipo === 'Ingreso' ? '+' : '-'}{currencyFormatter.format(t.valor)}</TableCell>
+                    <TableCell className="p-4">
+                      <Badge variant="outline" className={`text-[10px] font-bold uppercase ${t.tipo === 'Ingreso' ? 'text-green-600 border-green-200' : 'text-red-600 border-red-200'}`}>
+                        {t.tipo}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="p-4">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{t.descripcion}</span>
+                        {t.vehiculoPlaca && <span className="text-[10px] text-muted-foreground font-bold uppercase">PLACA: {t.vehiculoPlaca}</span>}
+                      </div>
+                    </TableCell>
+                    <TableCell className={`p-4 text-sm text-right font-bold ${t.tipo === 'Ingreso' ? 'text-green-600' : 'text-red-600'}`}>
+                      {t.tipo === 'Ingreso' ? '+' : '-'}{currencyFormatter.format(t.valor)}
+                    </TableCell>
+                    <TableCell className="p-4 text-center">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-600" onClick={() => handleDelete(t.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
+                {filteredTransacciones.length === 0 && !isTransLoading && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="p-12 text-center text-muted-foreground italic font-medium">
+                      No se encontraron transacciones registradas.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
