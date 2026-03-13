@@ -1,4 +1,3 @@
-
 'use client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,7 +18,7 @@ import { useState } from 'react';
 const gastoSchema = z.object({
   vehiculoId: z.string().min(1, 'Seleccione un vehículo'),
   fecha: z.date({ required_error: 'La fecha es requerida' }),
-  categoria: z.enum(['Combustible', 'Mantenimiento', 'Peajes', 'Otros']),
+  categoria: z.enum(['Combustible', 'Mantenimiento', 'Peajes', 'Salarios conductor', 'Salarios monitora', 'Otros']),
   descripcion: z.string().min(1, 'La descripción es requerida'),
   valor: z.coerce.number().min(1, 'El valor debe ser mayor a 0'),
 });
@@ -82,7 +81,7 @@ function GastoForm({ vehiculos, onSave, onDone }: { vehiculos: Vehiculo[]; onSav
             </FormItem>
           )}/>
           <FormField name="categoria" control={form.control} render={({ field }) => (
-            <FormItem><FormLabel>Categoría</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{['Combustible', 'Mantenimiento', 'Peajes', 'Otros'].map(c=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
+            <FormItem><FormLabel>Categoría</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{['Combustible', 'Mantenimiento', 'Peajes', 'Salarios conductor', 'Salarios monitora', 'Otros'].map(c=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
           )}/>
         </div>
         <FormField name="descripcion" control={form.control} render={({field}) => (
