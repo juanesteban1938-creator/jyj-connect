@@ -248,8 +248,8 @@ export default function DashboardHomePage() {
                   {/* Grid de días */}
                   <div className="space-y-4">
                     <div className="grid grid-cols-7 gap-1 text-center">
-                      {['D', 'L', 'M', 'M', 'J', 'V', 'S'].map(d => (
-                        <span key={d} className="text-[10px] font-black text-gray-400 mb-2">{d}</span>
+                      {['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((d, i) => (
+                        <span key={`${d}-${i}`} className="text-[10px] font-black text-gray-400 mb-2">{d}</span>
                       ))}
                       {monthDays.map(day => {
                         const dayServices = servicios.filter(s => isSameDay(new Date(s.fecha), day));
