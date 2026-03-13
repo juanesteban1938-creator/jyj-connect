@@ -184,7 +184,7 @@ export default function ServiciosPage() {
       setSelected(null);
       
       if (esNuevo) {
-        // handleEnviarWhatsApp(payload); // DESACTIVADO PARA PRUEBA
+        handleEnviarWhatsApp(payload); // Sin await - no bloquea el formulario
       }
       
     } catch (e) {
