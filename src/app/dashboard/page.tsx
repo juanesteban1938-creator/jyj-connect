@@ -8,6 +8,11 @@ import {
   ChevronRight,
   Plus,
   Loader2,
+  Calendar as CalendarIcon,
+  ShieldAlert,
+  Clock,
+  CheckCircle2,
+  Car,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,48 +24,74 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, limit } from 'firebase/firestore';
+import { collection, query, limit, orderBy } from 'firebase/firestore';
+import { 
+  format, 
+  startOfMonth, 
+  endOfMonth, 
+  eachDayOfInterval, 
+  isSameDay, 
+  isToday, 
+  differenceInDays,
+  isBefore
+} from 'date-fns';
+import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 const StatCard = ({
   title,
   value,
   icon: Icon,
-  iconColor,
-  bgColor,
+  gradient,
+  shadowColor,
 }: {
   title: string;
   value: string;
   icon: any;
-  iconColor: string;
-  bgColor: string;
+  gradient: string;
+  shadowColor: string;
 }) => (
-  <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none">
-    <CardContent className="p-6">
+  <Card className={cn("border-none shadow-lg transition-all hover:scale-[1.02] overflow-hidden", shadowColor)}>
+    <div className={cn("p-6 h-full flex flex-col justify-between text-white", gradient)}>
       <div className="flex items-center justify-between mb-4">
-        <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">{title}</span>
-        <div className={`p-2 rounded-full ${bgColor}`}>
-          <Icon className={`h-4 w-4 ${iconColor}`} />
+        <span className="text-xs font-bold uppercase opacity-80 tracking-widest">{title}</span>
+        <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
+          <Icon className="h-5 w-5 text-white" />
         </div>
       </div>
       <div className="flex flex-col gap-1">
-        <p className="text-2xl font-bold">{value}</p>
+        <p className="text-3xl font-black tracking-tight">{value}</p>
       </div>
-    </CardContent>
+    </div>
   </Card>
 );
 
-const currencyFormatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 });
+const currencyFormatter = new Intl.NumberFormat('es-CO', { 
+  style: 'currency', 
+  currency: 'COP', 
+  minimumFractionDigits: 0 
+});
 
 export default function DashboardHomePage() {
   const db = useFirestore();
   const { user } = useUser();
+  const [greeting, setGreeting] = useState('');
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  useEffect(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) setGreeting('Buenos días');
+    else if (hour < 18) setGreeting('Buenas tardes');
+    else setGreeting('Buenas noches');
+    setCurrentDate(new Date());
+  }, []);
 
   // Consultas sincronizadas con la nube
   const servicesQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'services'), limit(10));
+    return query(collection(db, 'services'), orderBy('fecha', 'desc'), limit(20));
   }, [db, user]);
 
   const conductoresQuery = useMemoFirebase(() => {
@@ -73,7 +104,7 @@ export default function DashboardHomePage() {
     return query(collection(db, 'vehiculos'));
   }, [db, user]);
 
-  const { data: serviciosRaw, isLoading: isServicesLoading } = useCollection(servicesQuery);
+  const { data: serviciosRaw, isLoading: isServicesLoading } = useCollection(serviciosRaw ? null : servicesQuery);
   const { data: conductoresRaw } = useCollection(conductoresQuery);
   const { data: vehiculosRaw } = useCollection(vehiculosQuery);
 
@@ -99,88 +130,307 @@ export default function DashboardHomePage() {
     };
   }, [servicios, vehiculos, conductores]);
 
+  // Lógica de Calendario
+  const monthDays = useMemo(() => {
+    const start = startOfMonth(currentDate);
+    const end = endOfMonth(currentDate);
+    return eachDayOfInterval({ start, end });
+  }, [currentDate]);
+
+  // Alertas de Documentos
+  const alerts = useMemo(() => {
+    const allAlerts: any[] = [];
+    const now = new Date();
+    
+    vehiculos.forEach(v => {
+      const docs = [
+        { name: 'SOAT', date: v.vencimientoSoat },
+        { name: 'Tecnomecánica', date: v.vencimientoTecnomecanica },
+        { name: 'Tarjeta Op.', date: v.vencimientoTarjetaOperacion },
+        { name: 'RCC', date: v.vencimientoRcc },
+        { name: 'RCE', date: v.vencimientoRce },
+      ];
+
+      docs.forEach(d => {
+        if (d.date) {
+          const expDate = new Date(d.date);
+          const diff = differenceInDays(expDate, now);
+          let status: 'critico' | 'advertencia' | 'vigente' = 'vigente';
+          
+          if (isBefore(expDate, now) || diff <= 30) status = 'critico';
+          else if (diff <= 60) status = 'advertencia';
+          
+          if (status !== 'vigente') {
+            allAlerts.push({
+              placa: v.placa,
+              docName: d.name,
+              daysLeft: diff,
+              date: expDate,
+              status
+            });
+          }
+        }
+      });
+    });
+
+    return allAlerts.sort((a, b) => a.daysLeft - b.daysLeft).slice(0, 6);
+  }, [vehiculos]);
+
   return (
-    <div className="page-container">
-      <header className="mb-8">
-        <h1 className="page-title">Panel de Control</h1>
-        <p className="page-subtitle">Gestión centralizada de Transportes Especiales J&J.</p>
-      </header>
+    <div className="min-h-screen bg-[#F8F9FA] pb-12">
+      <div className="page-container space-y-8">
+        {/* Header con Saludo */}
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-4">
+          <div>
+            <h1 className="text-3xl font-black text-gray-900 tracking-tight">
+              {greeting}, Admin Principal 👋
+            </h1>
+            <p className="text-gray-500 font-medium mt-1">
+              {format(currentDate, "EEEE, d 'de' MMMM", { locale: es })}
+            </p>
+          </div>
+          <Link href="/dashboard/servicios">
+            <Button className="btn-action bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-orange-200/50 shadow-lg">
+              <Plus className="mr-2 h-5 w-5" /> Programar Servicio
+            </Button>
+          </Link>
+        </header>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
-        <StatCard
-          title="Total de Vehículos"
-          value={stats.vehiculos.toString()}
-          icon={Briefcase}
-          iconColor="text-blue-600"
-          bgColor="bg-blue-50"
-        />
-        <StatCard
-          title="Conductores Activos"
-          value={stats.conductores.toString()}
-          icon={Users}
-          iconColor="text-orange-600"
-          bgColor="bg-orange-50"
-        />
-        <StatCard
-          title="Cartera Pendiente"
-          value={stats.cartera}
-          icon={AlertTriangle}
-          iconColor="text-red-600"
-          bgColor="bg-red-50"
-        />
-        <StatCard
-          title="Ingresos Registrados"
-          value={stats.venta}
-          icon={TrendingUp}
-          iconColor="text-green-600"
-          bgColor="bg-green-50"
-        />
-      </div>
+        {/* Grid de Stats */}
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            title="Flota Activa"
+            value={`${stats.vehiculos} Vehículos`}
+            icon={Briefcase}
+            gradient="bg-gradient-to-br from-blue-600 to-blue-400"
+            shadowColor="shadow-blue-100"
+          />
+          <StatCard
+            title="Talento Humano"
+            value={`${stats.conductores} Conductores`}
+            icon={Users}
+            gradient="bg-gradient-to-br from-indigo-600 to-indigo-400"
+            shadowColor="shadow-indigo-100"
+          />
+          <StatCard
+            title="Cartera Pendiente"
+            value={stats.cartera}
+            icon={AlertTriangle}
+            gradient="bg-gradient-to-br from-rose-600 to-rose-400"
+            shadowColor="shadow-rose-100"
+          />
+          <StatCard
+            title="Ventas Totales"
+            value={stats.venta}
+            icon={TrendingUp}
+            gradient="bg-gradient-to-br from-emerald-600 to-emerald-400"
+            shadowColor="shadow-emerald-100"
+          />
+        </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2 rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none relative overflow-hidden bg-primary/5">
-           <CardContent className="p-8">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="z-10 text-center md:text-left">
-                <h3 className="text-2xl font-bold text-gray-800">Operaciones J&J</h3>
-                <p className="mt-2 max-w-md text-muted-foreground">Gestión ágil de servicios y monitoreo de flota en tiempo real.</p>
-                <div className="mt-6 flex flex-wrap gap-3 justify-center md:justify-start">
-                  <Link href="/dashboard/servicios"><Button className="btn-action shadow-md"><Plus className="mr-2 h-4 w-4" /> Nuevo Servicio</Button></Link>
-                  <Link href="/dashboard/facturacion"><Button variant="outline" className="btn-action bg-white">Ver Facturación</Button></Link>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Calendario y Próximos Servicios */}
+          <div className="lg:col-span-8 space-y-6">
+            <Card className="border-none shadow-sm overflow-hidden bg-white">
+              <CardHeader className="border-b bg-gray-50/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CalendarIcon className="h-5 w-5 text-orange-500" />
+                    <CardTitle className="text-lg font-bold uppercase tracking-tight">Agenda Operativa</CardTitle>
+                  </div>
+                  <Badge variant="outline" className="font-bold border-orange-200 text-orange-600 bg-orange-50">
+                    {format(currentDate, 'MMMM yyyy', { locale: es }).toUpperCase()}
+                  </Badge>
                 </div>
-              </div>
-               <div className="hidden md:block text-primary/10"><Briefcase className="h-40 w-40" /></div>
-            </div>
-          </CardContent>
-        </Card>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Grid de días */}
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-7 gap-1 text-center">
+                      {['D', 'L', 'M', 'M', 'J', 'V', 'S'].map(d => (
+                        <span key={d} className="text-[10px] font-black text-gray-400 mb-2">{d}</span>
+                      ))}
+                      {monthDays.map(day => {
+                        const dayServices = servicios.filter(s => isSameDay(new Date(s.fecha), day));
+                        const isProgrammed = dayServices.some(s => s.estado === 'Programado');
+                        const isFinished = dayServices.every(s => s.estado === 'Finalizado') && dayServices.length > 0;
+                        
+                        return (
+                          <div
+                            key={day.toString()}
+                            className={cn(
+                              "aspect-square flex items-center justify-center text-xs font-bold rounded-lg relative cursor-default transition-colors",
+                              isToday(day) ? "bg-black text-white" : "text-gray-600",
+                              isProgrammed && !isToday(day) && "bg-orange-100 text-orange-700",
+                              isFinished && !isToday(day) && "bg-gray-100 text-gray-400"
+                            )}
+                          >
+                            {format(day, 'd')}
+                            {isProgrammed && (
+                              <span className="absolute bottom-1 w-1 h-1 bg-orange-500 rounded-full" />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="flex gap-4 pt-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-orange-500" />
+                        <span className="text-[10px] font-bold text-gray-500 uppercase">Programado</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-gray-300" />
+                        <span className="text-[10px] font-bold text-gray-500 uppercase">Finalizado</span>
+                      </div>
+                    </div>
+                  </div>
 
-        <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none">
-          <CardHeader className="p-6">
-            <CardTitle className="text-lg">Últimos Movimientos</CardTitle>
-            <CardDescription>Sincronización en tiempo real.</CardDescription>
-          </CardHeader>
-          <CardContent className="px-6 pb-6 space-y-4">
-            {isServicesLoading ? (
-              <div className="flex flex-col items-center justify-center p-8 gap-2">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                <span className="text-[10px] text-muted-foreground uppercase font-bold">Cargando datos...</span>
-              </div>
-            ) : servicios.length > 0 ? servicios.slice(0, 5).map(s => (
-              <div key={s.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                <div>
-                  <p className="font-bold text-sm">Servicio {s.consecutivo}</p>
-                  <p className="text-xs text-muted-foreground truncate max-w-[150px]">{s.cliente}</p>
+                  {/* Lista de próximos */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest border-b pb-2">Próximos Traslados</h4>
+                    <div className="space-y-3">
+                      {isServicesLoading ? (
+                        <div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-orange-500" /></div>
+                      ) : servicios.filter(s => s.estado === 'Programado').slice(0, 5).map(s => (
+                        <div key={s.id} className="flex items-center justify-between p-2 rounded-xl hover:bg-gray-50 transition-colors group">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-orange-50 flex flex-col items-center justify-center text-orange-600">
+                              <span className="text-[10px] font-black leading-none">{format(new Date(s.fecha), 'MMM', { locale: es }).toUpperCase()}</span>
+                              <span className="text-sm font-bold">{format(new Date(s.fecha), 'dd')}</span>
+                            </div>
+                            <div className="max-w-[140px] md:max-w-[180px]">
+                              <p className="text-sm font-bold text-gray-800 truncate">{s.cliente}</p>
+                              <div className="flex items-center gap-1 text-[10px] text-gray-400 font-bold uppercase">
+                                <Clock className="h-3 w-3" /> {s.hora}
+                              </div>
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="text-[9px] font-black uppercase border-orange-200 text-orange-600 bg-orange-50">
+                            {s.consecutivo}
+                          </Badge>
+                        </div>
+                      ))}
+                      {servicios.filter(s => s.estado === 'Programado').length === 0 && (
+                        <p className="text-xs text-gray-400 italic text-center py-4">No hay servicios pendientes</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <Badge variant="outline" className="text-[10px] font-bold uppercase">{s.estado}</Badge>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Alertas de Documentos */}
+          <div className="lg:col-span-4 space-y-6">
+            <Card className="border-none shadow-sm bg-white h-full">
+              <CardHeader className="border-b bg-gray-50/50">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="h-5 w-5 text-rose-500" />
+                  <CardTitle className="text-lg font-bold uppercase tracking-tight">Alertas de Documentos</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  {alerts.length > 0 ? alerts.map((alert, i) => (
+                    <div 
+                      key={`${alert.placa}-${alert.docName}-${i}`} 
+                      className={cn(
+                        "p-4 rounded-2xl flex items-center justify-between border transition-all",
+                        alert.status === 'critico' ? "bg-rose-50 border-rose-100 text-rose-900" : "bg-amber-50 border-amber-100 text-amber-900"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "p-2 rounded-xl",
+                          alert.status === 'critico' ? "bg-rose-200/50" : "bg-amber-200/50"
+                        )}>
+                          {alert.status === 'critico' ? <AlertTriangle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black uppercase opacity-60 leading-none mb-1">{alert.docName}</p>
+                          <p className="text-sm font-bold">{alert.placa}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-black">
+                          {alert.daysLeft < 0 ? 'VENCIDO' : `Faltan ${alert.daysLeft} d`}
+                        </p>
+                        <p className="text-[10px] font-bold opacity-60">
+                          {format(alert.date, 'dd MMM yyyy', { locale: es })}
+                        </p>
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="flex flex-col items-center justify-center py-12 text-center space-y-3 opacity-40">
+                      <CheckCircle2 className="h-12 w-12 text-emerald-500" />
+                      <p className="text-sm font-bold uppercase tracking-widest">Documentación al día</p>
+                    </div>
+                  )}
+                  {vehiculos.length > 0 && (
+                    <Link href="/dashboard/vehiculos" className="block">
+                      <Button variant="ghost" className="w-full text-[10px] font-black uppercase text-gray-400 hover:text-orange-500 hover:bg-orange-50 mt-4">
+                        Gestionar Documentos <ChevronRight className="ml-1 h-3 w-3" />
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Sección de Acceso Rápido */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Link href="/dashboard/conductores">
+            <Card className="border-none shadow-sm hover:shadow-md transition-shadow group cursor-pointer bg-white overflow-hidden">
+              <div className="p-6 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-2xl bg-indigo-50 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+                    <Users className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-gray-800 text-sm uppercase tracking-tight">Plantilla</h3>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase">Conductores y personal</p>
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-indigo-500 transition-colors" />
               </div>
-            )) : (
-              <p className="text-xs text-muted-foreground text-center py-4">No hay operaciones registradas en la nube.</p>
-            )}
-            <Link href="/dashboard/servicios" className="flex items-center justify-center text-primary text-xs font-bold hover:underline gap-1 pt-2">
-                Ver todos los servicios <ChevronRight className="h-3 w-3" />
-            </Link>
-          </CardContent>
-        </Card>
+            </Card>
+          </Link>
+          <Link href="/dashboard/vehiculos">
+            <Card className="border-none shadow-sm hover:shadow-md transition-shadow group cursor-pointer bg-white overflow-hidden">
+              <div className="p-6 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-2xl bg-blue-50 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                    <Car className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-gray-800 text-sm uppercase tracking-tight">Flota J&J</h3>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase">Estado de vehículos</p>
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-blue-500 transition-colors" />
+              </div>
+            </Card>
+          </Link>
+          <Link href="/dashboard/facturacion">
+            <Card className="border-none shadow-sm hover:shadow-md transition-shadow group cursor-pointer bg-white overflow-hidden">
+              <div className="p-6 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-2xl bg-emerald-50 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                    <TrendingUp className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-gray-800 text-sm uppercase tracking-tight">Finanzas</h3>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase">Facturación y cobros</p>
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-emerald-500 transition-colors" />
+              </div>
+            </Card>
+          </Link>
+        </div>
       </div>
     </div>
   );
