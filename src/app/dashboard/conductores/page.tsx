@@ -58,6 +58,7 @@ export default function ConductoresPage() {
   const db = useFirestore();
   const { user } = useUser();
 
+  // Suscripción en tiempo real a la colección de conductores en la nube
   const conductoresQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, 'conductores'));
@@ -68,6 +69,7 @@ export default function ConductoresPage() {
 
   const handleSave = async (conductorData: Conductor) => {
     setIsSaving(true);
+    // Usar el ID existente para edición o generar uno nuevo
     const id = selectedConductor ? selectedConductor.id : (conductorData.id || doc(collection(db, 'conductores')).id);
     const docRef = doc(db, 'conductores', id);
     
