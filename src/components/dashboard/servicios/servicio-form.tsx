@@ -1,4 +1,3 @@
-
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -134,7 +133,8 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
     } else if (estadoPago === 'Pendiente' || estadoPago === 'Anulado') {
         form.setValue('anticipo', 0);
     }
-  }, [estadoPago, valorServicio, form]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estadoPago, valorServicio]);
 
   const anticipo = form.watch('anticipo') || 0;
   const saldo = Math.max(0, valorServicio - anticipo);
