@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,6 +45,7 @@ export default function ServiciosPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isResumenOpen, setIsResumenOpen] = useState(false);
   const [selected, setSelected] = useState<Servicio | null>(null);
+  const [selectedResumen, setSelectedResumen] = useState<Servicio | null>(null);
   const { toast } = useToast();
   const db = useFirestore();
   const { user } = useUser();
@@ -143,20 +144,15 @@ export default function ServiciosPage() {
     setIsFormOpen(true);
   };
 
-  const handleUpdateEstado = async (id: string, nuevoEstado: Servicio['estado']) => {
+  const handleUpdateEstado = useCallback(async (id: string, nuevoEstado: Servicio['estado']) => {
     const docRef = doc(db, 'services', id);
     try {
       await updateDoc(docRef, { estado: nuevoEstado });
       toast({ title: `Servicio ${nuevoEstado}` });
     } catch (error) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'update',
-        requestResourceData: { estado: nuevoEstado }
-      }));
       toast({ variant: "destructive", title: "Error al actualizar estado" });
     }
-  };
+  }, [db]);
 
   const handleSave = async (formData: any) => {
     setIsSaving(true);
@@ -375,7 +371,7 @@ export default function ServiciosPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl shadow-xl border-slate-100">
-                      <DropdownMenuItem onClick={() => { setSelected(s); setIsResumenOpen(true); }} className="rounded-lg font-bold text-xs py-2.5">
+                      <DropdownMenuItem onClick={() => { setSelectedResumen(s); setIsResumenOpen(true); }} className="rounded-lg font-bold text-xs py-2.5">
                         <Eye className="mr-2 h-4 w-4 text-slate-400" /> Ver Detalles
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setSelected(s); setIsFormOpen(true); }} className="rounded-lg font-bold text-xs py-2.5">
@@ -439,7 +435,7 @@ export default function ServiciosPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isResumenOpen} onOpenChange={o => { setIsResumenOpen(o); if(!o) setSelected(null); }}>
+      <Dialog open={isResumenOpen} onOpenChange={o => { setIsResumenOpen(o); if(!o) setSelectedResumen(null); }}>
         <DialogContent className="sm:max-w-lg rounded-3xl p-0 overflow-hidden border-none shadow-2xl" aria-describedby={undefined}>
           <DialogDescription className="sr-only">Vista detallada de los datos del servicio, conductor, vehículo y estado financiero.</DialogDescription>
           <div className="p-6 border-b bg-slate-50/50">
@@ -448,7 +444,7 @@ export default function ServiciosPage() {
             </DialogTitle>
           </div>
           <div className="p-6">
-            {selected && <ResumenServicio servicio={selected} />}
+            {selectedResumen && <ResumenServicio servicio={selectedResumen} />}
           </div>
         </DialogContent>
       </Dialog>
