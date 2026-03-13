@@ -180,8 +180,6 @@ export default function ServiciosPage() {
       }
       
       toast({ title: esNuevo ? "Servicio Programado" : "Servicio Actualizado" });
-      setIsFormOpen(false);
-      setSelected(null);
       
       if (esNuevo) {
         handleEnviarWhatsApp(payload); // Sin await - no bloquea el formulario
@@ -192,6 +190,8 @@ export default function ServiciosPage() {
       toast({ variant: "destructive", title: "Error al procesar el servicio" });
     } finally {
       setIsSaving(false);
+      setIsFormOpen(false);
+      setSelected(null);
     }
   };
 
@@ -283,7 +283,13 @@ export default function ServiciosPage() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={isFormOpen} onOpenChange={o => { if(!isSaving) { setIsFormOpen(o); if(!o) setSelected(null); } }}>
+      <Dialog open={isFormOpen} onOpenChange={o => { 
+        setIsFormOpen(o); 
+        if(!o) { 
+          setSelected(null); 
+          setIsSaving(false); 
+        } 
+      }}>
         <DialogContent className="sm:max-w-4xl" aria-describedby={undefined}>
           <DialogDescription className="sr-only">Formulario para la programación y edición de servicios de transporte especial.</DialogDescription>
           <VisuallyHidden><DialogHeader><DialogTitle>Programar Servicio</DialogTitle></DialogHeader></VisuallyHidden>
