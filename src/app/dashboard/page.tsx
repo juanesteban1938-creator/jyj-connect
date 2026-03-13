@@ -104,7 +104,7 @@ export default function DashboardHomePage() {
     return query(collection(db, 'vehiculos'));
   }, [db, user]);
 
-  const { data: serviciosRaw, isLoading: isServicesLoading } = useCollection(serviciosRaw ? null : servicesQuery);
+  const { data: serviciosRaw, isLoading: isServicesLoading } = useCollection(servicesQuery);
   const { data: conductoresRaw } = useCollection(conductoresQuery);
   const { data: vehiculosRaw } = useCollection(vehiculosQuery);
 
