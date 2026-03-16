@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,8 +68,10 @@ export default function ServiciosPage() {
   const { data: vehiculosRaw } = useCollection(vehiculosQuery);
 
   const servicios = serviciosRaw || [];
-  const conductores = conductoresRaw || [];
-  const vehiculos = vehiculosRaw || [];
+  const conductores = useMemo(() => conductoresRaw || [], [conductoresRaw]);
+  const vehiculos = useMemo(() => vehiculosRaw || [], [vehiculosRaw]);
+
+  const handleCancelForm = useCallback(() => setIsFormOpen(false), []);
 
   useEffect(() => {
     if (!servicesLoading) {
@@ -438,7 +440,7 @@ export default function ServiciosPage() {
             <ServicioForm 
               servicio={selected} 
               onSave={handleSave} 
-              onCancel={() => setIsFormOpen(false)} 
+              onCancel={handleCancelForm} 
               conductores={conductores} 
               vehiculos={vehiculos} 
               isSaving={isSaving}
