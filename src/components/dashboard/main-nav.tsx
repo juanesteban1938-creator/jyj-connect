@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -42,6 +41,7 @@ const finanzasItems = [
 ]
 
 const sistemaItems = [
+    { href: '/dashboard/whatsapp-bandeja', label: 'Bandeja Nova', icon: MessageSquare },
     { href: '/dashboard/whatsapp-status', label: 'Estado WhatsApp', icon: MessageSquare },
 ]
 
