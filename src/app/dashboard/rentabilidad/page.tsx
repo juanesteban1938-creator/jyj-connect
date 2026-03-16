@@ -78,8 +78,9 @@ export default function RentabilidadPage() {
   const handleSave = (transaccionData: Omit<Transaccion, 'id'>) => {
     setIsSaving(true);
     const colRef = collection(db, 'transacciones');
+    
+    // Escritura no bloqueante según lineamientos
     addDoc(colRef, transaccionData)
-      .then(() => toast({ title: "Transacción Registrada" }))
       .catch((e) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: colRef.path,
@@ -87,17 +88,18 @@ export default function RentabilidadPage() {
           requestResourceData: transaccionData
         }));
         toast({ variant: "destructive", title: "Error al registrar transacción" });
-      })
-      .finally(() => {
-        setIsSaving(false);
       });
+    
+    toast({ title: "Transacción Registrada" });
+    setIsSaving(false);
   };
 
   const handleDelete = (id: string) => {
     if (!confirm('¿Desea eliminar este registro contable?')) return;
     const docRef = doc(db, 'transacciones', id);
+    
+    // Eliminación no bloqueante
     deleteDoc(docRef)
-      .then(() => toast({ title: "Registro eliminado" }))
       .catch((e) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: docRef.path,
@@ -105,6 +107,8 @@ export default function RentabilidadPage() {
         }));
         toast({ variant: "destructive", title: "No se pudo eliminar el registro" });
       });
+    
+    toast({ title: "Registro eliminado" });
   };
 
   const filteredTransacciones = periodTransacciones.filter(t => 
@@ -113,8 +117,13 @@ export default function RentabilidadPage() {
   );
 
   const years = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    return Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString());
+    const startYear = 2023;
+    const endYear = 2036;
+    const yearsArray = [];
+    for (let y = startYear; y <= endYear; y++) {
+      yearsArray.push(y.toString());
+    }
+    return yearsArray;
   }, []);
 
   return (
