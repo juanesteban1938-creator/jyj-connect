@@ -307,11 +307,11 @@ export default function FacturacionPage() {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" disabled={isProcessing}><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => { setSelected(s); setIsFacturaOpen(true); }}><FileText className="mr-2 h-4 w-4" /> Ver Cuenta de Cobro</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => { setSelected(s); setIsAbonoOpen(true); }}><DollarSign className="mr-2 h-4 w-4" /> Registrar Pago/Abono</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => { setSelected(s); setIsEditOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar Facturación</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setSelected(s); setTimeout(() => setIsFacturaOpen(true), 100); }}><FileText className="mr-2 h-4 w-4" /> Ver Cuenta de Cobro</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setSelected(s); setTimeout(() => setIsAbonoOpen(true), 100); }}><DollarSign className="mr-2 h-4 w-4" /> Registrar Pago/Abono</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setSelected(s); setTimeout(() => setIsEditOpen(true), 100); }}><Edit className="mr-2 h-4 w-4" /> Editar Facturación</DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => { setSelected(s); setIsFacturaOpen(true); }}><Mail className="mr-2 h-4 w-4" /> Enviar por Correo</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setSelected(s); setTimeout(() => setIsFacturaOpen(true), 100); }}><Mail className="mr-2 h-4 w-4" /> Enviar por Correo</DropdownMenuItem>
                         {s.estadoPago !== 'Pagado' && (
                           <DropdownMenuItem className="text-green-600" onClick={() => handleMarcarPagada(s)}><CheckCircle className="mr-2 h-4 w-4" /> Marcar como Pagada</DropdownMenuItem>
                         )}

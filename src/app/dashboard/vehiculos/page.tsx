@@ -200,7 +200,7 @@ export default function VehiculosPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl shadow-xl">
-                          <DropdownMenuItem onClick={() => { setSelected(v); setIsFormOpen(true); }} className="rounded-lg font-bold text-xs py-2.5">
+                          <DropdownMenuItem onClick={() => { setSelected(v); setTimeout(() => setIsFormOpen(true), 100); }} className="rounded-lg font-bold text-xs py-2.5">
                             <Edit className="mr-2 h-4 w-4 text-slate-400" /> Editar Ficha
                           </DropdownMenuItem>
                           <DropdownMenuItem className="text-red-600 rounded-lg font-bold text-xs py-2.5" onClick={() => handleDelete(v.id)}>

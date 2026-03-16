@@ -385,10 +385,10 @@ export default function ServiciosPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl shadow-xl border-slate-100">
-                      <DropdownMenuItem onClick={() => { setSelectedResumen(s); setIsResumenOpen(true); }} className="rounded-lg font-bold text-xs py-2.5">
+                      <DropdownMenuItem onClick={() => { setSelectedResumen(s); setTimeout(() => setIsResumenOpen(true), 100); }} className="rounded-lg font-bold text-xs py-2.5">
                         <Eye className="mr-2 h-4 w-4 text-slate-400" /> Ver Detalles
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setSelected(s); setIsFormOpen(true); }} className="rounded-lg font-bold text-xs py-2.5">
+                      <DropdownMenuItem onClick={() => { setSelected(s); setTimeout(() => setIsFormOpen(true), 100); }} className="rounded-lg font-bold text-xs py-2.5">
                         <Edit className="mr-2 h-4 w-4 text-slate-400" /> Editar Registro
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleEnviarWhatsApp(s)} className="rounded-lg font-bold text-xs py-2.5 text-green-600">
