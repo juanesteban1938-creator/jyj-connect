@@ -2,16 +2,17 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, writeBatch, where, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Search, Send, User, CheckCheck, Clock, MessageSquareOff } from 'lucide-react';
+import { Search, Send, User, CheckCheck, Clock, MessageSquareOff, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 interface Message {
   id: string;
@@ -37,8 +38,12 @@ export default function WhatsAppBandejaPage() {
   const [selectedJid, setSelectedJid] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [mensajeInput, setMensajeInput] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  
   const db = useFirestore();
   const { user } = useUser();
+  const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Suscripción en tiempo real a la colección de conversaciones
@@ -54,7 +59,6 @@ export default function WhatsAppBandejaPage() {
         const data = snapshot.docs.map(d => ({
           id: d.id,
           ...d.data(),
-          // Manejo de fecha si es Timestamp o string
           fecha: d.data().fecha?.toDate ? d.data().fecha.toDate() : new Date(d.data().fecha)
         })) as Message[];
         setMessages(data);
@@ -133,6 +137,30 @@ export default function WhatsAppBandejaPage() {
     }
   }, [selectedJid, messages, db]);
 
+  const handleEnviarMensaje = async () => {
+    if (!mensajeInput.trim() || !selectedJid) return;
+    setEnviando(true);
+    try {
+      // Enviar via bot Railway
+      const response = await fetch(`https://focused-harmony-production.up.railway.app/send-message`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-api-key': 'jj-connect-2026'
+        },
+        body: JSON.stringify({ jid: selectedJid, mensaje: mensajeInput })
+      });
+      
+      if (!response.ok) throw new Error('Error al enviar');
+      
+      setMensajeInput('');
+    } catch(e) {
+      toast({ variant: 'destructive', title: 'Error al enviar mensaje' });
+    } finally {
+      setEnviando(false);
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-120px)] gap-0 overflow-hidden rounded-2xl border bg-white shadow-xl">
       {/* Panel Izquierdo: Lista de Chats */}
@@ -183,7 +211,7 @@ export default function WhatsAppBandejaPage() {
                   <div className="flex items-center justify-between gap-2 mt-0.5">
                     <p className="text-xs text-slate-500 truncate font-medium">
                       {chat.ultimoMensaje.tipo === 'saliente' && <CheckCheck className="inline h-3 w-3 mr-1 text-blue-500" />}
-                      {chat.ultimoMensaje.cuerpo}
+                      {chat.ultimoMensaje.mensaje || chat.ultimoMensaje.cuerpo}
                     </p>
                     {chat.noLeidos > 0 && (
                       <Badge className="h-5 min-w-[20px] bg-orange-500 text-white font-black text-[10px] flex items-center justify-center rounded-full p-0">
@@ -251,20 +279,30 @@ export default function WhatsAppBandejaPage() {
               })}
             </div>
 
-            {/* Input de Respuesta (Simulado/Informativo ya que es bandeja de entrada) */}
+            {/* Input de Respuesta */}
             <footer className="p-4 bg-white border-t">
               <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border">
                 <Input 
                   placeholder="Responde a través de Nova..." 
                   className="border-none bg-transparent focus-visible:ring-0 shadow-none text-sm"
-                  disabled
+                  value={mensajeInput}
+                  onChange={(e) => setMensajeInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleEnviarMensaje()}
+                  disabled={enviando}
                 />
-                <button className="p-3 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition-colors shadow-lg shadow-orange-200 opacity-50 cursor-not-allowed">
-                  <Send className="h-4 w-4" />
+                <button 
+                  onClick={handleEnviarMensaje}
+                  disabled={enviando || !mensajeInput.trim()}
+                  className={cn(
+                    "p-3 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition-colors shadow-lg shadow-orange-200",
+                    (enviando || !mensajeInput.trim()) && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </button>
               </div>
               <p className="text-center text-[9px] font-bold text-slate-400 uppercase mt-2">
-                Las respuestas automáticas son gestionadas por el núcleo IA de Nova
+                Las respuestas enviadas son gestionadas por el núcleo de Nova
               </p>
             </footer>
           </>
