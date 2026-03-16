@@ -7,7 +7,6 @@ import {
   Users,
   Truck,
   Briefcase,
-  Monitor,
   PieChart,
   BookText,
   LogOut,
@@ -57,6 +56,7 @@ export function MainNav() {
 
   const pendingCotQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
+    // Filtrado estricto por estado pendiente para el badge
     return query(collection(db, 'cotizaciones'), where('estado', '==', 'pendiente'));
   }, [db, user]);
 
@@ -100,7 +100,7 @@ export function MainNav() {
               </SidebarMenuButton>
             </Link>
             {pendingCount > 0 && (
-              <SidebarMenuBadge className="bg-orange-500 text-white font-black text-[10px]">
+              <SidebarMenuBadge className="bg-orange-500 text-white font-black text-[10px] animate-pulse">
                 {pendingCount}
               </SidebarMenuBadge>
             )}

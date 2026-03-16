@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useFirestore, useUser, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { 
   Table, 
@@ -34,8 +34,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 
@@ -89,6 +87,26 @@ export default function CotizacionesPage() {
     return () => unsubscribe();
   }, [db, user]);
 
+  // Lógica de marcado automático como contactado después de 3 segundos
+  useEffect(() => {
+    if (!db || cotizaciones.length === 0) return;
+
+    const pendientes = cotizaciones.filter(c => c.estado === 'pendiente');
+    
+    if (pendientes.length > 0) {
+      const timer = setTimeout(() => {
+        pendientes.forEach(c => {
+          const docRef = doc(db, 'cotizaciones', c.id);
+          updateDoc(docRef, { estado: 'contactado' }).catch(() => {
+            // Manejo silencioso de errores en actualización masiva
+          });
+        });
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [cotizaciones, db]);
+
   const pendingCount = useMemo(() => 
     cotizaciones.filter(c => c.estado === 'pendiente').length, 
   [cotizaciones]);
@@ -121,9 +139,11 @@ export default function CotizacionesPage() {
         <div>
           <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
             Cotizaciones Recibidas
-            <Badge className="bg-orange-500 text-white font-black px-2 py-0.5 text-sm rounded-lg">
-              {pendingCount} PENDIENTES
-            </Badge>
+            {pendingCount > 0 && (
+              <Badge className="bg-orange-500 text-white font-black px-2 py-0.5 text-sm rounded-lg">
+                {pendingCount} PENDIENTES
+              </Badge>
+            )}
           </h1>
           <p className="page-subtitle mb-0 mt-1">Gestione las solicitudes de presupuesto enviadas por los clientes.</p>
         </div>
