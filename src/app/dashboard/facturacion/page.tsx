@@ -82,9 +82,9 @@ export default function FacturacionPage() {
       .then(async () => {
         toast({ title: "✅ Servicio Pagado" });
 
-        // Envío automático de cuenta de cobro
+        // Envío automático de confirmación de pago
         if (servicio.emailCliente) {
-          toast({ title: "📧 Enviando cuenta de cobro..." });
+          toast({ title: "📧 Enviando confirmación de pago..." });
           const response = await fetch('/api/send-invoice', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -104,7 +104,7 @@ export default function FacturacionPage() {
             })
           });
           if (response.ok) {
-            toast({ title: "📧 Cuenta de cobro enviada automáticamente" });
+            toast({ title: "📧 Confirmación de pago enviada automáticamente" });
           }
         }
       })
@@ -128,7 +128,7 @@ export default function FacturacionPage() {
     const valorOriginal = Number(selected.valorServicio) || 0;
     const anticipoAnterior = Number(selected.anticipo) || 0;
     const nuevoAnticipo = anticipoAnterior + Number(data.valorAbono);
-    const nuevoSaldo = valorOriginal - nuevoAnticipo;
+    const nuevoSaldo = Math.max(0, valorOriginal - nuevoAnticipo);
     
     const updates = { 
       anticipo: nuevoAnticipo, 
@@ -140,9 +140,35 @@ export default function FacturacionPage() {
     };
 
     updateDoc(docRef, updates)
-      .then(() => {
+      .then(async () => {
         setIsAbonoOpen(false);
         toast({ title: "Abono Registrado" });
+
+        // Si el servicio queda totalmente pagado, enviar correo automáticamente
+        if (data.nuevoEstadoPago === 'Pagado' && selected.emailCliente) {
+          toast({ title: "📧 Enviando confirmación de pago..." });
+          const response = await fetch('/api/send-invoice', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: selected.emailCliente,
+              nroFactura: selected.consecutivo,
+              servicioData: {
+                cliente: selected.clienteNombre || selected.cliente,
+                nit: selected.nitCliente,
+                fecha: selected.fecha,
+                origen: selected.origen,
+                destino: selected.destino,
+                valor: valorOriginal,
+                conductor: selected.conductor,
+                vehiculo: selected.vehiculo
+              }
+            })
+          });
+          if (response.ok) {
+            toast({ title: "📧 Confirmación de pago enviada automáticamente" });
+          }
+        }
       })
       .catch((err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -166,9 +192,35 @@ export default function FacturacionPage() {
     const saldo = valor - anticipo;
     
     updateDoc(docRef, { ...data, saldo })
-      .then(() => {
+      .then(async () => {
         setIsEditOpen(false);
         toast({ title: "Facturación Actualizada" });
+
+        // Si se marca como pagado manualmente en la edición, también enviar correo
+        if (data.estadoPago === 'Pagado' && selected.emailCliente) {
+          toast({ title: "📧 Enviando confirmación de pago..." });
+          const response = await fetch('/api/send-invoice', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: selected.emailCliente,
+              nroFactura: selected.consecutivo,
+              servicioData: {
+                cliente: selected.clienteNombre || selected.cliente,
+                nit: selected.nitCliente,
+                fecha: selected.fecha,
+                origen: selected.origen,
+                destino: selected.destino,
+                valor: valor,
+                conductor: selected.conductor,
+                vehiculo: selected.vehiculo
+              }
+            })
+          });
+          if (response.ok) {
+            toast({ title: "📧 Confirmación de pago enviada" });
+          }
+        }
       })
       .catch((err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -316,7 +368,7 @@ export default function FacturacionPage() {
           <DialogHeader><DialogTitle>Editar Facturación</DialogTitle></DialogHeader>
           {selected && <FacturacionForm servicio={selected} onSave={handleSaveEdit} onCancel={() => setIsEditOpen(false)} isProcessing={isProcessing} />}
         </DialogContent>
-      </Dialog>
+      </div>
     </div>
   );
 }
