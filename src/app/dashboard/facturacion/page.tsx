@@ -72,49 +72,56 @@ export default function FacturacionPage() {
     }, { total: 0, ganancia: 0, cartera: 0 });
   }, [servicios]);
 
-  const handleMarcarPagada = async (servicio: any) => {
+  const handleMarcarPagada = (servicio: any) => {
     setIsProcessing(true);
     const docRef = doc(db, 'services', servicio.id);
     const valor = Number(servicio.valorServicio) || 0;
     const updates = { estadoPago: 'Pagado', saldo: 0, anticipo: valor };
     
-    try {
-      await updateDoc(docRef, updates);
-      toast({ title: "✅ Servicio Pagado" });
+    updateDoc(docRef, updates)
+      .then(async () => {
+        toast({ title: "✅ Servicio Pagado" });
 
-      // Envío automático de cuenta de cobro
-      if (servicio.emailCliente) {
-        toast({ title: "📧 Enviando cuenta de cobro..." });
-        const response = await fetch('/api/send-invoice', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            to: servicio.emailCliente,
-            nroFactura: servicio.consecutivo,
-            servicioData: {
-              cliente: servicio.clienteNombre || servicio.cliente,
-              nit: servicio.nitCliente,
-              fecha: servicio.fecha,
-              origen: servicio.origen,
-              destino: servicio.destino,
-              valor: valor,
-              conductor: servicio.conductor,
-              vehiculo: servicio.vehiculo
-            }
-          })
-        });
-        if (response.ok) {
-          toast({ title: "📧 Cuenta de cobro enviada automáticamente" });
+        // Envío automático de cuenta de cobro
+        if (servicio.emailCliente) {
+          toast({ title: "📧 Enviando cuenta de cobro..." });
+          const response = await fetch('/api/send-invoice', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: servicio.emailCliente,
+              nroFactura: servicio.consecutivo,
+              servicioData: {
+                cliente: servicio.clienteNombre || servicio.cliente,
+                nit: servicio.nitCliente,
+                fecha: servicio.fecha,
+                origen: servicio.origen,
+                destino: servicio.destino,
+                valor: valor,
+                conductor: servicio.conductor,
+                vehiculo: servicio.vehiculo
+              }
+            })
+          });
+          if (response.ok) {
+            toast({ title: "📧 Cuenta de cobro enviada automáticamente" });
+          }
         }
-      }
-    } catch (err) {
-      toast({ variant: "destructive", title: "Error al actualizar pago" });
-    } finally {
-      setIsProcessing(false);
-    }
+      })
+      .catch((err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'update',
+          requestResourceData: updates
+        }));
+        toast({ variant: "destructive", title: "Error al actualizar pago" });
+      })
+      .finally(() => {
+        setIsProcessing(false);
+      });
   };
 
-  const handleSaveAbono = async (data: AbonoFormValues) => {
+  const handleSaveAbono = (data: AbonoFormValues) => {
     if (!selected) return;
     setIsProcessing(true);
     const docRef = doc(db, 'services', selected.id);
@@ -132,23 +139,25 @@ export default function FacturacionPage() {
       banco: data.banco
     };
 
-    try {
-      await updateDoc(docRef, updates);
-      setIsAbonoOpen(false);
-      toast({ title: "Abono Registrado" });
-    } catch (err) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'update',
-        requestResourceData: updates
-      }));
-      toast({ variant: "destructive", title: "Error al registrar abono" });
-    } finally {
-      setIsProcessing(false);
-    }
+    updateDoc(docRef, updates)
+      .then(() => {
+        setIsAbonoOpen(false);
+        toast({ title: "Abono Registrado" });
+      })
+      .catch((err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'update',
+          requestResourceData: updates
+        }));
+        toast({ variant: "destructive", title: "Error al registrar abono" });
+      })
+      .finally(() => {
+        setIsProcessing(false);
+      });
   };
 
-  const handleSaveEdit = async (data: FacturacionFormValues) => {
+  const handleSaveEdit = (data: FacturacionFormValues) => {
     if (!selected) return;
     setIsProcessing(true);
     const docRef = doc(db, 'services', selected.id);
@@ -156,20 +165,22 @@ export default function FacturacionPage() {
     const anticipo = Number(data.anticipo) || 0;
     const saldo = valor - anticipo;
     
-    try {
-      await updateDoc(docRef, { ...data, saldo });
-      setIsEditOpen(false);
-      toast({ title: "Facturación Actualizada" });
-    } catch (err) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'update',
-        requestResourceData: data
-      }));
-      toast({ variant: "destructive", title: "Error al actualizar facturación" });
-    } finally {
-      setIsProcessing(false);
-    }
+    updateDoc(docRef, { ...data, saldo })
+      .then(() => {
+        setIsEditOpen(false);
+        toast({ title: "Facturación Actualizada" });
+      })
+      .catch((err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'update',
+          requestResourceData: data
+        }));
+        toast({ variant: "destructive", title: "Error al actualizar facturación" });
+      })
+      .finally(() => {
+        setIsProcessing(false);
+      });
   };
 
   const filtered = servicios.filter(s => s.cliente?.toLowerCase().includes(searchTerm.toLowerCase()));

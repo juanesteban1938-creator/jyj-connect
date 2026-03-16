@@ -20,15 +20,13 @@ import {
   MoreVertical,
   Loader2,
   Send,
-  ArrowRight,
-  Clock
+  ArrowRight
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { useFirestore, useUser, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase } from '@/firebase';
@@ -133,7 +131,13 @@ export default function ServiciosPage() {
     if (result.success) {
       toast({ title: "Notificación enviada", description: "El cliente ha sido notificado por Nova." });
       const docRef = doc(db, 'services', s.id);
-      await updateDoc(docRef, { notificacionEnviada: true }).catch(() => {});
+      updateDoc(docRef, { notificacionEnviada: true }).catch(err => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'update',
+          requestResourceData: { notificacionEnviada: true }
+        }));
+      });
     } else {
       toast({ variant: "destructive", title: "Error Nova", description: result.error || "No se pudo enviar el WhatsApp." });
     }
@@ -144,86 +148,94 @@ export default function ServiciosPage() {
     setIsFormOpen(true);
   };
 
-  const handleUpdateEstado = useCallback(async (id: string, nuevoEstado: Servicio['estado']) => {
+  const handleUpdateEstado = useCallback((id: string, nuevoEstado: Servicio['estado']) => {
     const docRef = doc(db, 'services', id);
-    try {
-      await updateDoc(docRef, { estado: nuevoEstado });
-      toast({ title: `Servicio ${nuevoEstado}` });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error al actualizar estado" });
-    }
-  }, [db]);
+    updateDoc(docRef, { estado: nuevoEstado })
+      .then(() => toast({ title: `Servicio ${nuevoEstado}` }))
+      .catch((error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'update',
+          requestResourceData: { estado: nuevoEstado }
+        }));
+        toast({ variant: "destructive", title: "Error al actualizar estado" });
+      });
+  }, [db, toast]);
 
   const handleSave = async (formData: any) => {
     setIsSaving(true);
-    try {
-      const esNuevo = !selected || !selected.id;
-      const servicioId = esNuevo ? String(Date.now()) : selected.id;
+    const esNuevo = !selected || !selected.id;
+    const servicioId = esNuevo ? String(Date.now()) : selected.id;
 
-      const conductorAsignado = conductores.find(c => c.id === formData.conductorId);
-      const vehiculoAsignado = vehiculos.find(v => v.id === formData.vehiculoId);
+    const conductorAsignado = conductores.find(c => c.id === formData.conductorId);
+    const vehiculoAsignado = vehiculos.find(v => v.id === formData.vehiculoId);
 
-      const payload: Servicio = {
-        id: servicioId,
-        consecutivo: selected?.consecutivo || `JJ-${servicios.length + 1001}`,
-        cliente: formData.nombreCliente,
-        clienteNombre: formData.nombreCliente,
-        origen: formData.direccionRecogida,
-        destino: formData.direccionDestino,
-        telefonoCliente: formData.telefonoCliente,
-        emailCliente: formData.emailCliente,
-        fecha: formData.fechaRecogida.toISOString(),
-        hora: formData.horaRecogida,
-        nitCliente: formData.nitCliente,
-        vehiculoPlaca: formData.esVehiculoNoRegistrado ? formData.vehiculoOtro : (vehiculoAsignado?.placa || ''),
-        vehiculo: formData.esVehiculoNoRegistrado ? formData.vehiculoOtro : (vehiculoAsignado ? `${vehiculoAsignado.marca} ${vehiculoAsignado.linea}` : ''),
-        conductor: formData.esConductorNoRegistrado ? formData.conductorOtro : (conductorAsignado ? `${conductorAsignado.nombres} ${conductorAsignado.apellidos}` : 'No asignado'),
-        conductorTelefono: formData.esConductorNoRegistrado ? formData.conductorTelefonoOtro : (conductorAsignado?.telefono || ''),
-        estado: selected?.estado || 'Programado',
-        valorServicio: Number(formData.valorServicio) || 0,
-        anticipo: Number(formData.anticipo) || 0,
-        saldo: (Number(formData.valorServicio) || 0) - (Number(formData.anticipo) || 0),
-        metodoPago: formData.metodoPago,
-        estadoPago: formData.estadoPago,
-        costoOperacion: Number(formData.costoOperacion) || 0,
-        notificacionEnviada: selected?.notificacionEnviada || false,
-        notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false,
-        clienteIniciales: formData.nombreCliente.substring(0, 2).toUpperCase(),
-      };
+    const payload: Servicio = {
+      id: servicioId,
+      consecutivo: selected?.consecutivo || `JJ-${servicios.length + 1001}`,
+      cliente: formData.nombreCliente,
+      clienteNombre: formData.nombreCliente,
+      origen: formData.direccionRecogida,
+      destino: formData.direccionDestino,
+      telefonoCliente: formData.telefonoCliente,
+      emailCliente: formData.emailCliente,
+      fecha: formData.fechaRecogida.toISOString(),
+      hora: formData.horaRecogida,
+      nitCliente: formData.nitCliente,
+      vehiculoPlaca: formData.esVehiculoNoRegistrado ? formData.vehiculoOtro : (vehiculoAsignado?.placa || ''),
+      vehiculo: formData.esVehiculoNoRegistrado ? formData.vehiculoOtro : (vehiculoAsignado ? `${vehiculoAsignado.marca} ${vehiculoAsignado.linea}` : ''),
+      conductor: formData.esConductorNoRegistrado ? formData.conductorOtro : (conductorAsignado ? `${conductorAsignado.nombres} ${conductorAsignado.apellidos}` : 'No asignado'),
+      conductorTelefono: formData.esConductorNoRegistrado ? formData.conductorTelefonoOtro : (conductorAsignado?.telefono || ''),
+      estado: selected?.estado || 'Programado',
+      valorServicio: Number(formData.valorServicio) || 0,
+      anticipo: Number(formData.anticipo) || 0,
+      saldo: (Number(formData.valorServicio) || 0) - (Number(formData.anticipo) || 0),
+      metodoPago: formData.metodoPago,
+      estadoPago: formData.estadoPago,
+      costoOperacion: Number(formData.costoOperacion) || 0,
+      notificacionEnviada: selected?.notificacionEnviada || false,
+      notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false,
+      clienteIniciales: formData.nombreCliente.substring(0, 2).toUpperCase(),
+    };
 
-      const docRef = doc(db, 'services', servicioId);
-      await setDoc(docRef, payload, { merge: true });
+    const docRef = doc(db, 'services', servicioId);
+    setDoc(docRef, payload, { merge: true })
+      .then(() => {
+        if (formData.nitCliente) {
+          const clienteRef = doc(db, 'clientes', formData.nitCliente);
+          setDoc(clienteRef, {
+            id: formData.nitCliente,
+            nombre: formData.nombreCliente,
+            razonSocial: formData.nombreCliente,
+            nit: formData.nitCliente,
+            telefono: formData.telefonoCliente,
+            email: formData.emailCliente,
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+        }
+        
+        toast({ title: esNuevo ? "Servicio Programado" : "Servicio Actualizado" });
+        
+        setTimeout(() => {
+          setIsFormOpen(false);
+          setSelected(null);
+        }, 100);
 
-      if (formData.nitCliente) {
-        const clienteRef = doc(db, 'clientes', formData.nitCliente);
-        await setDoc(clienteRef, {
-          id: formData.nitCliente,
-          nombre: formData.nombreCliente,
-          razonSocial: formData.nombreCliente,
-          nit: formData.nitCliente,
-          telefono: formData.telefonoCliente,
-          email: formData.emailCliente,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-      }
-      
-      toast({ title: esNuevo ? "Servicio Programado" : "Servicio Actualizado" });
-      
-      setTimeout(() => {
-        setIsFormOpen(false);
-        setSelected(null);
-      }, 100);
-
-      if (esNuevo) {
-        handleEnviarWhatsApp(payload);
-      }
-      
-    } catch (e) {
-      console.error("Error al guardar servicio:", e);
-      toast({ variant: "destructive", title: "Error al procesar el servicio" });
-    } finally {
-      setIsSaving(false);
-    }
+        if (esNuevo) {
+          handleEnviarWhatsApp(payload);
+        }
+      })
+      .catch((e) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'write',
+          requestResourceData: payload
+        }));
+        toast({ variant: "destructive", title: "Error al procesar el servicio" });
+      })
+      .finally(() => {
+        setIsSaving(false);
+      });
   };
 
   const filtered = servicios.filter(s => {

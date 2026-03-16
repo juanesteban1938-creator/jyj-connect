@@ -70,41 +70,42 @@ export default function ConductoresPage() {
   const { data: conductoresRaw, isLoading } = useCollection(conductoresQuery);
   const conductores = conductoresRaw || [];
 
-  const handleSave = async (conductorData: Conductor) => {
+  const handleSave = (conductorData: Conductor) => {
     setIsSaving(true);
     const id = selectedConductor ? selectedConductor.id : (conductorData.id || doc(collection(db, 'conductores')).id);
     const docRef = doc(db, 'conductores', id);
     
-    try {
-      await setDoc(docRef, { ...conductorData, id }, { merge: true });
-      setIsFormOpen(false);
-      setSelectedConductor(null);
-      toast({ title: "Información Actualizada", description: "El conductor ha sido sincronizado en la nube." });
-    } catch (e) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'write',
-        requestResourceData: conductorData
-      }));
-      toast({ variant: "destructive", title: "Error de Sincronización" });
-    } finally {
-      setIsSaving(false);
-    }
+    setDoc(docRef, { ...conductorData, id }, { merge: true })
+      .then(() => {
+        setIsFormOpen(false);
+        setSelectedConductor(null);
+        toast({ title: "Información Actualizada", description: "El conductor ha sido sincronizado en la nube." });
+      })
+      .catch((e) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'write',
+          requestResourceData: conductorData
+        }));
+        toast({ variant: "destructive", title: "Error de Sincronización" });
+      })
+      .finally(() => {
+        setIsSaving(false);
+      });
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (!confirm('¿Desea eliminar este conductor?')) return;
     const docRef = doc(db, 'conductores', id);
-    try {
-      await deleteDoc(docRef);
-      toast({ title: "Conductor Eliminado" });
-    } catch (e) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'delete'
-      }));
-      toast({ variant: "destructive", title: "Acceso Denegado" });
-    }
+    deleteDoc(docRef)
+      .then(() => toast({ title: "Conductor Eliminado" }))
+      .catch((e) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'delete'
+        }));
+        toast({ variant: "destructive", title: "Acceso Denegado" });
+      });
   };
 
   const filtered = conductores.filter(c => 

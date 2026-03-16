@@ -47,37 +47,36 @@ export default function RentabilidadPage() {
     return { ingresos, gastos, utilidad: ingresos - gastos };
   }, [transacciones]);
 
-  const handleSave = async (transaccionData: Omit<Transaccion, 'id'>) => {
+  const handleSave = (transaccionData: Omit<Transaccion, 'id'>) => {
     setIsSaving(true);
     const colRef = collection(db, 'transacciones');
-    try {
-      await addDoc(colRef, transaccionData);
-      toast({ title: "Transacción Registrada" });
-    } catch (e) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: colRef.path,
-        operation: 'create',
-        requestResourceData: transaccionData
-      }));
-      toast({ variant: "destructive", title: "Error al registrar transacción" });
-    } finally {
-      setIsSaving(false);
-    }
+    addDoc(colRef, transaccionData)
+      .then(() => toast({ title: "Transacción Registrada" }))
+      .catch((e) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: colRef.path,
+          operation: 'create',
+          requestResourceData: transaccionData
+        }));
+        toast({ variant: "destructive", title: "Error al registrar transacción" });
+      })
+      .finally(() => {
+        setIsSaving(false);
+      });
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (!confirm('¿Desea eliminar este registro contable?')) return;
     const docRef = doc(db, 'transacciones', id);
-    try {
-      await deleteDoc(docRef);
-      toast({ title: "Registro eliminado" });
-    } catch (e) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'delete'
-      }));
-      toast({ variant: "destructive", title: "No se pudo eliminar el registro" });
-    }
+    deleteDoc(docRef)
+      .then(() => toast({ title: "Registro eliminado" }))
+      .catch((e) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'delete'
+        }));
+        toast({ variant: "destructive", title: "No se pudo eliminar el registro" });
+      });
   };
 
   const filteredTransacciones = transacciones.filter(t => 
@@ -98,14 +97,14 @@ export default function RentabilidadPage() {
             <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Ingresos Brutos</span>
             <div className="bg-green-50 p-2 rounded-full"><DollarSign className="h-4 w-4 text-green-600" /></div>
           </div>
-          <p className="text-2xl font-bold">{currencyFormatter.format(metrics.ingresos)}</p>
+          <p className="font-bold text-2xl">{currencyFormatter.format(metrics.ingresos)}</p>
         </Card>
         <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none p-6">
           <div className="flex items-center justify-between mb-4">
             <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Gastos Totales</span>
             <div className="bg-red-50 p-2 rounded-full"><LineChartIcon className="h-4 w-4 text-red-600" /></div>
           </div>
-          <p className="text-2xl font-bold">{currencyFormatter.format(metrics.gastos)}</p>
+          <p className="font-bold text-2xl">{currencyFormatter.format(metrics.gastos)}</p>
         </Card>
         <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none p-6">
           <div className="flex items-center justify-between mb-4">
@@ -125,13 +124,13 @@ export default function RentabilidadPage() {
         </div>
         <Card className="lg:col-span-8 rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none p-6 bg-white relative">
           {isTransLoading && (
-            <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center">
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/50">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           )}
           <CardHeader className="p-0 mb-6"><CardTitle className="text-lg font-bold">Histórico de Transacciones</CardTitle></CardHeader>
           <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Buscar por descripción o placa..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
           </div>
           <div className="overflow-x-auto">
@@ -142,7 +141,7 @@ export default function RentabilidadPage() {
                   <TableHead className="p-4">TIPO</TableHead>
                   <TableHead className="p-4">DESCRIPCIÓN</TableHead>
                   <TableHead className="p-4 text-right">VALOR</TableHead>
-                  <TableHead className="p-4 text-center w-[50px]"></TableHead>
+                  <TableHead className="w-[50px] p-4 text-center"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -157,7 +156,7 @@ export default function RentabilidadPage() {
                     <TableCell className="p-4">
                       <div className="flex flex-col">
                         <span className="text-sm font-medium">{t.descripcion}</span>
-                        {t.vehiculoPlaca && <span className="text-[10px] text-muted-foreground font-bold uppercase">PLACA: {t.vehiculoPlaca}</span>}
+                        {t.vehiculoPlaca && <span className="text-[10px] font-bold uppercase text-muted-foreground">PLACA: {t.vehiculoPlaca}</span>}
                       </div>
                     </TableCell>
                     <TableCell className={`p-4 text-sm text-right font-bold ${t.tipo === 'Ingreso' ? 'text-green-600' : 'text-red-600'}`}>
@@ -172,7 +171,7 @@ export default function RentabilidadPage() {
                 ))}
                 {filteredTransacciones.length === 0 && !isTransLoading && (
                   <TableRow>
-                    <TableCell colSpan={5} className="p-12 text-center text-muted-foreground italic font-medium">
+                    <TableCell colSpan={5} className="p-12 text-center font-medium italic text-muted-foreground">
                       No se encontraron transacciones registradas.
                     </TableCell>
                   </TableRow>

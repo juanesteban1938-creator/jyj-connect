@@ -20,7 +20,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
@@ -78,7 +77,7 @@ export default function DashboardHomePage() {
   const db = useFirestore();
   const { user } = useUser();
   const [greeting, setGreeting] = useState('');
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState<Date | null>(null);
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -132,6 +131,7 @@ export default function DashboardHomePage() {
 
   // Lógica de Calendario
   const monthDays = useMemo(() => {
+    if (!currentDate) return [];
     const start = startOfMonth(currentDate);
     const end = endOfMonth(currentDate);
     return eachDayOfInterval({ start, end });
@@ -175,6 +175,8 @@ export default function DashboardHomePage() {
 
     return allAlerts.sort((a, b) => a.daysLeft - b.daysLeft).slice(0, 6);
   }, [vehiculos]);
+
+  if (!currentDate) return null; // Prevenir hidratación mismatch
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-12">

@@ -49,41 +49,42 @@ export default function VehiculosPage() {
   const { data: vehiculosRaw, isLoading } = useCollection(vehiculosQuery);
   const vehiculos = vehiculosRaw || [];
 
-  const handleSave = async (data: Omit<Vehiculo, 'id'>) => {
+  const handleSave = (data: Omit<Vehiculo, 'id'>) => {
     setIsSaving(true);
     const id = selected ? selected.id : (doc(collection(db, 'vehiculos')).id);
     const docRef = doc(db, 'vehiculos', id);
     
-    try {
-      await setDoc(docRef, { ...data, id }, { merge: true });
-      setIsFormOpen(false);
-      setSelected(null);
-      toast({ title: "Flota Actualizada", description: "Los datos técnicos han sido sincronizados." });
-    } catch (e) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'write',
-        requestResourceData: data
-      }));
-      toast({ variant: "destructive", title: "Error de Guardado" });
-    } finally {
-      setIsSaving(false);
-    }
+    setDoc(docRef, { ...data, id }, { merge: true })
+      .then(() => {
+        setIsFormOpen(false);
+        setSelected(null);
+        toast({ title: "Flota Actualizada", description: "Los datos técnicos han sido sincronizados." });
+      })
+      .catch((e) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'write',
+          requestResourceData: data
+        }));
+        toast({ variant: "destructive", title: "Error de Guardado" });
+      })
+      .finally(() => {
+        setIsSaving(false);
+      });
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (!confirm('¿Desea eliminar este vehículo de la flota?')) return;
     const docRef = doc(db, 'vehiculos', id);
-    try {
-      await deleteDoc(docRef);
-      toast({ title: "Vehículo Eliminado" });
-    } catch (e) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'delete'
-      }));
-      toast({ variant: "destructive", title: "Acción no autorizada" });
-    }
+    deleteDoc(docRef)
+      .then(() => toast({ title: "Vehículo Eliminado" }))
+      .catch((e) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'delete'
+        }));
+        toast({ variant: "destructive", title: "Acción no autorizada" });
+      });
   };
 
   const filtered = vehiculos.filter(v => 
