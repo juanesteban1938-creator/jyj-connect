@@ -17,6 +17,7 @@ interface Message {
   id: string;
   jid: string;
   cuerpo: string;
+  mensaje?: string;
   fecha: any;
   tipo: 'entrante' | 'saliente';
   leido: boolean;
@@ -234,7 +235,7 @@ export default function WhatsAppBandejaPage() {
                         ? "bg-white text-slate-800 rounded-tl-none border border-slate-100" 
                         : "bg-orange-500 text-white rounded-tr-none"
                     )}>
-                      <p className="text-sm font-medium leading-relaxed">{msg.cuerpo}</p>
+                      <p className="text-sm font-medium leading-relaxed">{msg.mensaje || msg.cuerpo}</p>
                       <div className={cn(
                         "flex items-center gap-1 mt-1 justify-end",
                         isIncoming ? "text-slate-400" : "text-orange-100"
