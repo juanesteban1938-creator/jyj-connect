@@ -368,7 +368,7 @@ export default function FacturacionPage() {
           <DialogHeader><DialogTitle>Editar Facturación</DialogTitle></DialogHeader>
           {selected && <FacturacionForm servicio={selected} onSave={handleSaveEdit} onCancel={() => setIsEditOpen(false)} isProcessing={isProcessing} />}
         </DialogContent>
-      </div>
+      </Dialog>
     </div>
   );
 }
