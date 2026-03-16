@@ -13,6 +13,7 @@ import {
   LogOut,
   Users2,
   MessageSquare,
+  ClipboardList,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -24,8 +25,11 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
+  SidebarMenuBadge,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/context/auth-context';
+import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
 
 const menuItems = [
   { href: '/dashboard', label: 'Tablero', icon: Home },
@@ -48,6 +52,16 @@ const sistemaItems = [
 export function MainNav() {
   const pathname = usePathname();
   const { logout } = useAuth();
+  const db = useFirestore();
+  const { user } = useUser();
+
+  const pendingCotQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'cotizaciones'), where('estado', '==', 'pendiente'));
+  }, [db, user]);
+
+  const { data: pendingCotizaciones } = useCollection(pendingCotQuery);
+  const pendingCount = pendingCotizaciones?.length || 0;
 
   return (
     <Sidebar>
@@ -73,7 +87,26 @@ export function MainNav() {
               </Link>
             </SidebarMenuItem>
           ))}
+          
+          <SidebarMenuItem>
+            <Link href="/dashboard/cotizaciones">
+              <SidebarMenuButton
+                isActive={pathname === '/dashboard/cotizaciones'}
+                tooltip="Cotizaciones"
+                className="justify-start"
+              >
+                <ClipboardList />
+                <span>Cotizaciones</span>
+              </SidebarMenuButton>
+            </Link>
+            {pendingCount > 0 && (
+              <SidebarMenuBadge className="bg-orange-500 text-white font-black text-[10px]">
+                {pendingCount}
+              </SidebarMenuBadge>
+            )}
+          </SidebarMenuItem>
         </SidebarMenu>
+
         <SidebarGroup>
             <SidebarGroupLabel>FINANZAS</SidebarGroupLabel>
             <SidebarMenu>
