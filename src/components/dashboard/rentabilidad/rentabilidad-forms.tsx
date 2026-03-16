@@ -38,6 +38,9 @@ type Props = {
   onSave: (transaccion: Omit<Transaccion, 'id'>) => void;
 };
 
+// Restricción de fecha mínima: 1 de enero de 2026
+const MIN_DATE = new Date('2026-01-01');
+
 function GastoForm({ vehiculos, onSave, onDone }: { vehiculos: Vehiculo[]; onSave: (data: GastoFormValues) => void, onDone: () => void }) {
   const form = useForm<GastoFormValues>({
     resolver: zodResolver(gastoSchema),
@@ -68,6 +71,7 @@ function GastoForm({ vehiculos, onSave, onDone }: { vehiculos: Vehiculo[]; onSav
                 <DatePicker
                   selected={field.value}
                   onChange={(date) => field.onChange(date)}
+                  minDate={MIN_DATE}
                   showMonthDropdown
                   showYearDropdown
                   dropdownMode="select"
@@ -125,6 +129,7 @@ function IngresoForm({ vehiculos, onSave, onDone }: { vehiculos: Vehiculo[]; onS
               <DatePicker
                 selected={field.value}
                 onChange={(date) => field.onChange(date)}
+                minDate={MIN_DATE}
                 showMonthDropdown
                 showYearDropdown
                 dropdownMode="select"

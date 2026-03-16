@@ -37,7 +37,12 @@ export default function RentabilidadPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
-  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
+  
+  // Inicializamos el año en 2026 como mínimo permitido
+  const [selectedYear, setSelectedYear] = useState<string>(() => {
+    const currentYear = new Date().getFullYear();
+    return currentYear < 2026 ? '2026' : currentYear.toString();
+  });
   
   const { toast } = useToast();
   const db = useFirestore();
@@ -79,7 +84,7 @@ export default function RentabilidadPage() {
     setIsSaving(true);
     const colRef = collection(db, 'transacciones');
     
-    // Escritura no bloqueante según lineamientos
+    // Escritura no bloqueante
     addDoc(colRef, transaccionData)
       .catch((e) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -117,7 +122,7 @@ export default function RentabilidadPage() {
   );
 
   const years = useMemo(() => {
-    const startYear = 2023;
+    const startYear = 2026; // Rango actualizado: 2026 en adelante
     const endYear = 2036;
     const yearsArray = [];
     for (let y = startYear; y <= endYear; y++) {
