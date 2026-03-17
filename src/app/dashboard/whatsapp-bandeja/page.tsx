@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
-import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirestore, useUser, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -32,6 +32,7 @@ interface ChatGroup {
   ultimoMensaje: Message;
   mensajes: Message[];
   noLeidos: number;
+  hasRealName: boolean;
 }
 
 function WhatsAppBandejaContent() {
@@ -47,6 +48,13 @@ function WhatsAppBandejaContent() {
   const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
+
+  // Consultas para resolución de nombres
+  const clientesQuery = useMemoFirebase(() => db ? query(collection(db, 'clientes')) : null, [db]);
+  const cotizacionesQuery = useMemoFirebase(() => db ? query(collection(db, 'cotizaciones')) : null, [db]);
+  
+  const { data: clientesRaw } = useCollection(clientesQuery);
+  const { data: cotizacionesRaw } = useCollection(cotizacionesQuery);
 
   // Sincronizar chat seleccionado desde la URL
   useEffect(() => {
@@ -84,18 +92,52 @@ function WhatsAppBandejaContent() {
     return () => unsubscribe();
   }, [db, user]);
 
-  // Agrupación de mensajes por JID
+  // Función para formatear el número de teléfono
+  const formatPhone = (jid: string) => {
+    const number = jid.split('@')[0];
+    if (number.length === 12 && number.startsWith('57')) {
+      return `+57 ${number.slice(2, 5)} ${number.slice(5, 8)} ${number.slice(8)}`;
+    }
+    return `+${number}`;
+  };
+
+  // Función para obtener iniciales
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
+  };
+
+  // Agrupación de mensajes por JID con resolución de nombres
   const chats = useMemo(() => {
     const groups: Record<string, ChatGroup> = {};
 
     messages.forEach(msg => {
       if (!groups[msg.jid]) {
+        const phoneRaw = msg.jid.split('@')[0];
+        // Buscamos en clientes (comparando los últimos 10 dígitos para evitar problemas de prefijo)
+        const clienteMatch = clientesRaw?.find(c => 
+          c.telefono?.replace(/\D/g, '').includes(phoneRaw.slice(-10))
+        );
+        // Buscamos en cotizaciones
+        const cotizacionMatch = cotizacionesRaw?.find(c => 
+          c.telefono?.replace(/\D/g, '').includes(phoneRaw.slice(-10))
+        );
+
+        const resolvedName = clienteMatch?.razonSocial || 
+                           clienteMatch?.nombre || 
+                           (cotizacionMatch?.nombreCliente !== 'Cliente' ? cotizacionMatch?.nombreCliente : null);
+
         groups[msg.jid] = {
           jid: msg.jid,
-          clienteNombre: msg.clienteNombre || msg.jid.split('@')[0],
+          clienteNombre: resolvedName || formatPhone(msg.jid),
           ultimoMensaje: msg,
           mensajes: [],
-          noLeidos: 0
+          noLeidos: 0,
+          hasRealName: !!resolvedName
         };
       }
       groups[msg.jid].mensajes.push(msg);
@@ -108,7 +150,7 @@ function WhatsAppBandejaContent() {
     });
 
     return Object.values(groups).sort((a, b) => b.ultimoMensaje.fecha.getTime() - a.ultimoMensaje.fecha.getTime());
-  }, [messages]);
+  }, [messages, clientesRaw, cotizacionesRaw]);
 
   // Filtrado de chats
   const filteredChats = chats.filter(c => 
@@ -206,12 +248,15 @@ function WhatsAppBandejaContent() {
               >
                 <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
                   <AvatarFallback className="bg-slate-200 text-slate-600 font-bold uppercase">
-                    {chat.clienteNombre.substring(0, 2)}
+                    {chat.hasRealName ? getInitials(chat.clienteNombre) : <User className="h-6 w-6 text-slate-400" />}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 overflow-hidden text-left">
                   <div className="flex items-center justify-between">
-                    <span className="font-black text-sm text-slate-800 uppercase truncate">{chat.clienteNombre}</span>
+                    <span className={cn(
+                      "text-sm uppercase truncate",
+                      chat.hasRealName ? "font-black text-slate-800" : "font-bold text-slate-500"
+                    )}>{chat.clienteNombre}</span>
                     <span className="text-[10px] font-bold text-slate-400 uppercase">
                       {format(chat.ultimoMensaje.fecha, 'HH:mm')}
                     </span>
@@ -242,7 +287,7 @@ function WhatsAppBandejaContent() {
             <header className="flex items-center gap-4 p-4 bg-white border-b shadow-sm z-10">
               <Avatar className="h-10 w-10 border shadow-sm">
                 <AvatarFallback className="bg-orange-100 text-orange-600 font-black">
-                  {selectedChat.clienteNombre.substring(0, 2).toUpperCase()}
+                  {selectedChat.hasRealName ? getInitials(selectedChat.clienteNombre) : <User className="h-5 w-5" />}
                 </AvatarFallback>
               </Avatar>
               <div>
