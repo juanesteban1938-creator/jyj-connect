@@ -1,20 +1,29 @@
 'use client';
 import {
-  Auth,
+  Auth, // Import Auth type for type hinting
   signInAnonymously,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  // Assume getAuth and app are initialized elsewhere
 } from 'firebase/auth';
 
-/** 
- * Inicia sesión anónima de forma exclusiva. 
- * Se ha eliminado cualquier otro método de autenticación para evitar tokens 'custom'.
- */
-export async function initiateAnonymousSignIn(authInstance: Auth): Promise<void> {
-  try {
-    // Forzamos el cierre de cualquier sesión previa antes de iniciar la nueva
-    await authInstance.signOut();
-    await signInAnonymously(authInstance);
-    console.log("[Firebase Auth] Sesión anónima iniciada correctamente.");
-  } catch (error) {
-    console.error("[Firebase Auth] Error initiateAnonymousSignIn:", error);
-  }
+/** Initiate anonymous sign-in (non-blocking). */
+export function initiateAnonymousSignIn(authInstance: Auth): void {
+  // CRITICAL: Call signInAnonymously directly. Do NOT use 'await signInAnonymously(...)'.
+  signInAnonymously(authInstance);
+  // Code continues immediately. Auth state change is handled by onAuthStateChanged listener.
+}
+
+/** Initiate email/password sign-up (non-blocking). */
+export function initiateEmailSignUp(authInstance: Auth, email: string, password: string): void {
+  // CRITICAL: Call createUserWithEmailAndPassword directly. Do NOT use 'await createUserWithEmailAndPassword(...)'.
+  createUserWithEmailAndPassword(authInstance, email, password);
+  // Code continues immediately. Auth state change is handled by onAuthStateChanged listener.
+}
+
+/** Initiate email/password sign-in (non-blocking). */
+export function initiateEmailSignIn(authInstance: Auth, email: string, password: string): void {
+  // CRITICAL: Call signInWithEmailAndPassword directly. Do NOT use 'await signInWithEmailAndPassword(...)'.
+  signInWithEmailAndPassword(authInstance, email, password);
+  // Code continues immediately. Auth state change is handled by onAuthStateChanged listener.
 }
