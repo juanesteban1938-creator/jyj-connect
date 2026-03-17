@@ -117,14 +117,14 @@ function WhatsAppBandejaContent() {
 
     messages.forEach(msg => {
       if (!groups[msg.jid]) {
-        const phoneRaw = msg.jid.split('@')[0];
+        const phoneRawSearch = msg.jid.split('@')[0].replace(/\D/g, '').slice(-10);
         // Buscamos en clientes (comparando los últimos 10 dígitos para evitar problemas de prefijo)
         const clienteMatch = clientesRaw?.find(c => 
-          c.telefono?.replace(/\D/g, '').includes(phoneRaw.slice(-10))
+          c.telefono?.replace(/\D/g, '').includes(phoneRawSearch)
         );
         // Buscamos en cotizaciones
         const cotizacionMatch = cotizacionesRaw?.find(c => 
-          c.telefono?.replace(/\D/g, '').includes(phoneRaw.slice(-10))
+          c.telefono?.replace(/\D/g, '').includes(phoneRawSearch)
         );
 
         const resolvedName = clienteMatch?.razonSocial || 
@@ -132,8 +132,11 @@ function WhatsAppBandejaContent() {
                            (cotizacionMatch?.nombreCliente !== 'Cliente' ? cotizacionMatch?.nombreCliente : null);
 
         const rawPhone = msg.jid.split('@')[0];
-        const phoneDisplay = rawPhone.startsWith('57') && rawPhone.length === 12
-            ? '+57 ' + rawPhone.slice(2, 5) + ' ' + rawPhone.slice(5, 8) + ' ' + rawPhone.slice(8)
+        // Extraer solo los últimos 10 dígitos (número colombiano sin prefijo)
+        const digits = rawPhone.replace(/\D/g, '');
+        const colombianDigits = digits.slice(-10); // últimos 10 dígitos
+        const phoneDisplay = colombianDigits.length === 10
+            ? '+57 ' + colombianDigits.slice(0,3) + ' ' + colombianDigits.slice(3,6) + ' ' + colombianDigits.slice(6)
             : '+' + rawPhone;
 
         groups[msg.jid] = {
