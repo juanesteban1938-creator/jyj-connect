@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, getDocs, where, deleteDoc } from 'firebase/firestore';
+import { useState, useMemo } from 'react';
+import { useFirestore, useUser, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy, doc, updateDoc, getDocs, where, deleteDoc } from 'firebase/firestore';
 import { 
   Table, 
   TableBody, 
@@ -37,7 +37,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 
-interface Cotizacion {
+interface SolicitudBase {
   id: string;
   nombreCliente: string;
   telefono: string;
@@ -47,8 +47,9 @@ interface Cotizacion {
   horaRecogida: string;
   fechaServicio: string;
   destino: string;
-  estado: 'pendiente' | 'contactado' | 'programado' | 'descartado';
+  estado: string;
   fecha: any;
+  _tipo: 'cotizacion' | 'asesor';
 }
 
 export default function CotizacionesPage() {
@@ -56,98 +57,79 @@ export default function CotizacionesPage() {
   const { user } = useUser();
   const router = useRouter();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(true);
-  const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>([]);
 
-  useEffect(() => {
-    if (!db || !user) return;
-
-    const colRef = collection(db, 'cotizaciones');
-    const q = query(colRef, orderBy('fecha', 'desc'));
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const data = snapshot.docs.map(d => ({
-          id: d.id,
-          ...d.data()
-        })) as Cotizacion[];
-        setCotizaciones(data);
-        setIsLoading(false);
-      },
-      (error) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: 'cotizaciones',
-          operation: 'list'
-        }));
-        setIsLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
+  const cotizacionesQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'cotizaciones'), orderBy('fecha', 'desc'));
   }, [db, user]);
 
-  useEffect(() => {
-    if (!db || cotizaciones.length === 0) return;
+  const solicitudesQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'solicitudes_asesor'), orderBy('fecha', 'desc'));
+  }, [db, user]);
 
-    const pendientes = cotizaciones.filter(c => c.estado === 'pendiente');
-    
-    if (pendientes.length > 0) {
-      const timer = setTimeout(() => {
-        pendientes.forEach(c => {
-          const docRef = doc(db, 'cotizaciones', c.id);
-          updateDoc(docRef, { estado: 'contactado' }).catch(() => {
-          });
-        });
-      }, 3000);
+  const { data: cotizacionesRaw, isLoading: loadingCots } = useCollection(cotizacionesQuery);
+  const { data: solicitudesRaw, isLoading: loadingSols } = useCollection(solicitudesQuery);
 
-      return () => clearTimeout(timer);
-    }
-  }, [cotizaciones, db]);
+  const isLoading = loadingCots || loadingSols;
+
+  const todasLasSolicitudes = useMemo(() => {
+    const cots = (cotizacionesRaw || []).map(c => ({ ...c, _tipo: 'cotizacion' as const }));
+    const sols = (solicitudesRaw || [])
+      .filter(s => s.estado !== 'descartado')
+      .map(s => ({
+        ...s,
+        tipoVehiculo: 'Atención personalizada',
+        lugarRecogida: 'Por definir',
+        horaRecogida: 'Por definir',
+        fechaServicio: 'Por definir',
+        destino: 'Por definir',
+        _tipo: 'asesor' as const
+      }));
+
+    return [...cots, ...sols].sort((a, b) => {
+      const fa = a.fecha?.toDate ? a.fecha.toDate() : new Date(a.fecha);
+      const fb = b.fecha?.toDate ? b.fecha.toDate() : new Date(b.fecha);
+      return fb.getTime() - fa.getTime();
+    });
+  }, [cotizacionesRaw, solicitudesRaw]);
 
   const pendingCount = useMemo(() => 
-    cotizaciones.filter(c => c.estado === 'pendiente').length, 
-  [cotizaciones]);
+    todasLasSolicitudes.filter(c => c.estado === 'pendiente').length, 
+  [todasLasSolicitudes]);
 
-  const cotizacionesVisibles = useMemo(() => 
-    cotizaciones.filter(c => c.estado !== 'descartado'),
-  [cotizaciones]);
-
-  const handleUpdateStatus = async (id: string, jid: string, newStatus: Cotizacion['estado']) => {
-    const docRef = doc(db, 'cotizaciones', id);
+  const handleUpdateStatus = async (id: string, jid: string, newStatus: string, tipo: 'cotizacion' | 'asesor') => {
+    const collectionName = tipo === 'asesor' ? 'solicitudes_asesor' : 'cotizaciones';
+    const docRef = doc(db, collectionName, id);
     try {
       await updateDoc(docRef, { estado: newStatus });
       
       if (newStatus === 'descartado') {
-        await deleteDoc(doc(db, 'sesiones_nova', jid)).catch(() => {
-          console.warn('No se encontró sesión activa para eliminar.');
-        });
-        
-        const convSnap = await getDocs(
-          query(collection(db, 'conversaciones'), where('jid', '==', jid))
-        );
+        await deleteDoc(doc(db, 'sesiones_nova', jid)).catch(() => {});
+        const convSnap = await getDocs(query(collection(db, 'conversaciones'), where('jid', '==', jid)));
         const deletePromises = convSnap.docs.map(d => deleteDoc(d.ref));
         await Promise.all(deletePromises);
       }
 
-      toast({ title: "Estado Actualizado", description: `La cotización ahora está en estado ${newStatus}.` });
+      toast({ title: "Estado Actualizado", description: `La solicitud ahora está en estado ${newStatus}.` });
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el estado correctamente." });
     }
   };
 
-  const getStatusBadge = (estado: Cotizacion['estado']) => {
+  const getStatusBadge = (estado: string) => {
     switch (estado) {
       case 'pendiente':
         return <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 border-orange-200 text-[10px] px-1.5 py-0">PEND</Badge>;
       case 'contactado':
+      case 'atendido':
         return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200 text-[10px] px-1.5 py-0">CONT</Badge>;
       case 'programado':
         return <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200 text-[10px] px-1.5 py-0">PROG</Badge>;
       case 'descartado':
         return <Badge className="bg-slate-100 text-slate-500 hover:bg-slate-100 border-slate-200 text-[10px] px-1.5 py-0">DESC</Badge>;
       default:
-        return <Badge variant="outline" className="text-[10px] px-1.5 py-0">{estado}</Badge>;
+        return <Badge variant="outline" className="text-[10px] px-1.5 py-0 uppercase">{estado}</Badge>;
     }
   };
 
@@ -156,14 +138,14 @@ export default function CotizacionesPage() {
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
         <div>
           <h1 className="text-xl sm:text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
-            Cotizaciones Recibidas
+            Solicitudes Nova
             {pendingCount > 0 && (
               <Badge className="bg-orange-500 text-white font-black px-2 py-0.5 text-xs sm:text-sm rounded-lg">
                 {pendingCount} PENDIENTES
               </Badge>
             )}
           </h1>
-          <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">Gestione las solicitudes de presupuesto enviadas por los clientes.</p>
+          <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">Gestione cotizaciones y solicitudes de atención personalizada.</p>
         </div>
       </header>
 
@@ -173,10 +155,10 @@ export default function CotizacionesPage() {
             <Loader2 className="h-10 w-10 animate-spin text-orange-500" />
             <p className="text-xs sm:text-sm font-black uppercase text-muted-foreground tracking-widest">Sincronizando solicitudes...</p>
           </div>
-        ) : cotizacionesVisibles.length === 0 ? (
+        ) : todasLasSolicitudes.length === 0 ? (
           <div className="p-16 sm:p-20 text-center text-muted-foreground opacity-40">
             <ClipboardList className="h-12 w-12 mx-auto mb-3" />
-            <p className="font-black uppercase text-xs">No hay cotizaciones activas</p>
+            <p className="font-black uppercase text-xs">No hay solicitudes activas</p>
           </div>
         ) : (
           <div className="w-full overflow-hidden">
@@ -191,13 +173,13 @@ export default function CotizacionesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {cotizacionesVisibles.map((c, index) => {
+                {todasLasSolicitudes.map((c, index) => {
                   const displayName = c.nombreCliente && c.nombreCliente !== 'Cliente' 
                     ? c.nombreCliente 
-                    : `Cotización #${cotizaciones.length - index}`;
+                    : `Solicitud #${todasLasSolicitudes.length - index}`;
                   
                   const cleanPhone = c.telefono ? c.telefono.split('@')[0] : 'N/A';
-                  const trayectoFull = `${c.lugarRecogida} ➔ ${c.destino}`;
+                  const trayectoFull = c._tipo === 'asesor' ? 'Solicitud de asesoría humana' : `${c.lugarRecogida} ➔ ${c.destino}`;
                   const trayectoShort = trayectoFull.length > 30 ? trayectoFull.substring(0, 27) + '...' : trayectoFull;
 
                   return (
@@ -223,9 +205,15 @@ export default function CotizacionesPage() {
                         </div>
                       </TableCell>
                       <TableCell className="px-3 py-2 align-middle">
-                        <Badge variant="outline" className="font-black text-[9px] uppercase border-blue-100 text-blue-600 bg-blue-50/30 truncate block text-center max-w-[80px]">
-                          {c.tipoVehiculo.split(' ')[0]}
-                        </Badge>
+                        {c._tipo === 'asesor' ? (
+                          <Badge className="bg-rose-500 text-white border-none font-black text-[8px] sm:text-[9px] uppercase tracking-tighter truncate block text-center py-0.5">
+                            🙋 ASESOR
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="font-black text-[9px] uppercase border-blue-100 text-blue-600 bg-blue-50/30 truncate block text-center max-w-[80px]">
+                            {c.tipoVehiculo.split(' ')[0]}
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell className="px-3 py-2 text-center align-middle">
                         {getStatusBadge(c.estado)}
@@ -250,17 +238,21 @@ export default function CotizacionesPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl shadow-xl">
-                              <DropdownMenuItem 
-                                className="rounded-lg font-bold text-xs py-2.5 text-green-600 bg-green-50/50 mb-1"
-                                onClick={() => router.push(`/dashboard/servicios?nombre=${encodeURIComponent(displayName)}&telefono=${cleanPhone}&origen=${encodeURIComponent(c.lugarRecogida)}&destino=${encodeURIComponent(c.destino)}&fecha=${c.fechaServicio}&hora=${c.horaRecogida}`)}
-                              >
-                                <PlusCircle className="mr-2 h-4 w-4" /> Crear Servicio
+                              {c._tipo === 'cotizacion' && (
+                                <>
+                                  <DropdownMenuItem 
+                                    className="rounded-lg font-bold text-xs py-2.5 text-green-600 bg-green-50/50 mb-1"
+                                    onClick={() => router.push(`/dashboard/servicios?nombre=${encodeURIComponent(displayName)}&telefono=${cleanPhone}&origen=${encodeURIComponent(c.lugarRecogida)}&destino=${encodeURIComponent(c.destino)}&fecha=${c.fechaServicio}&hora=${c.horaRecogida}`)}
+                                  >
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Crear Servicio
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                </>
+                              )}
+                              <DropdownMenuItem onClick={() => handleUpdateStatus(c.id, c.jid, c._tipo === 'asesor' ? 'atendido' : 'contactado', c._tipo)} className="rounded-lg font-bold text-xs py-2.5">
+                                <CheckCircle2 className="mr-2 h-4 w-4 text-blue-500" /> {c._tipo === 'asesor' ? 'Marcar Atendido' : 'Marcar Contactado'}
                               </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleUpdateStatus(c.id, c.jid, 'contactado')} className="rounded-lg font-bold text-xs py-2.5">
-                                <CheckCircle2 className="mr-2 h-4 w-4 text-blue-500" /> Marcar Contactado
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleUpdateStatus(c.id, c.jid, 'descartado')} className="rounded-lg font-bold text-xs py-2.5 text-red-600">
+                              <DropdownMenuItem onClick={() => handleUpdateStatus(c.id, c.jid, 'descartado', c._tipo)} className="rounded-lg font-bold text-xs py-2.5 text-red-600">
                                 <XCircle className="mr-2 h-4 w-4" /> Descartar
                               </DropdownMenuItem>
                             </DropdownMenuContent>
