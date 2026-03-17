@@ -3,166 +3,85 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * TRANSPORTES ESPECIALES J&J - SECURITY RULES (V2)
+     * TRANSPORTES ESPECIALES J&J - SECURITY RULES (V2.1)
      *
      * CORE PHILOSOPHY:
-     * This ruleset enforces a centralized Administrative Access Control (RBAC) model. 
-     * Authorization is decoupled from business data by relying on a dedicated /admins collection.
-     *
-     * DATA STRUCTURE:
-     * Core business entities (Drivers, Vehicles, Clients, Services, Invoices) are organized in 
-     * top-level collections for maximum scalability and authorization independence. 
-     * Hierarchical nesting is used only for Payments (under Invoices) to represent strong logical grouping.
-     *
-     * KEY SECURITY DECISIONS:
-     * - Admin-Only Posture: By default, all business data is strictly restricted to authenticated 
-     *   users whose UIDs exist in the /admins collection.
-     * - Authorization Independence: Rules avoid costly cross-document lookups by prioritizing 
-     *   top-level paths, except for the mandatory admin check.
-     * - Prototyping Flexibility: Rules strictly control WHO can access data (Admin vs. Public) 
-     *   but do not enforce a strict schema for the payload, allowing for rapid front-end iteration.
-     * - Relational Integrity: On document creation, the rules enforce consistency between 
-     *   the document ID in the path and the ID field within the document data.
+     * Enforces administrative access based on the /admins collection and the master email.
      */
 
     // --- Helper Functions ---
 
-    /** @description Checks if the user is authenticated with Firebase Auth. */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** @description Checks if the user's UID exists in the global /admins collection. */
+    /** @description Checks if user is admin via collection or master email. */
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'transportes.especialesjyj@gmail.com'
+      );
     }
 
-    /** @description Verifies ownership and document existence for destructive operations. */
     function isExistingAdmin() {
       return isAdmin() && resource != null;
     }
 
-    /** @description Validates that the internal 'id' matches the path identifier on creation. */
-    function isValidCreate(id) {
-      return request.resource.data.id == id;
-    }
-
-    /** @description Ensures the internal 'id' field remains immutable during updates. */
-    function isIdImmutable() {
-      return request.resource.data.id == resource.data.id;
-    }
-
     // --- Collection Rules ---
 
-    /**
-     * @description Admin profile storage. Used to verify administrative privileges.
-     * @path /admins/{adminId}
-     * @allow (get) Any signed-in user checking their own admin status.
-     * @deny (write) Any non-admin user attempting to grant themselves privileges.
-     * @principle Role-Based Access Control (RBAC) source of truth.
-     */
     match /admins/{adminId} {
       allow get: if isSignedIn();
-      allow list: if isAdmin();
-      allow create, update, delete: if isAdmin();
+      allow list, write: if isAdmin();
     }
 
-    /**
-     * @description Management of company drivers. Restricted to administrators.
-     * @path /drivers/{driverId}
-     * @allow (create) Admin user creating a driver with a matching ID field.
-     * @deny (read) Any non-authenticated or non-admin user.
-     * @principle Restricts access to sensitive personnel data to global roles.
-     */
-    match /drivers/{driverId} {
-      allow get, list: if isAdmin();
-      allow create: if isAdmin() && isValidCreate(driverId);
-      allow update: if isExistingAdmin() && isIdImmutable();
-      allow delete: if isExistingAdmin();
+    // Personal Operativo
+    match /conductores/{id} {
+      allow read, write: if isAdmin();
     }
 
-    /**
-     * @description Fleet vehicle tracking. Restricted to administrators.
-     * @path /vehicles/{vehicleId}
-     * @allow (list) Admin viewing the entire fleet.
-     * @deny (update) Attempting to change the vehicle's unique ID field.
-     * @principle Centralized asset management restricted to authorized personnel.
-     */
-    match /vehicles/{vehicleId} {
-      allow get, list: if isAdmin();
-      allow create: if isAdmin() && isValidCreate(vehicleId);
-      allow update: if isExistingAdmin() && isIdImmutable();
-      allow delete: if isExistingAdmin();
+    // Flota
+    match /vehiculos/{id} {
+      allow read, write: if isAdmin();
     }
 
-    /**
-     * @description Client information for billing and services. Restricted to administrators.
-     * @path /clients/{clientId}
-     * @allow (get) Admin viewing client contact details.
-     * @deny (create) Unauthenticated requests.
-     * @principle Privacy protection for client contact and business data.
-     */
-    match /clients/{clientId} {
-      allow get, list: if isAdmin();
-      allow create: if isAdmin() && isValidCreate(clientId);
-      allow update: if isExistingAdmin() && isIdImmutable();
-      allow delete: if isExistingAdmin();
+    // Cartera
+    match /clientes/{id} {
+      allow read, write: if isAdmin();
     }
 
-    /**
-     * @description Scheduling and management of transport services. Restricted to administrators.
-     * @path /services/{serviceId}
-     * @allow (update) Admin updating service status (e.g., 'Completed').
-     * @deny (list) Requests from drivers or clients (only admins can list all services).
-     * @principle Operational data integrity managed through a single authority.
-     */
-    match /services/{serviceId} {
-      allow get, list: if isAdmin();
-      allow create: if isAdmin() && isValidCreate(serviceId);
-      allow update: if isExistingAdmin() && isIdImmutable();
-      allow delete: if isExistingAdmin();
+    // Operaciones
+    match /services/{id} {
+      allow read, write: if isAdmin();
     }
 
-    /**
-     * @description Financial invoices issued to clients. Restricted to administrators.
-     * @path /invoices/{invoiceId}
-     * @allow (create) Admin generating a new invoice for a client.
-     * @deny (delete) Attempting to delete an invoice that doesn't exist.
-     * @principle Financial record security and auditability.
-     */
+    // P&G
+    match /transacciones/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Sistema Nova & WhatsApp
+    match /cotizaciones/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    match /conversaciones/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    match /notificaciones_whatsapp/{id} {
+      allow read, write: if isAdmin();
+    }
+    
+    match /sesiones_nova/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Compatibilidad Invoices
     match /invoices/{invoiceId} {
-      allow get, list: if isAdmin();
-      allow create: if isAdmin() && isValidCreate(invoiceId);
-      allow update: if isExistingAdmin() && isIdImmutable();
-      allow delete: if isExistingAdmin();
-
-      /**
-       * @description Payments associated with a specific invoice.
-       * @path /invoices/{invoiceId}/payments/{paymentId}
-       * @allow (list) Admin viewing all payments for a specific invoice.
-       * @deny (write) Non-admin users attempting to record payments.
-       * @principle Hierarchical data modeling for relational grouping.
-       */
+      allow read, write: if isAdmin();
       match /payments/{paymentId} {
-        allow get, list: if isAdmin();
-        allow create: if isAdmin() && isValidCreate(paymentId);
-        allow update: if isExistingAdmin() && isIdImmutable();
-        allow delete: if isExistingAdmin();
+        allow read, write: if isAdmin();
       }
-    }
-
-    /**
-     * @description Real-time GPS location updates for fleet monitoring.
-     * @path /location_updates/{locationUpdateId}
-     * @allow (create) Admin/System recording vehicle coordinates.
-     * @deny (read) Public or unauthorized access to vehicle tracking.
-     * @principle High-volume data segregation for operational scalability.
-     */
-    match /location_updates/{locationUpdateId} {
-      allow get, list: if isAdmin();
-      allow create: if isAdmin() && isValidCreate(locationUpdateId);
-      allow update: if isExistingAdmin() && isIdImmutable();
-      allow delete: if isExistingAdmin();
     }
   }
 }
