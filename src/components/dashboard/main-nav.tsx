@@ -14,6 +14,7 @@ import {
   MessageSquare,
   ClipboardList,
   BarChart2,
+  MapPin,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -45,6 +46,7 @@ const finanzasItems = [
 ]
 
 const sistemaItems = [
+    { href: '/dashboard/gps', label: 'Seguimiento GPS', icon: MapPin },
     { href: '/dashboard/whatsapp-bandeja', label: 'Bandeja Nova', icon: MessageSquare },
     { href: '/dashboard/whatsapp-status', label: 'Estado WhatsApp', icon: MessageSquare },
 ]
@@ -60,8 +62,16 @@ export function MainNav() {
     return query(collection(db, 'cotizaciones'), where('estado', '==', 'pendiente'));
   }, [db, user]);
 
+  const activeGPSQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'ubicaciones_gps'), where('activo', '==', true));
+  }, [db, user]);
+
   const { data: pendingCotizaciones } = useCollection(pendingCotQuery);
+  const { data: activeGPS } = useCollection(activeGPSQuery);
+  
   const pendingCount = pendingCotizaciones?.length || 0;
+  const activeGPSCount = activeGPS?.length || 0;
 
   return (
     <Sidebar collapsible="offcanvas">
@@ -139,7 +149,15 @@ export function MainNav() {
                         tooltip={item.label}
                         className="justify-start"
                         >
-                        <item.icon />
+                        <div className="relative">
+                          <item.icon />
+                          {item.href === '/dashboard/gps' && activeGPSCount > 0 && (
+                            <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                          )}
+                        </div>
                         <span>{item.label}</span>
                         </SidebarMenuButton>
                     </Link>
