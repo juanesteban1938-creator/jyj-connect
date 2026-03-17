@@ -122,7 +122,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
             vehiculoOtro: servicio.vehiculoPlaca || ''
         });
     }
-  }, [servicio, conductores, vehiculos]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [servicio, conductores, vehiculos]);
 
   const valorServicio = form.watch('valorServicio') || 0;
   const estadoPago = form.watch('estadoPago');
@@ -133,8 +133,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
     } else if (estadoPago === 'Pendiente' || estadoPago === 'Anulado') {
         form.setValue('anticipo', 0);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estadoPago, valorServicio]);
+  }, [estadoPago, valorServicio, form]);
 
   const anticipo = form.watch('anticipo') || 0;
   const saldo = Math.max(0, valorServicio - anticipo);
@@ -150,43 +149,44 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
-        <ScrollArea className="h-[70vh] w-full">
+        <ScrollArea className="h-[70vh] w-full pr-4">
          <div className="space-y-8 p-1">
+            {/* Cliente */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <Briefcase className="h-5 w-5 text-primary"/>
                     <h3 className="text-lg font-bold uppercase tracking-tight">Información del Cliente</h3>
                 </div>
                 <Separator className="bg-primary/20" />
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField name="nombreCliente" control={form.control} render={({ field }) => (
-                        <FormItem className="md:col-span-3">
+                        <FormItem className="sm:col-span-2">
                             <FormLabel>Nombre del Cliente / Razón Social</FormLabel>
-                            <FormControl><Input placeholder="Ej. Juan Pérez" {...field} /></FormControl>
+                            <FormControl><Input placeholder="Ej. Juan Pérez" {...field} className="w-full" /></FormControl>
                             <FormMessage />
                         </FormItem>
                     )} />
                     <FormField name="nitCliente" control={form.control} render={({ field }) => (
-                        <FormItem className="md:col-span-1">
+                        <FormItem>
                             <FormLabel>NIT / Cédula</FormLabel>
-                            <FormControl><Input placeholder="12345678-9" {...field} /></FormControl>
+                            <FormControl><Input placeholder="12345678-9" {...field} className="w-full" /></FormControl>
                             <FormMessage />
                         </FormItem>
                     )} />
                     <FormField name="telefonoCliente" control={form.control} render={({ field }) => (
-                        <FormItem className="md:col-span-1">
+                        <FormItem>
                             <FormLabel>Teléfono de Contacto</FormLabel>
-                            <FormControl><Input placeholder="300 123 4567" {...field} /></FormControl>
+                            <FormControl><Input placeholder="300 123 4567" {...field} className="w-full" /></FormControl>
                             <FormMessage />
                         </FormItem>
                     )} />
                     <FormField name="emailCliente" control={form.control} render={({ field }) => (
-                        <FormItem className="md:col-span-3">
+                        <FormItem className="sm:col-span-2">
                             <FormLabel>Correo Electrónico (Para envío de CxC)</FormLabel>
                             <FormControl>
                                 <div className="relative">
                                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                    <Input className="pl-9" placeholder="correo@ejemplo.com" {...field} />
+                                    <Input className="pl-9 w-full" placeholder="correo@ejemplo.com" {...field} />
                                 </div>
                             </FormControl>
                             <FormMessage />
@@ -195,13 +195,14 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                 </div>
             </div>
             
+            {/* Recursos */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <User className="h-5 w-5 text-primary"/>
                     <h3 className="text-lg font-bold uppercase tracking-tight">Asignación de Recursos</h3>
                 </div>
                 <Separator className="bg-primary/20" />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div className="space-y-4 border p-4 rounded-lg bg-muted/5">
                          <FormField
                             control={form.control}
@@ -216,10 +217,10 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                         {form.watch('esConductorNoRegistrado') ? (
                             <div className="grid grid-cols-1 gap-3">
                                 <FormField name="conductorOtro" control={form.control} render={({ field }) => (
-                                    <FormItem><FormLabel>Nombre Conductor Externo</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><FormLabel>Nombre Conductor Externo</FormLabel><FormControl><Input {...field} className="w-full" /></FormControl><FormMessage /></FormItem>
                                 )} />
                                 <FormField name="conductorTelefonoOtro" control={form.control} render={({ field }) => (
-                                    <FormItem><FormLabel>Teléfono Externo</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><FormLabel>Teléfono Externo</FormLabel><FormControl><Input {...field} className="w-full" /></FormControl><FormMessage /></FormItem>
                                 )} />
                             </div>
                         ) : (
@@ -227,7 +228,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                                 <FormItem>
                                     <FormLabel>Seleccionar Conductor</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un conductor..." /></SelectTrigger></FormControl>
+                                        <FormControl><SelectTrigger className="w-full"><SelectValue placeholder="Seleccione un conductor..." /></SelectTrigger></FormControl>
                                         <SelectContent>{conductores.map(c => <SelectItem key={c.id} value={c.id}>{c.nombres} {c.apellidos}</SelectItem>)}</SelectContent>
                                     </Select>
                                     <FormMessage />
@@ -248,14 +249,14 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                         />
                         {form.watch('esVehiculoNoRegistrado') ? (
                             <FormField name="vehiculoOtro" control={form.control} render={({ field }) => (
-                                <FormItem><FormLabel>Placa del Vehículo Externo</FormLabel><FormControl><Input placeholder="XXX-000" {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem><FormLabel>Placa del Vehículo Externo</FormLabel><FormControl><Input placeholder="XXX-000" {...field} className="w-full" /></FormControl><FormMessage /></FormItem>
                             )} />
                         ) : (
                            <FormField name="vehiculoId" control={form.control} render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Seleccionar Vehículo</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un vehículo..." /></SelectTrigger></FormControl>
+                                        <FormControl><SelectTrigger className="w-full"><SelectValue placeholder="Seleccione un vehículo..." /></SelectTrigger></FormControl>
                                         <SelectContent>{vehiculos.map(v => <SelectItem key={v.id} value={v.id}>{v.marca} {v.linea} ({v.placa})</SelectItem>)}</SelectContent>
                                     </Select>
                                     <FormMessage />
@@ -266,13 +267,14 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                 </div>
             </div>
 
+            {/* Ruta */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <MapPin className="h-5 w-5 text-primary"/>
                     <h3 className="text-lg font-bold uppercase tracking-tight">Detalles de la Ruta</h3>
                 </div>
                 <Separator className="bg-primary/20" />
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField control={form.control} name="fechaRecogida" render={({ field }) => (
                         <FormItem className="flex flex-col">
                             <FormLabel>Fecha del Servicio</FormLabel>
@@ -293,7 +295,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                         </FormItem>
                     )} />
                     <FormField control={form.control} name="horaRecogida" render={({ field }) => (
-                        <FormItem className="md:col-span-1">
+                        <FormItem>
                             <FormLabel>Hora de Recogida</FormLabel>
                             <FormControl>
                                 <div className="relative">
@@ -304,45 +306,45 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                             <FormMessage />
                         </FormItem>
                     )} />
-                    <div className="md:col-span-1"></div>
                     
                     <FormField name="direccionRecogida" control={form.control} render={({ field }) => (
-                        <FormItem className="md:col-span-3"><FormLabel>Dirección de Origen / Recogida</FormLabel><FormControl><Input placeholder="Ej. Calle 123 #45-67" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem className="sm:col-span-2"><FormLabel>Dirección de Origen / Recogida</FormLabel><FormControl><Input placeholder="Ej. Calle 123 #45-67" {...field} className="w-full" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField name="direccionDestino" control={form.control} render={({ field }) => (
-                        <FormItem className="md:col-span-3"><FormLabel>Dirección de Destino / Llegada</FormLabel><FormControl><Input placeholder="Ej. Aeropuerto El Dorado" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem className="sm:col-span-2"><FormLabel>Dirección de Destino / Llegada</FormLabel><FormControl><Input placeholder="Ej. Aeropuerto El Dorado" {...field} className="w-full" /></FormControl><FormMessage /></FormItem>
                     )} />
                  </div>
             </div>
 
+            {/* Financiera */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <DollarSign className="h-5 w-5 text-primary"/>
                     <h3 className="text-lg font-bold uppercase tracking-tight">Gestión Financiera</h3>
                 </div>
                 <Separator className="bg-primary/20" />
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField name="valorServicio" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Venta Total</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" {...field} /></div></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Venta Total</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9 w-full" {...field} /></div></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField name="anticipo" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Anticipo / Abono</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" {...field} /></div></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Anticipo / Abono</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9 w-full" {...field} /></div></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField name="costoOperacion" control={form.control} render={({ field }) => (
-                        <FormItem><FormLabel>Costo Operación</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9" {...field} /></div></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Costo Operación</FormLabel><FormControl><div className="relative"><DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="number" className="pl-9 w-full" {...field} /></div></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormItem>
                         <FormLabel>Saldo Pendiente</FormLabel>
-                        <FormControl><Input readOnly disabled className="font-bold text-red-600 bg-muted" value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(saldo)} /></FormControl>
+                        <FormControl><Input readOnly disabled className="font-bold text-red-600 bg-muted w-full" value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(saldo)} /></FormControl>
                     </FormItem>
                 </div>
             </div>
         </div>
       </ScrollArea>
 
-      <div className="flex justify-end gap-3 pt-6 border-t">
-        <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
-        <Button type="submit" className="min-w-[150px]" disabled={isSaving}>
+      <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t">
+        <Button type="button" variant="ghost" onClick={onCancel} className="w-full sm:w-auto">Cancelar</Button>
+        <Button type="submit" className="min-w-[150px] w-full sm:w-auto" disabled={isSaving}>
             {isSaving ? (
                 <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
