@@ -253,7 +253,7 @@ export default function ServiciosPage() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-12">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 sm:mb-8">
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
         <div>
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
             Gestión de Servicios
@@ -265,7 +265,7 @@ export default function ServiciosPage() {
         </div>
         <Button 
           onClick={handleNuevoServicio} 
-          className="btn-action w-full md:w-auto bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-lg shadow-orange-200 h-11 sm:h-12 px-8"
+          className="btn-action w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-lg shadow-orange-200 h-11 sm:h-12 px-8"
         >
           <PlusCircle className="mr-2 h-5 w-5" /> Programar Servicio
         </Button>
@@ -276,15 +276,15 @@ export default function ServiciosPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Buscar por cliente, conductor..." 
-            className="pl-9 h-11 bg-white border-slate-200 rounded-xl shadow-sm focus:ring-orange-500 text-xs sm:text-sm"
+            className="pl-9 h-11 bg-white border-slate-200 rounded-xl shadow-sm focus:ring-orange-500 text-xs sm:text-sm w-full"
             value={searchTerm} 
             onChange={e => setSearchTerm(e.target.value)} 
           />
         </div>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full lg:w-fit">
-          <TabsList className="bg-white border rounded-xl h-11 p-1 shadow-sm w-full lg:w-fit">
-            <TabsTrigger value="activos" className="flex-1 lg:px-8 font-black uppercase text-[10px] rounded-lg data-[state=active]:bg-orange-50 data-[state=active]:text-orange-600">Activos</TabsTrigger>
-            <TabsTrigger value="historial" className="flex-1 lg:px-8 font-black uppercase text-[10px] rounded-lg data-[state=active]:bg-orange-50 data-[state=active]:text-orange-600">Historial</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
+          <TabsList className="bg-white border rounded-xl h-11 p-1 shadow-sm w-full sm:w-fit">
+            <TabsTrigger value="activos" className="flex-1 sm:px-8 font-black uppercase text-[10px] rounded-lg data-[state=active]:bg-orange-50 data-[state=active]:text-orange-600">Activos</TabsTrigger>
+            <TabsTrigger value="historial" className="flex-1 sm:px-8 font-black uppercase text-[10px] rounded-lg data-[state=active]:bg-orange-50 data-[state=active]:text-orange-600">Historial</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -427,7 +427,7 @@ export default function ServiciosPage() {
           setIsSaving(false); 
         } 
       }}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 rounded-3xl border-none shadow-2xl" aria-describedby={undefined}>
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl lg:max-w-4xl mx-auto rounded-3xl border-none shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]" aria-describedby={undefined}>
           <DialogDescription className="sr-only">Formulario para la programación y edición de servicios de transporte especial.</DialogDescription>
           <div className="p-6 sm:p-8 border-b bg-slate-50/50">
             <DialogTitle className="text-lg sm:text-2xl font-black text-slate-900 flex items-center gap-3">
@@ -451,14 +451,14 @@ export default function ServiciosPage() {
       </Dialog>
 
       <Dialog open={isResumenOpen} onOpenChange={o => { setIsResumenOpen(o); if(!o) setSelectedResumen(null); }}>
-        <DialogContent className="sm:max-w-lg rounded-3xl p-0 overflow-hidden border-none shadow-2xl" aria-describedby={undefined}>
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-xl mx-auto rounded-3xl p-0 overflow-hidden border-none shadow-2xl max-h-[90vh] flex flex-col" aria-describedby={undefined}>
           <DialogDescription className="sr-only">Vista detallada de los datos del servicio, conductor, vehículo y estado financiero.</DialogDescription>
           <div className="p-6 border-b bg-slate-50/50">
             <DialogTitle className="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
               <Eye className="h-5 w-5 text-orange-500" /> Detalle del Servicio
             </DialogTitle>
           </div>
-          <div className="p-4 sm:p-6">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
             {selectedResumen && <ResumenServicio servicio={selectedResumen} />}
           </div>
         </DialogContent>
