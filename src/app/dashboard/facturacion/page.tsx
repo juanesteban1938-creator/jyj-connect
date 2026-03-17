@@ -82,7 +82,6 @@ export default function FacturacionPage() {
       .then(async () => {
         toast({ title: "✅ Servicio Pagado" });
 
-        // Envío automático de confirmación de pago
         if (servicio.emailCliente) {
           toast({ title: "📧 Enviando confirmación de pago..." });
           const response = await fetch('/api/send-invoice', {
@@ -144,7 +143,6 @@ export default function FacturacionPage() {
         setIsAbonoOpen(false);
         toast({ title: "Abono Registrado" });
 
-        // Si el servicio queda totalmente pagado, enviar correo automáticamente
         if (data.nuevoEstadoPago === 'Pagado' && selected.emailCliente) {
           toast({ title: "📧 Enviando confirmación de pago..." });
           const response = await fetch('/api/send-invoice', {
@@ -196,7 +194,6 @@ export default function FacturacionPage() {
         setIsEditOpen(false);
         toast({ title: "Facturación Actualizada" });
 
-        // Si se marca como pagado manualmente en la edición, también enviar correo
         if (data.estadoPago === 'Pagado' && selected.emailCliente) {
           toast({ title: "📧 Enviando confirmación de pago..." });
           const response = await fetch('/api/send-invoice', {
@@ -239,81 +236,83 @@ export default function FacturacionPage() {
 
   return (
     <div className="page-container">
-      <header>
-        <h1 className="page-title">Facturación y Cartera</h1>
-        <p className="page-subtitle">Gestión financiera sincronizada con la nube.</p>
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="page-title mb-0">Facturación y Cartera</h1>
+          <p className="page-subtitle mb-0 mt-1">Gestión financiera sincronizada con la nube.</p>
+        </div>
       </header>
 
-      <div className="grid gap-6 md:grid-cols-3 mb-8">
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-3 mb-8">
         <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Facturación Total</span>
-              <div className="bg-blue-50 p-2 rounded-full"><DollarSign className="h-4 w-4 text-blue-600" /></div>
+              <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Facturación Total</span>
+              <div className="bg-blue-50 p-2 rounded-xl"><DollarSign className="h-4 w-4 text-blue-600" /></div>
             </div>
-            <p className="text-2xl font-bold">{currencyFormatter.format(stats.total)}</p>
+            <p className="text-xl sm:text-2xl font-black">{currencyFormatter.format(stats.total)}</p>
           </CardContent>
         </Card>
         <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Ganancia Neta</span>
-              <div className="bg-green-50 p-2 rounded-full"><TrendingUp className="h-4 w-4 text-green-600" /></div>
+              <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Ganancia Neta</span>
+              <div className="bg-green-50 p-2 rounded-xl"><TrendingUp className="h-4 w-4 text-green-600" /></div>
             </div>
-            <p className="text-2xl font-bold">{currencyFormatter.format(stats.ganancia)}</p>
+            <p className="text-xl sm:text-2xl font-black">{currencyFormatter.format(stats.ganancia)}</p>
           </CardContent>
         </Card>
         <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Cartera Pendiente</span>
-              <div className="bg-red-50 p-2 rounded-full"><AlertTriangle className="h-4 w-4 text-red-600" /></div>
+              <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Cartera Pendiente</span>
+              <div className="bg-red-50 p-2 rounded-xl"><AlertTriangle className="h-4 w-4 text-red-600" /></div>
             </div>
-            <p className="text-2xl font-bold text-red-600">{currencyFormatter.format(stats.cartera)}</p>
+            <p className="text-xl sm:text-2xl font-black text-red-600">{currencyFormatter.format(stats.cartera)}</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="flex items-center mb-6">
+      <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar por cliente..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          <Input placeholder="Buscar por cliente..." className="pl-9 h-11 bg-white border-slate-200 rounded-xl" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
-        {isProcessing && <Loader2 className="ml-4 h-5 w-5 animate-spin text-primary" />}
+        {isProcessing && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
       </div>
 
-      <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader className="bg-muted/50">
+      <Card className="rounded-2xl shadow-sm border-none overflow-hidden bg-white">
+        <div className="overflow-x-auto w-full">
+          <Table className="min-w-full">
+            <TableHeader className="bg-slate-50/50">
               <TableRow>
-                <TableHead className="p-4">FECHA</TableHead>
-                <TableHead className="p-4">CLIENTE</TableHead>
-                <TableHead className="p-4 text-right">VALOR</TableHead>
-                <TableHead className="p-4 text-center">ESTADO</TableHead>
-                <TableHead className="text-center p-4">ACCIONES</TableHead>
+                <TableHead className="p-4 font-black text-[10px] uppercase text-slate-400">Fecha</TableHead>
+                <TableHead className="p-4 font-black text-[10px] uppercase text-slate-400">Cliente</TableHead>
+                <TableHead className="p-4 text-right font-black text-[10px] uppercase text-slate-400">Valor</TableHead>
+                <TableHead className="p-4 text-center font-black text-[10px] uppercase text-slate-400">Estado</TableHead>
+                <TableHead className="text-center p-4 font-black text-[10px] uppercase text-slate-400"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.map((s) => (
-                <TableRow key={s.id} className="hover:bg-muted/30">
-                  <TableCell className="p-4 text-sm font-medium">{format(new Date(s.fecha), 'dd/MM/yyyy')}</TableCell>
-                  <TableCell className="p-4 text-sm font-bold">{s.cliente}</TableCell>
-                  <TableCell className="p-4 text-sm text-right font-semibold">{currencyFormatter.format(Number(s.valorServicio) || 0)}</TableCell>
+                <TableRow key={s.id} className="hover:bg-slate-50/50 transition-colors border-b last:border-0">
+                  <TableCell className="p-4 text-xs font-bold text-slate-600">{format(new Date(s.fecha), 'dd/MM/yyyy')}</TableCell>
+                  <TableCell className="p-4 text-sm font-black uppercase text-slate-800">{s.cliente}</TableCell>
+                  <TableCell className="p-4 text-sm text-right font-black text-slate-900">{currencyFormatter.format(Number(s.valorServicio) || 0)}</TableCell>
                   <TableCell className="p-4 text-center">
-                    <Badge variant={s.estadoPago === 'Pagado' ? 'default' : 'outline'} className="text-[10px] font-bold uppercase">{s.estadoPago}</Badge>
+                    <Badge variant={s.estadoPago === 'Pagado' ? 'default' : 'outline'} className="text-[9px] font-black uppercase px-2 py-0.5 rounded-md">{s.estadoPago}</Badge>
                   </TableCell>
                   <TableCell className="p-4 text-center">
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" disabled={isProcessing}><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => { setSelected(s); setTimeout(() => setIsFacturaOpen(true), 100); }}><FileText className="mr-2 h-4 w-4" /> Ver Cuenta de Cobro</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => { setSelected(s); setTimeout(() => setIsAbonoOpen(true), 100); }}><DollarSign className="mr-2 h-4 w-4" /> Registrar Pago/Abono</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => { setSelected(s); setTimeout(() => setIsEditOpen(true), 100); }}><Edit className="mr-2 h-4 w-4" /> Editar Facturación</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => { setSelected(s); setTimeout(() => setIsFacturaOpen(true), 100); }}><Mail className="mr-2 h-4 w-4" /> Enviar por Correo</DropdownMenuItem>
+                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" disabled={isProcessing}><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl shadow-xl">
+                        <DropdownMenuItem onClick={() => { setSelected(s); setTimeout(() => setIsFacturaOpen(true), 100); }} className="rounded-lg font-bold text-xs py-2.5"><FileText className="mr-2 h-4 w-4" /> Ver Cuenta de Cobro</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setSelected(s); setTimeout(() => setIsAbonoOpen(true), 100); }} className="rounded-lg font-bold text-xs py-2.5"><DollarSign className="mr-2 h-4 w-4" /> Registrar Pago/Abono</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setSelected(s); setTimeout(() => setIsEditOpen(true), 100); }} className="rounded-lg font-bold text-xs py-2.5"><Edit className="mr-2 h-4 w-4" /> Editar Facturación</DropdownMenuItem>
+                        <DropdownMenuSeparator className="my-2" />
+                        <DropdownMenuItem onClick={() => { setSelected(s); setTimeout(() => setIsFacturaOpen(true), 100); }} className="rounded-lg font-bold text-xs py-2.5"><Mail className="mr-2 h-4 w-4" /> Enviar por Correo</DropdownMenuItem>
                         {s.estadoPago !== 'Pagado' && (
-                          <DropdownMenuItem className="text-green-600" onClick={() => handleMarcarPagada(s)}><CheckCircle className="mr-2 h-4 w-4" /> Marcar como Pagada</DropdownMenuItem>
+                          <DropdownMenuItem className="text-green-600 rounded-lg font-bold text-xs py-2.5 bg-green-50/50 mt-1" onClick={() => handleMarcarPagada(s)}><CheckCircle className="mr-2 h-4 w-4" /> Marcar como Pagada</DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -323,7 +322,10 @@ export default function FacturacionPage() {
               {(!user || filtered.length === 0) && (
                 <TableRow>
                   <TableCell colSpan={5} className="p-12 text-center text-muted-foreground">
-                    {!user ? 'Sincronizando sesión...' : 'No se encontraron registros de facturación.'}
+                    <div className="flex flex-col items-center gap-3 opacity-40">
+                      <DollarSign className="h-10 w-10" />
+                      <p className="font-bold uppercase text-xs">{!user ? 'Sincronizando sesión...' : 'No se encontraron registros de facturación'}</p>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}
@@ -333,7 +335,7 @@ export default function FacturacionPage() {
       </Card>
 
       <Dialog open={isFacturaOpen} onOpenChange={setIsFacturaOpen}>
-        <DialogContent className="max-w-4xl bg-[#f0f0f0] p-0 overflow-hidden border-none" aria-describedby={undefined}>
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl lg:max-w-4xl mx-auto rounded-3xl bg-[#f0f0f0] p-0 overflow-hidden border-none shadow-2xl" aria-describedby={undefined}>
           <DialogDescription className="sr-only">Vista previa de la cuenta de cobro para el cliente.</DialogDescription>
           <VisuallyHidden>
             <DialogHeader>
@@ -345,28 +347,36 @@ export default function FacturacionPage() {
       </Dialog>
 
       <Dialog open={isAbonoOpen} onOpenChange={o => { if(!isProcessing) setIsAbonoOpen(o); }}>
-        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl lg:max-w-4xl mx-auto rounded-3xl border-none shadow-2xl p-0 overflow-hidden flex flex-col" aria-describedby={undefined}>
           <DialogDescription className="sr-only">Formulario para registrar abonos o pagos parciales de servicios.</DialogDescription>
-          <VisuallyHidden>
-            <DialogHeader>
-              <DialogTitle>Registrar Pago / Abono</DialogTitle>
-            </DialogHeader>
-          </VisuallyHidden>
-          <DialogHeader><DialogTitle>Registrar Pago / Abono</DialogTitle></DialogHeader>
-          {selected && <AbonoForm servicio={selected} onSave={handleSaveAbono} onCancel={() => setIsAbonoOpen(false)} isProcessing={isProcessing} />}
+          <div className="p-6 border-b bg-slate-50/50">
+            <DialogTitle className="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-orange-500 text-white">
+                <DollarSign className="h-5 w-5" />
+              </div>
+              Registrar Pago / Abono
+            </DialogTitle>
+          </div>
+          <div className="p-6 overflow-y-auto max-h-[80vh]">
+            {selected && <AbonoForm servicio={selected} onSave={handleSaveAbono} onCancel={() => setIsAbonoOpen(false)} isProcessing={isProcessing} />}
+          </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isEditOpen} onOpenChange={o => { if(!isProcessing) setIsEditOpen(o); }}>
-        <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl lg:max-w-4xl mx-auto rounded-3xl border-none shadow-2xl p-0 overflow-hidden flex flex-col" aria-describedby={undefined}>
           <DialogDescription className="sr-only">Formulario para editar detalles de facturación, costos y estados de pago.</DialogDescription>
-          <VisuallyHidden>
-            <DialogHeader>
-              <DialogTitle>Editar Facturación</DialogTitle>
-            </DialogHeader>
-          </VisuallyHidden>
-          <DialogHeader><DialogTitle>Editar Facturación</DialogTitle></DialogHeader>
-          {selected && <FacturacionForm servicio={selected} onSave={handleSaveEdit} onCancel={() => setIsEditOpen(false)} isProcessing={isProcessing} />}
+          <div className="p-6 border-b bg-slate-50/50">
+            <DialogTitle className="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-orange-500 text-white">
+                <Edit className="h-5 w-5" />
+              </div>
+              Editar Facturación
+            </DialogTitle>
+          </div>
+          <div className="p-6 overflow-y-auto max-h-[80vh]">
+            {selected && <FacturacionForm servicio={selected} onSave={handleSaveEdit} onCancel={() => setIsEditOpen(false)} isProcessing={isProcessing} />}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
