@@ -1,19 +1,19 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { useState, useEffect, useRef } from 'react';
+import { useFirestore, useUser } from '@/firebase';
 import { collection, query, onSnapshot, where } from 'firebase/firestore';
-import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
   MapPin, 
   Navigation, 
   Clock, 
-  User, 
   Car, 
   AlertTriangle, 
   Loader2,
-  Maximize2
+  Maximize2,
+  ShieldAlert
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -23,6 +23,7 @@ declare global {
   interface Window {
     google: any;
     initMap: () => void;
+    gm_authFailure?: () => void;
   }
 }
 
@@ -30,6 +31,7 @@ export default function GPSMonitoringPage() {
   const [locations, setLocations] = useState<any[]>([]);
   const [selectedService, setSelectedService] = useState<string | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMap = useRef<any>(null);
   const markers = useRef<Record<string, any>>({});
@@ -56,10 +58,22 @@ export default function GPSMonitoringPage() {
 
   // Carga segura de Google Maps Script
   useEffect(() => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+    if (!apiKey || apiKey === 'tu_clave_aqui') {
+      setMapError('La clave de API de Google Maps no está configurada en las variables de entorno.');
+      return;
+    }
+
     if (window.google) {
       setMapLoaded(true);
       return;
     }
+
+    // Capturar errores de autenticación de Google Maps
+    window.gm_authFailure = () => {
+      setMapError('Error de autenticación: La clave de API de Google Maps es inválida o no tiene permisos.');
+    };
 
     const scriptId = 'google-maps-api-script';
     const existingScript = document.getElementById(scriptId);
@@ -67,49 +81,43 @@ export default function GPSMonitoringPage() {
     if (!existingScript) {
       const script = document.createElement('script');
       script.id = scriptId;
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=geometry`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry`;
       script.async = true;
       script.defer = true;
       script.onload = () => setMapLoaded(true);
+      script.onerror = () => setMapError('No se pudo cargar el script de Google Maps. Revisa tu conexión.');
       document.head.appendChild(script);
     } else {
-      // Si el script ya existe pero window.google aún no está listo
       existingScript.addEventListener('load', () => setMapLoaded(true));
+      existingScript.addEventListener('error', () => setMapError('Error al cargar el mapa.'));
     }
   }, []);
 
   // Inicialización del Mapa
   useEffect(() => {
-    if (mapLoaded && mapRef.current && !googleMap.current) {
-      googleMap.current = new window.google.maps.Map(mapRef.current, {
-        center: { lat: 4.711, lng: -74.0721 }, // Bogotá
-        zoom: 12,
-        styles: [
-          {
-            "featureType": "administrative",
-            "elementType": "labels.text.fill",
-            "stylers": [{ "color": "#444444" }]
-          },
-          {
-            "featureType": "landscape",
-            "elementType": "all",
-            "stylers": [{ "color": "#f2f2f2" }]
-          },
-          {
-            "featureType": "poi",
-            "elementType": "all",
-            "stylers": [{ "visibility": "off" }]
-          }
-        ],
-        disableDefaultUI: false,
-        zoomControl: true,
-      });
+    if (mapLoaded && mapRef.current && !googleMap.current && !mapError) {
+      try {
+        googleMap.current = new window.google.maps.Map(mapRef.current, {
+          center: { lat: 4.711, lng: -74.0721 }, // Bogotá
+          zoom: 12,
+          styles: [
+            { "featureType": "administrative", "elementType": "labels.text.fill", "stylers": [{ "color": "#444444" }] },
+            { "featureType": "landscape", "elementType": "all", "stylers": [{ "color": "#f2f2f2" }] },
+            { "featureType": "poi", "elementType": "all", "stylers": [{ "visibility": "off" }] }
+          ],
+          disableDefaultUI: false,
+          zoomControl: true,
+        });
+      } catch (err) {
+        console.error('Error al inicializar el mapa:', err);
+        setMapError('Error al inicializar los componentes del mapa.');
+      }
     }
-  }, [mapLoaded]);
+  }, [mapLoaded, mapError]);
 
   // Actualización de Marcadores
   useEffect(() => {
-    if (!googleMap.current || !mapLoaded) return;
+    if (!googleMap.current || !mapLoaded || mapError) return;
 
     // Eliminar marcadores que ya no están activos
     const currentIds = locations.map(l => l.id);
@@ -166,7 +174,6 @@ export default function GPSMonitoringPage() {
         markers.current[loc.id] = marker;
       } else {
         markers.current[loc.id].setPosition(position);
-        // Actualizar color si cambia el estado
         markers.current[loc.id].setIcon({
           ...markers.current[loc.id].getIcon(),
           fillColor: isDelayed ? "#EF4444" : "#F59E0B"
@@ -180,12 +187,14 @@ export default function GPSMonitoringPage() {
     if (hasPoints && locations.length > 0 && !selectedService) {
       googleMap.current.fitBounds(bounds);
     }
-  }, [locations, mapLoaded]);
+  }, [locations, mapLoaded, mapError, selectedService]);
 
   const handleFocusService = (loc: any) => {
     setSelectedService(loc.id);
-    googleMap.current.setCenter({ lat: loc.lat, lng: loc.lng });
-    googleMap.current.setZoom(16);
+    if (googleMap.current) {
+      googleMap.current.setCenter({ lat: loc.lat, lng: loc.lng });
+      googleMap.current.setZoom(16);
+    }
   };
 
   return (
@@ -290,19 +299,29 @@ export default function GPSMonitoringPage() {
 
         {/* Contenedor del Mapa */}
         <main className="flex-1 relative">
-          {!mapLoaded && (
+          {mapError ? (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-50 p-8 text-center">
+              <ShieldAlert className="h-16 w-16 text-rose-500 mb-4" />
+              <h3 className="text-lg font-black uppercase text-slate-800 mb-2">Error del Sistema de Mapas</h3>
+              <p className="text-sm text-slate-500 max-w-md mb-6">{mapError}</p>
+              <div className="bg-slate-100 p-4 rounded-xl border border-slate-200 text-[10px] font-mono text-slate-600">
+                Verifica: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+              </div>
+            </div>
+          ) : !mapLoaded ? (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-50">
               <Loader2 className="h-10 w-10 animate-spin text-orange-500 mb-4" />
               <p className="text-xs font-black uppercase text-slate-400 tracking-widest">Iniciando Cartografía Satelital</p>
             </div>
-          )}
+          ) : null}
+          
           <div ref={mapRef} className="w-full h-full" />
           
           {/* Capas sobre el mapa */}
-          {selectedService && (
+          {selectedService && !mapError && (
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10">
               <Button 
-                onClick={() => { setSelectedService(null); googleMap.current.setZoom(12); }}
+                onClick={() => { setSelectedService(null); if(googleMap.current) googleMap.current.setZoom(12); }}
                 className="bg-slate-900 text-white rounded-full px-6 font-black text-[10px] uppercase shadow-2xl hover:bg-slate-800"
               >
                 <Maximize2 className="h-3 w-3 mr-2 text-orange-500" /> Restablecer Vista Global
