@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, getDocs, where, deleteDoc } from 'firebase/firestore';
 import { 
   Table, 
   TableBody, 
@@ -111,11 +111,30 @@ export default function CotizacionesPage() {
     cotizaciones.filter(c => c.estado === 'pendiente').length, 
   [cotizaciones]);
 
-  const handleUpdateStatus = (id: string, newStatus: Cotizacion['estado']) => {
+  const handleUpdateStatus = async (id: string, jid: string, newStatus: Cotizacion['estado']) => {
     const docRef = doc(db, 'cotizaciones', id);
-    updateDoc(docRef, { estado: newStatus })
-      .then(() => toast({ title: "Estado Actualizado", description: `La cotización ahora está en estado ${newStatus}.` }))
-      .catch(() => toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el estado." }));
+    try {
+      // 1. Actualizar estado de la cotización
+      await updateDoc(docRef, { estado: newStatus });
+      
+      if (newStatus === 'descartado') {
+        // 2. Eliminar sesión activa del cliente
+        await deleteDoc(doc(db, 'sesiones_nova', jid)).catch(() => {
+          console.warn('No se encontró sesión activa para eliminar.');
+        });
+        
+        // 3. Eliminar todos los mensajes de la conversación
+        const convSnap = await getDocs(
+          query(collection(db, 'conversaciones'), where('jid', '==', jid))
+        );
+        const deletePromises = convSnap.docs.map(d => deleteDoc(d.ref));
+        await Promise.all(deletePromises);
+      }
+
+      toast({ title: "Estado Actualizado", description: `La cotización ahora está en estado ${newStatus}.` });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el estado correctamente." });
+    }
   };
 
   const getStatusBadge = (estado: Cotizacion['estado']) => {
@@ -234,10 +253,10 @@ export default function CotizacionesPage() {
                               <PlusCircle className="mr-2 h-4 w-4" /> Crear Servicio
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleUpdateStatus(c.id, 'contactado')} className="rounded-lg font-bold text-xs py-2.5">
+                            <DropdownMenuItem onClick={() => handleUpdateStatus(c.id, c.jid, 'contactado')} className="rounded-lg font-bold text-xs py-2.5">
                               <CheckCircle2 className="mr-2 h-4 w-4 text-blue-500" /> Marcar Contactado
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleUpdateStatus(c.id, 'descartado')} className="rounded-lg font-bold text-xs py-2.5 text-red-600">
+                            <DropdownMenuItem onClick={() => handleUpdateStatus(c.id, c.jid, 'descartado')} className="rounded-lg font-bold text-xs py-2.5 text-red-600">
                               <XCircle className="mr-2 h-4 w-4" /> Descartar
                             </DropdownMenuItem>
                           </DropdownMenuContent>
