@@ -151,8 +151,30 @@ export default function ServiciosPage() {
     setIsFormOpen(true);
   };
 
-  const handleUpdateEstado = useCallback((id: string, nuevoEstado: Servicio['estado']) => {
+  const handleUpdateEstado = useCallback(async (id: string, nuevoEstado: Servicio['estado']) => {
     const docRef = doc(db, 'services', id);
+
+    // Lógica para notificar al conductor cuando el servicio comienza
+    if (nuevoEstado === 'En Servicio') {
+      const servicioActual = servicios.find(s => s.id === id);
+      if (servicioActual?.conductorTelefono) {
+        const gpsLink = `${window.location.origin}/gps/${id}`;
+        
+        // Enviar link GPS al conductor via bot
+        fetch(`https://focused-harmony-production.up.railway.app/send-message`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': 'jj-connect-2026'
+          },
+          body: JSON.stringify({
+            jid: `57${servicioActual.conductorTelefono.replace(/\D/g, '')}@c.us`,
+            mensaje: `🚐 *Servicio ${servicioActual.consecutivo} INICIADO*\n\nHola *${servicioActual.conductor}*, tu servicio ha comenzado.\n\n📍 *Destino:* ${servicioActual.destino}\n👤 *Cliente:* ${servicioActual.clienteNombre || servicioActual.cliente}\n\n━━━━━━━━━━━━━━━━\n⚠️ *IMPORTANTE:* Por favor abre este link para activar el GPS y NO lo cierres durante el trayecto:\n\n🔗 ${gpsLink}\n━━━━━━━━━━━━━━━━\n\n¡Buen viaje! 🌟`
+          })
+        }).catch(err => console.error("Error al notificar conductor:", err));
+      }
+    }
+
     updateDoc(docRef, { estado: nuevoEstado })
       .then(() => toast({ title: `Servicio ${nuevoEstado}` }))
       .catch((error) => {
@@ -163,7 +185,7 @@ export default function ServiciosPage() {
         }));
         toast({ variant: "destructive", title: "Error al actualizar estado" });
       });
-  }, [db, toast]);
+  }, [db, toast, servicios]);
 
   const handleSave = async (formData: any) => {
     setIsSaving(true);
