@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { Card } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useSearchParams } from 'next/navigation';
 
 interface Message {
   id: string;
@@ -33,7 +34,7 @@ interface ChatGroup {
   noLeidos: number;
 }
 
-export default function WhatsAppBandejaPage() {
+function WhatsAppBandejaContent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedJid, setSelectedJid] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,6 +46,13 @@ export default function WhatsAppBandejaPage() {
   const { user } = useUser();
   const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const searchParams = useSearchParams();
+
+  // Sincronizar chat seleccionado desde la URL
+  useEffect(() => {
+    const jidParam = searchParams.get('jid');
+    if (jidParam) setSelectedJid(jidParam);
+  }, [searchParams]);
 
   // Suscripción en tiempo real a la colección de conversaciones
   useEffect(() => {
@@ -317,5 +325,17 @@ export default function WhatsAppBandejaPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function WhatsAppBandejaPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
+      <WhatsAppBandejaContent />
+    </Suspense>
   );
 }

@@ -24,7 +24,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
-  SidebarMenuBadge,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/context/auth-context';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
@@ -56,7 +55,6 @@ export function MainNav() {
 
   const pendingCotQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    // Filtrado estricto por estado pendiente para el badge
     return query(collection(db, 'cotizaciones'), where('estado', '==', 'pendiente'));
   }, [db, user]);
 
@@ -95,15 +93,17 @@ export function MainNav() {
                 tooltip="Cotizaciones"
                 className="justify-start"
               >
-                <ClipboardList />
+                <div className="relative">
+                  <ClipboardList />
+                  {pendingCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-orange-500 text-[8px] font-black text-white ring-2 ring-white animate-pulse">
+                      {pendingCount}
+                    </span>
+                  )}
+                </div>
                 <span>Cotizaciones</span>
               </SidebarMenuButton>
             </Link>
-            {pendingCount > 0 && (
-              <SidebarMenuBadge className="bg-orange-500 text-white font-black text-[10px] animate-pulse">
-                {pendingCount}
-              </SidebarMenuBadge>
-            )}
           </SidebarMenuItem>
         </SidebarMenu>
 
