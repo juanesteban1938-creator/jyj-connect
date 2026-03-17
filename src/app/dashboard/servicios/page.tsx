@@ -252,54 +252,53 @@ export default function ServiciosPage() {
   });
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-12">
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
+    <div className="min-h-screen bg-[#F8F9FA] pb-12 w-full overflow-hidden">
+      <header className="flex items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
-            Gestión de Servicios
-            <Badge className="bg-orange-500 text-white border-none font-black px-2 py-0.5 text-[10px] sm:text-sm rounded-lg shadow-sm">
-              {activeServicesCount} ACTIVOS
+          <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight flex items-center gap-3">
+            Servicios
+            <Badge className="bg-orange-500 text-white border-none font-black px-2 py-0.5 text-[10px] sm:text-xs rounded-lg shadow-sm">
+              {activeServicesCount}
             </Badge>
           </h1>
-          <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">Supervisa la operación de traslados en tiempo real.</p>
         </div>
         <Button 
           onClick={handleNuevoServicio} 
-          className="btn-action w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-lg shadow-orange-200 h-11 sm:h-12 px-8"
+          className="bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-lg shadow-orange-200 h-10 px-4 sm:px-6"
         >
-          <PlusCircle className="mr-2 h-5 w-5" /> Programar Servicio
+          <PlusCircle className="mr-2 h-4 w-4" /> Programar
         </Button>
       </header>
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6 sm:mb-8">
-        <div className="relative w-full max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input 
-            placeholder="Buscar por cliente, conductor..." 
-            className="pl-9 h-11 bg-white border-slate-200 rounded-xl shadow-sm focus:ring-orange-500 text-xs sm:text-sm w-full"
+            placeholder="Buscar..." 
+            className="pl-9 h-9 bg-white border-slate-200 rounded-xl shadow-sm focus:ring-orange-500 text-xs w-full"
             value={searchTerm} 
             onChange={e => setSearchTerm(e.target.value)} 
           />
         </div>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
-          <TabsList className="bg-white border rounded-xl h-11 p-1 shadow-sm w-full sm:w-fit">
-            <TabsTrigger value="activos" className="flex-1 sm:px-8 font-black uppercase text-[10px] rounded-lg data-[state=active]:bg-orange-50 data-[state=active]:text-orange-600">Activos</TabsTrigger>
-            <TabsTrigger value="historial" className="flex-1 sm:px-8 font-black uppercase text-[10px] rounded-lg data-[state=active]:bg-orange-50 data-[state=active]:text-orange-600">Historial</TabsTrigger>
+          <TabsList className="bg-white border rounded-xl h-9 p-1 shadow-sm w-full sm:w-fit">
+            <TabsTrigger value="activos" className="flex-1 sm:px-6 font-black uppercase text-[9px] rounded-lg data-[state=active]:bg-orange-50 data-[state=active]:text-orange-600">Activos</TabsTrigger>
+            <TabsTrigger value="historial" className="flex-1 sm:px-6 font-black uppercase text-[9px] rounded-lg data-[state=active]:bg-orange-50 data-[state=active]:text-orange-600">Historial</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center p-16 sm:p-24 gap-4 bg-white rounded-3xl border border-dashed">
-            <Loader2 className="h-8 w-8 sm:h-10 sm:w-10 animate-spin text-orange-500" />
-            <p className="text-[10px] sm:text-sm text-muted-foreground font-black uppercase tracking-widest text-center">Sincronizando servicios...</p>
+          <div className="flex flex-col items-center justify-center p-12 bg-white rounded-3xl border border-dashed">
+            <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+            <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest mt-2">Sincronizando...</p>
           </div>
         ) : filtered.length === 0 ? (
-          <Card className="p-16 sm:p-20 text-center text-muted-foreground bg-white border-dashed rounded-3xl">
-            <div className="flex flex-col items-center gap-3 opacity-40">
-              <Briefcase className="h-10 w-10 sm:h-12 sm:w-12" />
-              <p className="font-bold uppercase text-[10px] sm:text-xs">No se encontraron servicios registrados</p>
+          <Card className="p-12 text-center text-muted-foreground bg-white border-dashed rounded-3xl">
+            <div className="flex flex-col items-center gap-2 opacity-40">
+              <Briefcase className="h-8 w-8" />
+              <p className="font-bold uppercase text-[10px]">Sin registros</p>
             </div>
           </Card>
         ) : filtered.sort((a, b) => a.hora.localeCompare(b.hora)).map(s => {
@@ -310,79 +309,67 @@ export default function ServiciosPage() {
             <Card 
               key={s.id} 
               className={cn(
-                "group relative overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300 bg-white rounded-2xl",
-                "before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 sm:before:w-1.5",
+                "group relative overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300 bg-white rounded-xl w-full flex flex-wrap",
+                "before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1",
                 styles.border.replace('border-l-', 'before:bg-')
               )}
             >
-              <div className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6">
+              <div className="p-4 flex flex-1 items-center justify-between gap-4">
                 {/* Left: Time and Avatar */}
-                <div className="flex items-center gap-4 sm:gap-5">
-                  <div className="flex flex-col items-center justify-center min-w-[60px] sm:min-w-[80px]">
-                    <span className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-tighter leading-none mb-1">Recogida</span>
-                    <p className="text-xl sm:text-3xl font-black text-orange-600 tracking-tighter leading-none">{s.hora}</p>
+                <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                  <div className="flex flex-col items-center justify-center min-w-[50px] sm:min-w-[60px]">
+                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">Recogida</span>
+                    <p className="text-lg sm:text-2xl font-black text-orange-600 tracking-tighter leading-none">{s.hora}</p>
                   </div>
-                  <div className="h-10 sm:h-12 w-px bg-slate-100 hidden sm:block" />
-                  <div className="flex items-center gap-3 sm:gap-4 flex-1">
-                    <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-[#F59E0B] flex items-center justify-center text-white font-black text-xs sm:text-sm shadow-inner shrink-0">
+                  <div className="h-8 w-px bg-slate-100 hidden sm:block" />
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-[#F59E0B] flex items-center justify-center text-white font-black text-xs shadow-inner shrink-0">
                       {iniciales}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <p className="font-black text-slate-800 text-sm sm:text-lg leading-tight uppercase truncate">{s.cliente}</p>
-                        <Badge variant="outline" className="hidden sm:flex text-[9px] font-black uppercase h-4 px-1.5 border-slate-200 text-slate-400 shrink-0">
+                        <p className="font-black text-slate-800 text-xs sm:text-base leading-tight uppercase truncate">{s.cliente}</p>
+                        <Badge variant="outline" className="hidden lg:flex text-[8px] font-black uppercase h-3.5 px-1 border-slate-200 text-slate-400 shrink-0">
                           {s.consecutivo}
                         </Badge>
                       </div>
-                      <div className="flex items-center gap-1.5 text-[10px] sm:text-sm font-bold text-slate-500">
+                      <div className="flex items-center gap-1.5 text-[9px] sm:text-xs font-bold text-slate-500">
                         <span className="truncate">{s.origen}</span>
-                        <ArrowRight className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-orange-400 flex-shrink-0" />
+                        <ArrowRight className="h-2 w-2 text-orange-400 flex-shrink-0" />
                         <span className="truncate text-slate-800">{s.destino}</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Middle: Driver & Vehicle */}
-                <div className="grid grid-cols-2 md:flex flex-wrap items-center gap-x-4 sm:gap-x-6 gap-y-2 md:border-l md:pl-6 border-slate-100 pt-3 sm:pt-0 border-t sm:border-t-0">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 sm:p-2 rounded-lg bg-indigo-50 text-indigo-600 shrink-0">
-                      <UserIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase leading-none mb-0.5">Conductor</p>
-                      <p className="text-[10px] sm:text-xs font-bold text-slate-700 truncate">{s.conductor}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 sm:p-2 rounded-lg bg-blue-50 text-blue-600 shrink-0">
-                      <Truck className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase leading-none mb-0.5">Vehículo</p>
-                      <p className="text-[10px] sm:text-xs font-black text-blue-600 uppercase tracking-wider truncate">{s.vehiculoPlaca}</p>
-                    </div>
+                {/* Middle: Driver & Vehicle (Desktop Only) */}
+                <div className="hidden sm:flex items-center px-4 border-l border-slate-100 max-w-[250px] min-w-0">
+                  <div className="min-w-0">
+                    <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 truncate">
+                      <span className="font-black text-slate-700 uppercase">{s.conductor}</span>
+                      <span className="mx-2 text-slate-300">·</span>
+                      <span className="font-black text-blue-600 uppercase tracking-widest">{s.vehiculoPlaca}</span>
+                    </p>
                   </div>
                 </div>
 
                 {/* Right: Actions & Status */}
-                <div className="flex items-center justify-between md:justify-end gap-4 border-t md:border-none pt-3 sm:pt-4 md:pt-0">
-                  <div className="flex flex-row md:flex-col items-center md:items-end gap-2 md:gap-1">
-                    <Badge className={cn("text-[8px] sm:text-[10px] font-black uppercase px-2 py-0.5 rounded-md", styles.badge)}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full mr-1.5", styles.dot)} />
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex flex-col items-end gap-1">
+                    <Badge className={cn("text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md", styles.badge)}>
                       {s.estado}
                     </Badge>
                     {s.notificacionEnviada && (
-                      <div className="flex items-center gap-1 text-[8px] sm:text-[9px] font-black text-green-600 uppercase">
-                        <Send className="h-2.5 w-2.5" /> Notificado
+                      <div className="flex items-center gap-1 text-[7px] font-black text-green-600 uppercase">
+                        <Send className="h-2 w-2" /> Notificado
                       </div>
                     )}
                   </div>
                   
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-200">
-                        <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400" />
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200">
+                        <MoreVertical className="h-4 w-4 text-slate-400" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl shadow-xl border-slate-100">
