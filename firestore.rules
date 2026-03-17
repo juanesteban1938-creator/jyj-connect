@@ -3,10 +3,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * TRANSPORTES ESPECIALES J&J - SECURITY RULES (V2.1)
+     * TRANSPORTES ESPECIALES J&J - SECURITY RULES (V2.2)
      *
      * CORE PHILOSOPHY:
-     * Enforces administrative access based on the /admins collection and the master email.
+     * Full administrative access for the master account and registered admins.
      */
 
     // --- Helper Functions ---
@@ -15,73 +15,32 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    /** @description Checks if user is admin via collection or master email. */
+    /** 
+     * @description Checks if user is admin. 
+     * Prioritizes the master email to ensure access even if the database is uninitialized.
+     */
     function isAdmin() {
       return isSignedIn() && (
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        request.auth.token.email == 'transportes.especialesjyj@gmail.com'
+        request.auth.token.email == 'transportes.especialesjyj@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
 
-    function isExistingAdmin() {
-      return isAdmin() && resource != null;
+    // --- Global Admin Rule ---
+    // This ensures any collection (services, conductores, vehiculos, etc.) is accessible to admins.
+    match /{document=**} {
+      allow read, write: if isAdmin();
     }
 
-    // --- Collection Rules ---
-
+    // --- Specific Overrides ---
     match /admins/{adminId} {
+      // Allow any signed-in user to 'get' their own potential admin doc to check status
       allow get: if isSignedIn();
-      allow list, write: if isAdmin();
     }
 
-    // Personal Operativo
-    match /conductores/{id} {
-      allow read, write: if isAdmin();
-    }
-
-    // Flota
-    match /vehiculos/{id} {
-      allow read, write: if isAdmin();
-    }
-
-    // Cartera
-    match /clientes/{id} {
-      allow read, write: if isAdmin();
-    }
-
-    // Operaciones
-    match /services/{id} {
-      allow read, write: if isAdmin();
-    }
-
-    // P&G
-    match /transacciones/{id} {
-      allow read, write: if isAdmin();
-    }
-
-    // Sistema Nova & WhatsApp
-    match /cotizaciones/{id} {
-      allow read, write: if isAdmin();
-    }
-
-    match /conversaciones/{id} {
-      allow read, write: if isAdmin();
-    }
-
-    match /notificaciones_whatsapp/{id} {
-      allow read, write: if isAdmin();
-    }
-    
+    // Nova Session Handling (Internal)
     match /sesiones_nova/{id} {
       allow read, write: if isAdmin();
-    }
-
-    // Compatibilidad Invoices
-    match /invoices/{invoiceId} {
-      allow read, write: if isAdmin();
-      match /payments/{paymentId} {
-        allow read, write: if isAdmin();
-      }
     }
   }
 }
