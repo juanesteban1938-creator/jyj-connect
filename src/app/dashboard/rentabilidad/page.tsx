@@ -1,12 +1,13 @@
+
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DollarSign, LineChart as LineChartIcon, CreditCard, Search, Trash2, Loader2, Calendar } from 'lucide-react';
+import { DollarSign, LineChart as LineChartIcon, CreditCard, Search, Trash2, Loader2, Calendar, FileSpreadsheet, FileText } from 'lucide-react';
 import { format, getMonth, getYear, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { RentabilidadForms } from '@/components/dashboard/rentabilidad/rentabilidad-forms';
@@ -15,6 +16,9 @@ import { useFirestore, useUser, useCollection, useMemoFirebase, errorEmitter, Fi
 import { collection, query, orderBy, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Transaccion } from '@/lib/types';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 });
 
@@ -110,6 +114,66 @@ export default function RentabilidadPage() {
     toast({ title: "Registro eliminado" });
   };
 
+  const exportToExcel = () => {
+    const rows = periodTransacciones.map(t => ({
+      Fecha: format(parseISO(t.fecha), 'dd/MM/yyyy'),
+      Tipo: t.tipo,
+      Descripción: t.descripcion,
+      Vehículo: t.vehiculoPlaca || 'N/A',
+      Monto: t.valor
+    }));
+
+    // Agregar fila de totales
+    rows.push({ Fecha: '', Tipo: '', Descripción: '', Vehículo: '', Monto: 0 }); // Espacio
+    rows.push({ Fecha: 'TOTAL INGRESOS', Tipo: '', Descripción: '', Vehículo: '', Monto: metrics.ingresos });
+    rows.push({ Fecha: 'TOTAL GASTOS', Tipo: '', Descripción: '', Vehículo: '', Monto: metrics.gastos });
+    rows.push({ Fecha: 'GANANCIA NETA', Tipo: '', Descripción: '', Vehículo: '', Monto: metrics.utilidad });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Rentabilidad");
+    XLSX.writeFile(workbook, `Reporte_Rentabilidad_${MESES.find(m => m.value === selectedMonth)?.label}_${selectedYear}.xlsx`);
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    const dateStr = format(new Date(), 'dd/MM/yyyy HH:mm');
+    
+    doc.setFontSize(18);
+    doc.text('Transportes Especiales J&J', 14, 20);
+    doc.setFontSize(12);
+    doc.text(`Reporte de Rentabilidad - ${MESES.find(m => m.value === selectedMonth)?.label} ${selectedYear}`, 14, 30);
+    doc.setFontSize(10);
+    doc.text(`Generado el: ${dateStr}`, 14, 38);
+
+    const tableData = periodTransacciones.map(t => [
+      format(parseISO(t.fecha), 'dd/MM/yyyy'),
+      t.tipo,
+      t.descripcion,
+      t.vehiculoPlaca || 'N/A',
+      currencyFormatter.format(t.valor)
+    ]);
+
+    autoTable(doc, {
+      startY: 45,
+      head: [['Fecha', 'Tipo', 'Descripción', 'Vehículo', 'Monto']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillStyle: 'fill', fillColor: [245, 158, 11] },
+    });
+
+    const finalY = (doc as any).lastAutoTable.finalY || 45;
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Resumen Financiero Periodo:`, 14, finalY + 15);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Total Ingresos: ${currencyFormatter.format(metrics.ingresos)}`, 14, finalY + 25);
+    doc.text(`Total Gastos: ${currencyFormatter.format(metrics.gastos)}`, 14, finalY + 32);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Ganancia Neta: ${currencyFormatter.format(metrics.utilidad)}`, 14, finalY + 42);
+
+    doc.save(`Rentabilidad_${selectedMonth}_${selectedYear}.pdf`);
+  };
+
   const filteredTransacciones = periodTransacciones.filter(t => 
     t.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.vehiculoPlaca?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -133,28 +197,39 @@ export default function RentabilidadPage() {
           <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">Administración financiera por periodos mensuales.</p>
         </div>
         
-        <Card className="border-none shadow-sm bg-white p-1 rounded-xl flex items-center gap-2 w-full sm:w-auto overflow-x-auto shrink-0">
-          <div className="flex items-center gap-2 px-3 text-primary shrink-0">
-            <Calendar className="h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Periodo:</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={exportToExcel} className="h-9 font-bold text-[10px] uppercase border-slate-200 hover:bg-emerald-50">
+              <FileSpreadsheet className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Excel
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportToPDF} className="h-9 font-bold text-[10px] uppercase border-slate-200 hover:bg-rose-50">
+              <FileText className="h-3.5 w-3.5 mr-2 text-rose-600" /> PDF
+            </Button>
           </div>
-          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-[110px] sm:w-[130px] h-9 border-none font-bold text-xs uppercase focus:ring-0">
-              <SelectValue placeholder="Mes" />
-            </SelectTrigger>
-            <SelectContent>
-              {MESES.map(m => <SelectItem key={m.value} value={m.value} className="text-xs uppercase font-bold">{m.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={selectedYear} onValueChange={setSelectedYear}>
-            <SelectTrigger className="w-[80px] sm:w-[100px] h-9 border-none font-bold text-xs focus:ring-0">
-              <SelectValue placeholder="Año" />
-            </SelectTrigger>
-            <SelectContent>
-              {years.map(y => <SelectItem key={y} value={y} className="text-xs font-bold">{y}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </Card>
+
+          <Card className="border-none shadow-sm bg-white p-1 rounded-xl flex items-center gap-2 w-full sm:w-auto overflow-x-auto shrink-0">
+            <div className="flex items-center gap-2 px-3 text-primary shrink-0">
+              <Calendar className="h-4 w-4" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Periodo:</span>
+            </div>
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-[110px] sm:w-[130px] h-9 border-none font-bold text-xs uppercase focus:ring-0">
+                <SelectValue placeholder="Mes" />
+              </SelectTrigger>
+              <SelectContent>
+                {MESES.map(m => <SelectItem key={m.value} value={m.value} className="text-xs uppercase font-bold">{m.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={selectedYear} onValueChange={setSelectedYear}>
+              <SelectTrigger className="w-[80px] sm:w-[100px] h-9 border-none font-bold text-xs focus:ring-0">
+                <SelectValue placeholder="Año" />
+              </SelectTrigger>
+              <SelectContent>
+                {years.map(y => <SelectItem key={y} value={y} className="text-xs font-bold">{y}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Card>
+        </div>
       </header>
 
       <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-3 mb-8">

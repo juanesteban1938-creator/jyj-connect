@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -5,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, DollarSign, TrendingUp, AlertTriangle, FileText, MoreHorizontal, CheckCircle, Mail, Edit, Loader2 } from 'lucide-react';
+import { Search, DollarSign, TrendingUp, AlertTriangle, FileText, MoreHorizontal, CheckCircle, Mail, Edit, Loader2, FileSpreadsheet } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -17,6 +18,9 @@ import { AbonoForm, type AbonoFormValues } from '@/components/dashboard/facturac
 import { FacturacionForm, type FacturacionFormValues } from '@/components/dashboard/facturacion/facturacion-form';
 import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 });
 
@@ -71,6 +75,70 @@ export default function FacturacionPage() {
       return acc;
     }, { total: 0, ganancia: 0, cartera: 0 });
   }, [servicios]);
+
+  const exportToExcel = () => {
+    const servicesWithBalance = servicios.filter(s => (Number(s.saldo) || 0) > 0);
+    const rows = servicesWithBalance.map(s => ({
+      Consecutivo: s.consecutivo,
+      Cliente: s.cliente,
+      NIT: s.nitCliente,
+      Fecha: format(new Date(s.fecha), 'dd/MM/yyyy'),
+      'Valor Servicio': Number(s.valorServicio) || 0,
+      Anticipo: Number(s.anticipo) || 0,
+      Saldo: Number(s.saldo) || 0,
+      'Estado Pago': s.estadoPago
+    }));
+
+    const totalFacturado = servicesWithBalance.reduce((acc, s) => acc + (Number(s.valorServicio) || 0), 0);
+    const totalRecaudado = servicesWithBalance.reduce((acc, s) => acc + (Number(s.anticipo) || 0), 0);
+    const totalCartera = servicesWithBalance.reduce((acc, s) => acc + (Number(s.saldo) || 0), 0);
+
+    rows.push({ Consecutivo: '', Cliente: '', NIT: '', Fecha: '', 'Valor Servicio': 0, Anticipo: 0, Saldo: 0, 'Estado Pago': '' }); // Espacio
+    rows.push({ Consecutivo: 'TOTAL FACTURADO', Cliente: '', NIT: '', Fecha: '', 'Valor Servicio': totalFacturado, Anticipo: 0, Saldo: 0, 'Estado Pago': '' });
+    rows.push({ Consecutivo: 'TOTAL RECAUDADO', Cliente: '', NIT: '', Fecha: '', 'Valor Servicio': 0, Anticipo: totalRecaudado, Saldo: 0, 'Estado Pago': '' });
+    rows.push({ Consecutivo: 'CARTERA PENDIENTE', Cliente: '', NIT: '', Fecha: '', 'Valor Servicio': 0, Anticipo: 0, Saldo: totalCartera, 'Estado Pago': '' });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Cartera");
+    XLSX.writeFile(workbook, `Reporte_Cartera_${format(new Date(), 'dd-MM-yyyy')}.xlsx`);
+  };
+
+  const exportToPDF = () => {
+    const doc = jsPDF();
+    const servicesWithBalance = servicios.filter(s => (Number(s.saldo) || 0) > 0);
+    const totalCartera = servicesWithBalance.reduce((acc, s) => acc + (Number(s.saldo) || 0), 0);
+    
+    doc.setFontSize(16);
+    doc.text('Reporte de Cartera Pendiente — Transportes Especiales J&J', 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Fecha de generación: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 28);
+
+    const tableData = servicesWithBalance.map(s => [
+      s.consecutivo,
+      s.cliente,
+      format(new Date(s.fecha), 'dd/MM/yyyy'),
+      currencyFormatter.format(s.valorServicio),
+      currencyFormatter.format(s.anticipo),
+      currencyFormatter.format(s.saldo)
+    ]);
+
+    autoTable(doc, {
+      startY: 35,
+      head: [['Cod.', 'Cliente', 'Fecha', 'Valor', 'Anticipo', 'Saldo']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [245, 158, 11] },
+    });
+
+    const finalY = (doc as any).lastAutoTable.finalY || 35;
+    doc.setFontSize(12);
+    doc.setTextColor(255, 0, 0); // Rojo
+    doc.setFont('helvetica', 'bold');
+    doc.text(`TOTAL CARTERA PENDIENTE: ${currencyFormatter.format(totalCartera)}`, 14, finalY + 15);
+
+    doc.save(`Reporte_Cartera_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+  };
 
   const handleMarcarPagada = (servicio: any) => {
     setIsProcessing(true);
@@ -240,6 +308,14 @@ export default function FacturacionPage() {
         <div>
           <h1 className="page-title mb-0">Facturación y Cartera</h1>
           <p className="page-subtitle mb-0 mt-1">Gestión financiera sincronizada con la nube.</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" size="sm" onClick={exportToExcel} className="h-10 font-bold text-[10px] uppercase border-slate-200 hover:bg-emerald-50">
+            <FileSpreadsheet className="h-4 w-4 mr-2 text-emerald-600" /> Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportToPDF} className="h-10 font-bold text-[10px] uppercase border-slate-200 hover:bg-rose-50">
+            <FileText className="h-4 w-4 mr-2 text-rose-600" /> PDF
+          </Button>
         </div>
       </header>
 
