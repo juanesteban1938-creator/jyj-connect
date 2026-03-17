@@ -57,7 +57,7 @@ const StatCard = ({
       <div className="flex items-center justify-between mb-4">
         <span className="text-[10px] font-black uppercase opacity-80 tracking-widest">{title}</span>
         <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
-          <Icon className="h-4 w-4 sm:h-5 sm:h-5 text-white" />
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
         </div>
       </div>
       <div className="flex flex-col gap-1">
@@ -182,7 +182,7 @@ export default function DashboardHomePage() {
     <div className="min-h-screen bg-[#F8F9FA] pb-12">
       <div className="space-y-6 sm:space-y-8">
         {/* Header con Saludo */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-gray-900 tracking-tight">
               {greeting}, Admin 👋
@@ -191,8 +191,8 @@ export default function DashboardHomePage() {
               {format(currentDate, "EEEE, d 'de' MMMM", { locale: es })}
             </p>
           </div>
-          <Link href="/dashboard/servicios" className="w-full md:w-auto">
-            <Button className="btn-action w-full md:w-auto bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-orange-200/50 shadow-lg">
+          <Link href="/dashboard/servicios" className="w-full sm:w-auto">
+            <Button className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-orange-200/50 shadow-lg h-11 sm:h-12 px-8">
               <Plus className="mr-2 h-5 w-5" /> Programar Servicio
             </Button>
           </Link>
@@ -246,7 +246,7 @@ export default function DashboardHomePage() {
                 </div>
               </CardHeader>
               <CardContent className="p-4 sm:p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                   {/* Grid de días */}
                   <div className="space-y-4">
                     <div className="grid grid-cols-7 gap-1 text-center">
@@ -308,7 +308,7 @@ export default function DashboardHomePage() {
                               </div>
                             </div>
                           </div>
-                          <Badge variant="outline" className="text-[8px] sm:text-[9px] font-black uppercase border-orange-200 text-orange-600 bg-orange-50">
+                          <Badge variant="outline" className="hidden sm:flex text-[8px] sm:text-[9px] font-black uppercase border-orange-200 text-orange-600 bg-orange-50">
                             {s.consecutivo}
                           </Badge>
                         </div>
@@ -371,7 +371,7 @@ export default function DashboardHomePage() {
                   )}
                   {vehiculos.length > 0 && (
                     <Link href="/dashboard/vehiculos" className="block">
-                      <Button variant="ghost" className="w-full text-[9px] font-black uppercase text-gray-400 hover:text-orange-500 hover:bg-orange-50 mt-4">
+                      <Button variant="ghost" className="w-full text-[9px] font-black uppercase text-gray-400 hover:text-orange-500 hover:bg-orange-50 mt-4 h-9">
                         Gestionar Documentos <ChevronRight className="ml-1 h-3 w-3" />
                       </Button>
                     </Link>
