@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { useFirestore, useUser, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, writeBatch, where } from 'firebase/firestore';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Search, Send, User, CheckCheck, MessageSquareOff, Loader2, ArrowLeft } from 'lucide-react';
+import { Search, Send, User, CheckCheck, MessageSquareOff, Loader2, ArrowLeft, BellRing } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -49,7 +49,7 @@ function WhatsAppBandejaContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Consultas para resolución de nombres
+  // Consultas para resolución de nombres y solicitudes
   const clientesQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, 'clientes'));
@@ -59,9 +59,17 @@ function WhatsAppBandejaContent() {
     if (!db || !user) return null;
     return query(collection(db, 'cotizaciones'));
   }, [db, user]);
+
+  const solicitudesQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'solicitudes_asesor'), where('estado', '==', 'pendiente'));
+  }, [db, user]);
   
   const { data: clientesRaw } = useCollection(clientesQuery);
   const { data: cotizacionesRaw } = useCollection(cotizacionesQuery);
+  const { data: solicitudesRaw } = useCollection(solicitudesQuery);
+
+  const solicitudesPendientes = solicitudesRaw || [];
 
   // Sincronizar chat seleccionado desde la URL
   useEffect(() => {
@@ -228,6 +236,28 @@ function WhatsAppBandejaContent() {
         selectedJid ? "hidden md:flex" : "flex w-full"
       )}>
         <header className="p-4 bg-slate-50 border-b">
+          {solicitudesPendientes.length > 0 && (
+            <div className="mb-4 p-3 bg-orange-500 text-white rounded-xl shadow-lg shadow-orange-200 flex items-center justify-between animate-pulse">
+              <div className="flex items-center gap-2">
+                <BellRing className="h-4 w-4" />
+                <span className="text-[10px] font-black uppercase tracking-tight">
+                  {solicitudesPendientes.length} cliente(s) solicitan atención
+                </span>
+              </div>
+              <Button 
+                size="sm" 
+                variant="secondary" 
+                className="h-7 px-3 text-[9px] font-black uppercase bg-white text-orange-600 hover:bg-slate-100 border-none"
+                onClick={() => {
+                  const firstJid = solicitudesPendientes[0].jid;
+                  if (firstJid) setSelectedJid(firstJid);
+                }}
+              >
+                Ver Chat
+              </Button>
+            </div>
+          )}
+          
           <h2 className="text-lg sm:text-xl font-black text-slate-800 uppercase tracking-tight mb-4">Bandeja Nova</h2>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
