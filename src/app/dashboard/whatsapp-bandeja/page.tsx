@@ -50,8 +50,15 @@ function WhatsAppBandejaContent() {
   const searchParams = useSearchParams();
 
   // Consultas para resolución de nombres
-  const clientesQuery = useMemoFirebase(() => db ? query(collection(db, 'clientes')) : null, [db]);
-  const cotizacionesQuery = useMemoFirebase(() => db ? query(collection(db, 'cotizaciones')) : null, [db]);
+  const clientesQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'clientes'));
+  }, [db, user]);
+
+  const cotizacionesQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'cotizaciones'));
+  }, [db, user]);
   
   const { data: clientesRaw } = useCollection(clientesQuery);
   const { data: cotizacionesRaw } = useCollection(cotizacionesQuery);
@@ -92,15 +99,6 @@ function WhatsAppBandejaContent() {
     return () => unsubscribe();
   }, [db, user]);
 
-  // Función para formatear el número de teléfono
-  const formatPhone = (jid: string) => {
-    const number = jid.split('@')[0];
-    if (number.length === 12 && number.startsWith('57')) {
-      return `+57 ${number.slice(2, 5)} ${number.slice(5, 8)} ${number.slice(8)}`;
-    }
-    return `+${number}`;
-  };
-
   // Función para obtener iniciales
   const getInitials = (name: string) => {
     return name
@@ -133,7 +131,7 @@ function WhatsAppBandejaContent() {
 
         groups[msg.jid] = {
           jid: msg.jid,
-          clienteNombre: resolvedName || formatPhone(msg.jid),
+          clienteNombre: resolvedName || ('+' + msg.jid.split('@')[0]),
           ultimoMensaje: msg,
           mensajes: [],
           noLeidos: 0,
