@@ -23,6 +23,7 @@ import {
   Pie,
   Cell,
   Legend,
+  ReferenceLine,
 } from 'recharts';
 import { 
   BarChart2, 
@@ -30,7 +31,6 @@ import {
   TrendingDown,
   Users, 
   Target, 
-  Calendar,
   Loader2,
   DollarSign,
   ArrowUpRight,
@@ -90,7 +90,7 @@ export default function AnaliticaPage() {
     // Filtrar por rango
     const filteredServicios = servicios.filter(s => isAfter(parseISO(s.fecha), startDate));
     
-    // 1. Ingresos por Mes (Gráfica Dark)
+    // 1. Ingresos por Mes
     const ingresosMap: Record<string, number> = {};
     filteredServicios.forEach(s => {
       const month = format(parseISO(s.fecha), 'MMM yyyy', { locale: es });
@@ -98,7 +98,7 @@ export default function AnaliticaPage() {
     });
     const ingresosData = Object.entries(ingresosMap).map(([name, total]) => ({ name, total }));
 
-    // 2. Area Chart Data (Comparativo)
+    // 2. Area Chart Data
     const currentMonthStart = startOfMonth(now);
     const lastMonthStart = startOfMonth(subMonths(now, 1));
     
@@ -112,16 +112,15 @@ export default function AnaliticaPage() {
     });
 
     const comparativoData = [
-      { name: 'Hace 2 Meses', total: lastMonthTotal * 0.8 }, // Mock para visualización
+      { name: 'Hace 2 Meses', total: lastMonthTotal * 0.8 },
       { name: 'Mes Anterior', total: lastMonthTotal },
       { name: 'Mes Actual', total: currentMonthTotal },
     ];
 
-    // Variación porcentual mockeada basada en real
     const diff = currentMonthTotal - lastMonthTotal;
     const variation = lastMonthTotal > 0 ? ((diff / lastMonthTotal) * 100).toFixed(1) : '0';
 
-    // 3. Servicios por Estado (Donut)
+    // 3. Servicios por Estado
     const estadosMap: Record<string, number> = {
       'Finalizado': 0,
       'Programado': 0,
@@ -138,24 +137,18 @@ export default function AnaliticaPage() {
     // 4. Clientes Nuevos
     const clientesMap: Record<string, number> = {};
     clientes.forEach(c => {
-      // Usar fecha actual si no hay updatedAt para el gráfico
       const date = c.updatedAt ? parseISO(c.updatedAt) : now;
       const month = format(date, 'MMM', { locale: es });
       clientesMap[month] = (clientesMap[month] || 0) + 1;
     });
     const clientesData = Object.entries(clientesMap).map(([name, total]) => ({ name, total })).slice(-6);
 
-    // 5. Tasa de Conversión
-    const totalCot = cotizaciones.length;
-    const programadas = cotizaciones.filter(c => c.estado === 'programado').length;
-    const conversionRate = totalCot > 0 ? ((programadas / totalCot) * 100).toFixed(1) : 0;
-
     return {
       ingresosData,
       comparativoData,
       estadosData,
       clientesData,
-      conversionRate,
+      conversionRate: cotizaciones.length > 0 ? ((cotizaciones.filter(c => c.estado === 'programado').length / cotizaciones.length) * 100).toFixed(1) : 0,
       variation,
       isPositive: diff >= 0,
       totalIngresos: filteredServicios.reduce((acc, s) => acc + (Number(s.valorServicio) || 0), 0),
@@ -381,16 +374,18 @@ export default function AnaliticaPage() {
             </CardContent>
           </Card>
 
-          {/* Chart 3: Estado Donut */}
-          <Card className="border-none shadow-sm bg-white overflow-hidden rounded-3xl">
+          {/* Chart 3: Estado Donut (Dark) */}
+          <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden rounded-3xl">
             <CardHeader className="p-8 pb-0">
-              <CardTitle className="text-lg font-black uppercase tracking-tight text-slate-800">Estado de Operación</CardTitle>
-              <p className="text-xs text-slate-400 mt-1 font-bold">Distribución logística de la flota</p>
+              <CardTitle className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-emerald-500" /> Estado de Operación
+              </CardTitle>
+              <p className="text-xs text-orange-500 mt-1 font-bold">Distribución logística de la flota</p>
             </CardHeader>
             <CardContent className="p-8 h-[400px] relative">
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[40%] text-center z-10">
-                <p className="text-4xl font-black text-slate-900 leading-none">{stats?.countServicios}</p>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Servicios</p>
+                <p className="text-4xl font-black text-white leading-none">{stats?.countServicios}</p>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Servicios</p>
               </div>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -412,15 +407,22 @@ export default function AnaliticaPage() {
                     verticalAlign="bottom" 
                     align="center" 
                     iconType="circle"
-                    wrapperStyle={{ paddingTop: '20px', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px' }}
+                    wrapperStyle={{ 
+                      paddingTop: '20px', 
+                      fontSize: '10px', 
+                      fontWeight: '900', 
+                      textTransform: 'uppercase', 
+                      letterSpacing: '1px',
+                      color: '#94a3b8'
+                    }}
                   />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
 
-          {/* Chart 4: Captación Clientes */}
-          <Card className="border-none shadow-sm bg-white overflow-hidden rounded-3xl">
+          {/* Chart 4: Captación Clientes (White with Orange Top) */}
+          <Card className="border-none shadow-sm bg-white overflow-hidden rounded-3xl border-t-4 border-t-orange-500">
             <CardHeader className="p-8 pb-0">
               <CardTitle className="text-lg font-black uppercase tracking-tight text-slate-800">Captación de Clientes</CardTitle>
               <p className="text-xs text-slate-400 mt-1 font-bold">Crecimiento de la base Nova</p>
@@ -430,24 +432,45 @@ export default function AnaliticaPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={stats?.clientesData}>
                   <defs>
-                    <linearGradient id="blueGradient" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="blueOrangeGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#3B82F6" stopOpacity={1} />
-                      <stop offset="100%" stopColor="#1D4ED8" stopOpacity={0.8} />
+                      <stop offset="100%" stopColor="#F59E0B" stopOpacity={0.8} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} dy={10} />
-                  <YAxis fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} />
+                  <YAxis 
+                    fontSize={10} 
+                    fontWeight="bold" 
+                    tickLine={false} 
+                    axisLine={false} 
+                    tickFormatter={(v) => Math.floor(v).toString()}
+                  />
                   <Tooltip 
-                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    cursor={{ fill: 'rgba(0,0,0,0.02)' }}
+                    contentStyle={{ 
+                      backgroundColor: '#0f172a', 
+                      borderRadius: '16px', 
+                      border: 'none', 
+                      boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.3)' 
+                    }}
+                    itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}
                   />
                   <Bar 
                     dataKey="total" 
-                    fill="url(#blueGradient)" 
+                    fill="url(#blueOrangeGradient)" 
                     radius={[6, 6, 0, 0]} 
                     barSize={40} 
                     animationDuration={1500}
                   />
+                  {stats?.clientesData && stats.clientesData.length > 0 && (
+                    <ReferenceLine 
+                      y={stats.clientesData.reduce((acc, curr) => acc + curr.total, 0) / stats.clientesData.length} 
+                      stroke="#F59E0B" 
+                      strokeDasharray="3 3" 
+                      label={{ value: 'Promedio', position: 'right', fill: '#F59E0B', fontSize: 10, fontWeight: 'bold' }} 
+                    />
+                  )}
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
