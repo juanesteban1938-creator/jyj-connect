@@ -22,6 +22,18 @@
         "modelo": { "type": "string" },
         "vencimientoSoat": { "type": "string", "format": "date-time" }
       }
+    },
+    "SolicitudAsesor": {
+      "title": "Solicitud Asesor",
+      "description": "Clientes que solicitan atención humana en el chat",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "jid": { "type": "string" },
+        "nombreCliente": { "type": "string" },
+        "estado": { "type": "string", "enum": ["pendiente", "atendido"] },
+        "fecha": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "auth": {
@@ -36,7 +48,8 @@
       { "path": "/services/{id}", "description": "Transportation services" },
       { "path": "/transacciones/{id}", "description": "Financial records" },
       { "path": "/cotizaciones/{id}", "description": "WhatsApp quotes" },
-      { "path": "/conversaciones/{id}", "description": "Chat history" }
+      { "path": "/conversaciones/{id}", "description": "Chat history" },
+      { "path": "/solicitudes_asesor/{id}", "description": "Human intervention requests" }
     ]
   }
 }

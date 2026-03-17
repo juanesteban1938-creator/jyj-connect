@@ -3,10 +3,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * TRANSPORTES ESPECIALES J&J - SECURITY RULES (V2.2)
+     * TRANSPORTES ESPECIALES J&J - SECURITY RULES (V2.3)
      *
      * CORE PHILOSOPHY:
      * Full administrative access for the master account and registered admins.
+     * FIX: Explicit path matching for new operational collections to prevent 'Missing Permissions' errors.
      */
 
     // --- Helper Functions ---
@@ -32,7 +33,17 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-    // --- Specific Overrides ---
+    // --- Specific Collection Overrides ---
+    // Explicitly defining paths helps the rule engine during 'list' operations on new collections.
+    
+    match /solicitudes_asesor/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    match /conversaciones/{id} {
+      allow read, write: if isAdmin();
+    }
+
     match /admins/{adminId} {
       // Allow any signed-in user to 'get' their own potential admin doc to check status
       allow get: if isSignedIn();
