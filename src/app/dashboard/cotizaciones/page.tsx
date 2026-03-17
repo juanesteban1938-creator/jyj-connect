@@ -111,6 +111,10 @@ export default function CotizacionesPage() {
     cotizaciones.filter(c => c.estado === 'pendiente').length, 
   [cotizaciones]);
 
+  const cotizacionesVisibles = useMemo(() => 
+    cotizaciones.filter(c => c.estado !== 'descartado'),
+  [cotizaciones]);
+
   const handleUpdateStatus = async (id: string, jid: string, newStatus: Cotizacion['estado']) => {
     const docRef = doc(db, 'cotizaciones', id);
     try {
@@ -174,10 +178,10 @@ export default function CotizacionesPage() {
             <Loader2 className="h-10 w-10 animate-spin text-orange-500" />
             <p className="text-sm font-black uppercase text-muted-foreground tracking-widest">Sincronizando solicitudes...</p>
           </div>
-        ) : cotizaciones.length === 0 ? (
+        ) : cotizacionesVisibles.length === 0 ? (
           <div className="p-20 text-center text-muted-foreground opacity-40">
             <ClipboardList className="h-12 w-12 mx-auto mb-3" />
-            <p className="font-black uppercase text-xs">No hay cotizaciones registradas</p>
+            <p className="font-black uppercase text-xs">No hay cotizaciones activas</p>
           </div>
         ) : (
           <Table>
@@ -191,7 +195,7 @@ export default function CotizacionesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {cotizaciones.map((c, index) => {
+              {cotizacionesVisibles.map((c, index) => {
                 const displayName = c.nombreCliente && c.nombreCliente !== 'Cliente' 
                   ? c.nombreCliente 
                   : `Cotización #${cotizaciones.length - index}`;
