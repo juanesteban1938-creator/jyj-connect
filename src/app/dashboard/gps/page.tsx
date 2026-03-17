@@ -54,19 +54,28 @@ export default function GPSMonitoringPage() {
     return () => unsubscribe();
   }, [db, user]);
 
-  // Carga de Google Maps Script
+  // Carga segura de Google Maps Script
   useEffect(() => {
     if (window.google) {
       setMapLoaded(true);
       return;
     }
 
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=geometry`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => setMapLoaded(true);
-    document.head.appendChild(script);
+    const scriptId = 'google-maps-api-script';
+    const existingScript = document.getElementById(scriptId);
+
+    if (!existingScript) {
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=geometry`;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => setMapLoaded(true);
+      document.head.appendChild(script);
+    } else {
+      // Si el script ya existe pero window.google aún no está listo
+      existingScript.addEventListener('load', () => setMapLoaded(true));
+    }
   }, []);
 
   // Inicialización del Mapa
