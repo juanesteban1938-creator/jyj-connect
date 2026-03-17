@@ -5,7 +5,6 @@ import { useFirestore, useUser, errorEmitter, FirestorePermissionError, useColle
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Search, Send, User, CheckCheck, Clock, MessageSquareOff, Loader2 } from 'lucide-react';
@@ -236,7 +235,7 @@ function WhatsAppBandejaContent() {
           </div>
         </header>
 
-        <ScrollArea className="flex-1">
+        <div className="flex-1 overflow-y-auto">
           {isLoading ? (
             <div className="p-8 text-center text-slate-400 text-xs font-bold uppercase animate-pulse">Sincronizando chats...</div>
           ) : filteredChats.length === 0 ? (
@@ -284,7 +283,7 @@ function WhatsAppBandejaContent() {
               </button>
             ))
           )}
-        </ScrollArea>
+        </div>
       </div>
 
       {/* Panel Derecho: Hilo de Conversación */}
