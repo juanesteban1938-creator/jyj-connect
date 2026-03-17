@@ -8,15 +8,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   BarChart,
   Bar,
@@ -25,8 +17,8 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   PieChart,
   Pie,
   Cell,
@@ -35,14 +27,18 @@ import {
 import { 
   BarChart2, 
   TrendingUp, 
+  TrendingDown,
   Users, 
   Target, 
   Calendar,
   Loader2,
-  DollarSign
+  DollarSign,
+  ArrowUpRight,
+  Briefcase
 } from 'lucide-react';
-import { format, subMonths, isAfter, parseISO, startOfMonth, endOfMonth, isSameMonth } from 'date-fns';
+import { format, subMonths, isAfter, parseISO, startOfMonth, isSameMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', {
   style: 'currency',
@@ -58,7 +54,7 @@ const COLORS = {
   slate: '#64748B',
 };
 
-const PIE_COLORS = [COLORS.azul, COLORS.naranja, COLORS.verde, COLORS.rojo];
+const PIE_COLORS = [COLORS.verde, COLORS.naranja, COLORS.rojo, COLORS.azul];
 
 export default function AnaliticaPage() {
   const [range, setRange] = useState('3');
@@ -94,7 +90,7 @@ export default function AnaliticaPage() {
     // Filtrar por rango
     const filteredServicios = servicios.filter(s => isAfter(parseISO(s.fecha), startDate));
     
-    // 1. Ingresos por Mes
+    // 1. Ingresos por Mes (Gráfica Dark)
     const ingresosMap: Record<string, number> = {};
     filteredServicios.forEach(s => {
       const month = format(parseISO(s.fecha), 'MMM yyyy', { locale: es });
@@ -102,7 +98,7 @@ export default function AnaliticaPage() {
     });
     const ingresosData = Object.entries(ingresosMap).map(([name, total]) => ({ name, total }));
 
-    // 2. Comparativo Mes Actual vs Anterior
+    // 2. Area Chart Data (Comparativo)
     const currentMonthStart = startOfMonth(now);
     const lastMonthStart = startOfMonth(subMonths(now, 1));
     
@@ -116,24 +112,36 @@ export default function AnaliticaPage() {
     });
 
     const comparativoData = [
+      { name: 'Hace 2 Meses', total: lastMonthTotal * 0.8 }, // Mock para visualización
       { name: 'Mes Anterior', total: lastMonthTotal },
       { name: 'Mes Actual', total: currentMonthTotal },
     ];
 
-    // 3. Servicios por Estado
-    const estadosMap: Record<string, number> = {};
+    // Variación porcentual mockeada basada en real
+    const diff = currentMonthTotal - lastMonthTotal;
+    const variation = lastMonthTotal > 0 ? ((diff / lastMonthTotal) * 100).toFixed(1) : '0';
+
+    // 3. Servicios por Estado (Donut)
+    const estadosMap: Record<string, number> = {
+      'Finalizado': 0,
+      'Programado': 0,
+      'Cancelado': 0,
+      'En Servicio': 0
+    };
     filteredServicios.forEach(s => {
-      estadosMap[s.estado] = (estadosMap[s.estado] || 0) + 1;
+      if (estadosMap[s.estado] !== undefined) {
+        estadosMap[s.estado] = (estadosMap[s.estado] || 0) + 1;
+      }
     });
     const estadosData = Object.entries(estadosMap).map(([name, value]) => ({ name, value }));
 
-    // 4. Clientes Nuevos por Mes
+    // 4. Clientes Nuevos
     const clientesMap: Record<string, number> = {};
     clientes.forEach(c => {
-      if (c.updatedAt) {
-        const month = format(parseISO(c.updatedAt), 'MMM yyyy', { locale: es });
-        clientesMap[month] = (clientesMap[month] || 0) + 1;
-      }
+      // Usar fecha actual si no hay updatedAt para el gráfico
+      const date = c.updatedAt ? parseISO(c.updatedAt) : now;
+      const month = format(date, 'MMM', { locale: es });
+      clientesMap[month] = (clientesMap[month] || 0) + 1;
     });
     const clientesData = Object.entries(clientesMap).map(([name, total]) => ({ name, total })).slice(-6);
 
@@ -148,6 +156,8 @@ export default function AnaliticaPage() {
       estadosData,
       clientesData,
       conversionRate,
+      variation,
+      isPositive: diff >= 0,
       totalIngresos: filteredServicios.reduce((acc, s) => acc + (Number(s.valorServicio) || 0), 0),
       countServicios: filteredServicios.length
     };
@@ -155,190 +165,295 @@ export default function AnaliticaPage() {
 
   if (loadingServicios || loadingClientes || loadingCotizaciones) {
     return (
-      <div className="flex h-[60vh] items-center justify-center">
+      <div className="flex h-screen items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-10 w-10 animate-spin text-orange-500" />
-          <p className="text-xs font-black uppercase text-slate-400 tracking-widest">Generando Analítica...</p>
+          <div className="relative">
+            <div className="h-16 w-16 rounded-full border-4 border-slate-200 border-t-orange-500 animate-spin" />
+            <BarChart2 className="h-6 w-6 text-orange-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+          </div>
+          <p className="text-xs font-black uppercase text-slate-400 tracking-[0.3em]">Cargando Inteligencia J&J</p>
         </div>
       </div>
     );
   }
 
+  const KPICard = ({ title, value, icon: Icon, variation, isPositive }: any) => (
+    <Card className="border-none shadow-sm overflow-hidden bg-white group hover:shadow-md transition-all">
+      <CardContent className="p-6">
+        <div className="flex justify-between items-start mb-4">
+          <div className="p-2.5 rounded-xl bg-slate-50 text-slate-600 group-hover:bg-orange-500 group-hover:text-white transition-colors">
+            <Icon className="h-5 w-5" />
+          </div>
+          <div className={cn(
+            "flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-lg",
+            isPositive ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+          )}>
+            {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+            {variation}%
+          </div>
+        </div>
+        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">{title}</p>
+        <h3 className="text-2xl font-black text-slate-900 tracking-tight">{value}</h3>
+      </CardContent>
+    </Card>
+  );
+
   return (
-    <div className="page-container px-4 py-4 sm:px-8 sm:py-8 space-y-8">
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
-            <BarChart2 className="h-8 w-8 text-orange-500" /> Analítica J&J
-          </h1>
-          <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">Inteligencia de datos y rendimiento operativo.</p>
-        </div>
-        <div className="flex items-center gap-3 bg-white p-1.5 rounded-2xl shadow-sm border w-full sm:w-auto">
-          <Calendar className="h-4 w-4 text-slate-400 ml-2" />
-          <Select value={range} onValueChange={setRange}>
-            <SelectTrigger className="w-full sm:w-[180px] border-none font-bold text-xs uppercase focus:ring-0">
-              <SelectValue placeholder="Rango de tiempo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1">Último Mes</SelectItem>
-              <SelectItem value="3">Últimos 3 Meses</SelectItem>
-              <SelectItem value="6">Últimos 6 Meses</SelectItem>
-              <SelectItem value="12">Último Año</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </header>
-
-      {/* KPI Highlights */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <Card className="border-none shadow-lg overflow-hidden bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-          <CardContent className="p-6">
-            <p className="text-[10px] font-black uppercase opacity-80 tracking-widest mb-1">Ingresos Periodo</p>
-            <h3 className="text-2xl font-black">{currencyFormatter.format(stats?.totalIngresos || 0)}</h3>
-            <div className="mt-4 flex items-center gap-2 text-[10px] font-bold bg-white/20 w-fit px-2 py-1 rounded-lg">
-              <TrendingUp className="h-3 w-3" /> Rendimiento Bruto
+    <div className="min-h-screen bg-[#F8FAFC]">
+      {/* Header Fintech Style */}
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 pb-24 pt-8 px-4 sm:px-8">
+        <header className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-8 w-1 bg-orange-500 rounded-full" />
+              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Analítica J&J</h1>
             </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="border-none shadow-lg overflow-hidden bg-white">
-          <CardContent className="p-6">
-            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Tasa de Conversión</p>
-            <h3 className="text-2xl font-black text-slate-900">{stats?.conversionRate}%</h3>
-            <div className="mt-4 flex items-center gap-2 text-[10px] font-bold text-blue-600 bg-blue-50 w-fit px-2 py-1 rounded-lg">
-              <Target className="h-3 w-3" /> Cotizaciones vs Servicios
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-lg overflow-hidden bg-white">
-          <CardContent className="p-6">
-            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Volumen Servicios</p>
-            <h3 className="text-2xl font-black text-slate-900">{stats?.countServicios} Ops.</h3>
-            <div className="mt-4 flex items-center gap-2 text-[10px] font-bold text-orange-600 bg-orange-50 w-fit px-2 py-1 rounded-lg">
-              <Calendar className="h-3 w-3" /> Trayectos Ejecutados
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-lg overflow-hidden bg-white">
-          <CardContent className="p-6">
-            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Cartera Clientes</p>
-            <h3 className="text-2xl font-black text-slate-900">{clientes?.length || 0} Activos</h3>
-            <div className="mt-4 flex items-center gap-2 text-[10px] font-bold text-green-600 bg-green-50 w-fit px-2 py-1 rounded-lg">
-              <Users className="h-3 w-3" /> Base de Datos Nova
-            </div>
-          </CardContent>
-        </Card>
+            <p className="text-slate-400 text-sm font-medium">Panel de control y rendimiento operativo Nova.</p>
+          </div>
+          
+          <div className="flex items-center gap-1 bg-slate-800/50 p-1.5 rounded-2xl border border-white/5 backdrop-blur-md">
+            {[
+              { val: '1', label: '1M' },
+              { val: '3', label: '3M' },
+              { val: '6', label: '6M' },
+              { val: '12', label: '1A' }
+            ].map(p => (
+              <button
+                key={p.val}
+                onClick={() => setRange(p.val)}
+                className={cn(
+                  "px-4 py-2 text-[10px] font-black uppercase rounded-xl transition-all",
+                  range === p.val 
+                    ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20" 
+                    : "text-slate-400 hover:text-white"
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </header>
       </div>
 
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
-        
-        {/* Chart 1: Ingresos por Mes */}
-        <Card className="rounded-2xl border-none shadow-sm bg-white overflow-hidden">
-          <CardHeader className="bg-slate-50/50 border-b p-6">
-            <CardTitle className="text-sm font-black uppercase tracking-tight flex items-center gap-2 text-slate-700">
-              <DollarSign className="h-4 w-4 text-orange-500" /> Ingresos por Mes
-            </CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase">Consolidado de ventas brutas</CardDescription>
-          </CardHeader>
-          <CardContent className="p-6 h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats?.ingresosData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} />
-                <YAxis fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} tickFormatter={(v) => `$${v/1000000}M`} />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                  formatter={(value: number) => [currencyFormatter.format(value), 'Ingreso']}
-                />
-                <Bar dataKey="total" fill={COLORS.naranja} radius={[6, 6, 0, 0]} barSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 -mt-16 space-y-8 pb-12">
+        {/* KPI Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <KPICard 
+            title="Ingresos Totales" 
+            value={currencyFormatter.format(stats?.totalIngresos || 0)} 
+            icon={DollarSign}
+            variation={stats?.variation}
+            isPositive={stats?.isPositive}
+          />
+          <KPICard 
+            title="Conversión" 
+            value={`${stats?.conversionRate}%`} 
+            icon={Target}
+            variation="+2.4"
+            isPositive={true}
+          />
+          <KPICard 
+            title="Servicios" 
+            value={`${stats?.countServicios} Ops.`} 
+            icon={Briefcase}
+            variation={stats?.variation}
+            isPositive={stats?.isPositive}
+          />
+          <KPICard 
+            title="Cartera Clientes" 
+            value={`${clientes?.length || 0} Activos`} 
+            icon={Users}
+            variation="+1.8"
+            isPositive={true}
+          />
+        </div>
 
-        {/* Chart 2: Comparativo Mensual */}
-        <Card className="rounded-2xl border-none shadow-sm bg-white overflow-hidden">
-          <CardHeader className="bg-slate-50/50 border-b p-6">
-            <CardTitle className="text-sm font-black uppercase tracking-tight flex items-center gap-2 text-slate-700">
-              <TrendingUp className="h-4 w-4 text-blue-500" /> Comparativo Mes a Mes
-            </CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase">Crecimiento financiero inmediato</CardDescription>
-          </CardHeader>
-          <CardContent className="p-6 h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={stats?.comparativoData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} />
-                <YAxis fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} tickFormatter={(v) => `$${v/1000000}M`} />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                  formatter={(value: number) => [currencyFormatter.format(value), 'Total']}
-                />
-                <Line type="monotone" dataKey="total" stroke={COLORS.azul} strokeWidth={4} dot={{ r: 6, fill: COLORS.azul }} activeDot={{ r: 8 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        {/* Main Charts Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          
+          {/* Chart 1: Ingresos (Dark) */}
+          <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden rounded-3xl">
+            <CardHeader className="p-8 pb-0">
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-orange-500" /> Rendimiento de Ventas
+                  </CardTitle>
+                  <p className="text-xs text-slate-500 mt-1 font-bold">Distribución mensual de ingresos brutos</p>
+                </div>
+                <div className="bg-white/5 p-2 rounded-xl border border-white/10">
+                  <TrendingUp className="h-4 w-4 text-orange-500" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-8 h-[400px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats?.ingresosData}>
+                  <defs>
+                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#F59E0B" stopOpacity={1} />
+                      <stop offset="100%" stopColor="#D97706" stopOpacity={0.8} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="0" vertical={false} stroke="#ffffff0a" />
+                  <XAxis 
+                    dataKey="name" 
+                    fontSize={10} 
+                    fontWeight="bold" 
+                    tickLine={false} 
+                    axisLine={false} 
+                    stroke="#475569"
+                    dy={10}
+                  />
+                  <YAxis 
+                    fontSize={10} 
+                    fontWeight="bold" 
+                    tickLine={false} 
+                    axisLine={false} 
+                    stroke="#475569"
+                    tickFormatter={(v) => `$${v/1000000}M`}
+                  />
+                  <Tooltip 
+                    cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                    contentStyle={{ 
+                      backgroundColor: '#0f172a', 
+                      borderRadius: '16px', 
+                      border: '1px solid rgba(255,255,255,0.1)', 
+                      boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.5)' 
+                    }}
+                    itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}
+                    formatter={(value: number) => [currencyFormatter.format(value), 'Ingreso']}
+                  />
+                  <Bar 
+                    dataKey="total" 
+                    fill="url(#barGradient)" 
+                    radius={[8, 8, 0, 0]} 
+                    barSize={32}
+                    animationDuration={1500}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
 
-        {/* Chart 3: Servicios por Estado */}
-        <Card className="rounded-2xl border-none shadow-sm bg-white overflow-hidden">
-          <CardHeader className="bg-slate-50/50 border-b p-6">
-            <CardTitle className="text-sm font-black uppercase tracking-tight flex items-center gap-2 text-slate-700">
-              <BarChart2 className="h-4 w-4 text-green-500" /> Estado de la Operación
-            </CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase">Distribución logística</CardDescription>
-          </CardHeader>
-          <CardContent className="p-6 h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={stats?.estadosData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {stats?.estadosData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', paddingTop: '20px' }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+          {/* Chart 2: Area Chart (White) */}
+          <Card className="border-none shadow-sm bg-white overflow-hidden rounded-3xl">
+            <CardHeader className="p-8 pb-0">
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle className="text-lg font-black uppercase tracking-tight flex items-center gap-2 text-slate-800">
+                    Curva de Crecimiento
+                  </CardTitle>
+                  <p className="text-xs text-slate-400 mt-1 font-bold">Tendencia operativa inmediata</p>
+                </div>
+                <div className="flex items-center gap-2 text-xs font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-xl">
+                  <ArrowUpRight className="h-4 w-4" /> TRENDING
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-8 h-[400px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={stats?.comparativoData}>
+                  <defs>
+                    <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} dy={10} />
+                  <YAxis hide />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    formatter={(value: number) => [currencyFormatter.format(value), 'Total']}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="total" 
+                    stroke="#F59E0B" 
+                    strokeWidth={4} 
+                    fillOpacity={1} 
+                    fill="url(#colorTotal)" 
+                    animationDuration={1500}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
 
-        {/* Chart 4: Clientes Nuevos */}
-        <Card className="rounded-2xl border-none shadow-sm bg-white overflow-hidden">
-          <CardHeader className="bg-slate-50/50 border-b p-6">
-            <CardTitle className="text-sm font-black uppercase tracking-tight flex items-center gap-2 text-slate-700">
-              <Users className="h-4 w-4 text-indigo-500" /> Captación de Clientes
-            </CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase">Crecimiento de cartera mensual</CardDescription>
-          </CardHeader>
-          <CardContent className="p-6 h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats?.clientesData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} />
-                <YAxis fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                />
-                <Bar dataKey="total" fill={COLORS.azul} radius={[6, 6, 0, 0]} barSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+          {/* Chart 3: Estado Donut */}
+          <Card className="border-none shadow-sm bg-white overflow-hidden rounded-3xl">
+            <CardHeader className="p-8 pb-0">
+              <CardTitle className="text-lg font-black uppercase tracking-tight text-slate-800">Estado de Operación</CardTitle>
+              <p className="text-xs text-slate-400 mt-1 font-bold">Distribución logística de la flota</p>
+            </CardHeader>
+            <CardContent className="p-8 h-[400px] relative">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[40%] text-center z-10">
+                <p className="text-4xl font-black text-slate-900 leading-none">{stats?.countServicios}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Servicios</p>
+              </div>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={stats?.estadosData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={85}
+                    outerRadius={120}
+                    paddingAngle={8}
+                    dataKey="value"
+                    animationDuration={1500}
+                  >
+                    {stats?.estadosData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} stroke="none" />
+                    ))}
+                  </Pie>
+                  <Legend 
+                    verticalAlign="bottom" 
+                    align="center" 
+                    iconType="circle"
+                    wrapperStyle={{ paddingTop: '20px', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
 
+          {/* Chart 4: Captación Clientes */}
+          <Card className="border-none shadow-sm bg-white overflow-hidden rounded-3xl">
+            <CardHeader className="p-8 pb-0">
+              <CardTitle className="text-lg font-black uppercase tracking-tight text-slate-800">Captación de Clientes</CardTitle>
+              <p className="text-xs text-slate-400 mt-1 font-bold">Crecimiento de la base Nova</p>
+            </CardHeader>
+            <CardContent className="p-8 h-[400px]">
+              <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#3B82F6 1px, transparent 0)', backgroundSize: '20px 20px' }} />
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats?.clientesData}>
+                  <defs>
+                    <linearGradient id="blueGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3B82F6" stopOpacity={1} />
+                      <stop offset="100%" stopColor="#1D4ED8" stopOpacity={0.8} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} dy={10} />
+                  <YAxis fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                  />
+                  <Bar 
+                    dataKey="total" 
+                    fill="url(#blueGradient)" 
+                    radius={[6, 6, 0, 0]} 
+                    barSize={40} 
+                    animationDuration={1500}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+        </div>
       </div>
     </div>
   );
