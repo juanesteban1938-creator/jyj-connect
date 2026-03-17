@@ -4,7 +4,7 @@ import { useAuth } from '@/context/auth-context';
 import { useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { MainNav } from '@/components/dashboard/main-nav';
 import { Button } from '@/components/ui/button';
 import { Bell, UserCircle, Loader2 } from 'lucide-react';
@@ -56,21 +56,24 @@ export default function DashboardLayout({
     <SidebarProvider>
       <MainNav />
       <SidebarInset>
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-white px-6 shadow-sm">
-          <div className="flex flex-col">
-              <h1 className="text-lg font-bold text-gray-800 leading-none">J&J Connect V2.0</h1>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-primary mt-1">Admin Panel</span>
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-white px-4 sm:px-6 shadow-sm">
+          <div className="flex items-center">
+            <SidebarTrigger className="mr-3 md:hidden text-slate-500" />
+            <div className="flex flex-col">
+                <h1 className="text-sm sm:text-lg font-bold text-gray-800 leading-none">J&J Connect V2.0</h1>
+                <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-primary mt-1">Admin Panel</span>
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <Bell className="h-5 w-5" />
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Button variant="ghost" size="icon" className="rounded-full h-9 w-9">
+              <Bell className="h-5 w-5 text-slate-500" />
               <span className="sr-only">Notificaciones</span>
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="flex items-center gap-2 rounded-full p-2 hover:bg-muted"
+                  className="flex items-center gap-2 rounded-full p-1 sm:p-2 hover:bg-muted"
                 >
                   <div className="text-right hidden sm:block">
                     <p className="text-sm font-semibold">Admin Principal</p>
@@ -92,7 +95,7 @@ export default function DashboardLayout({
             </DropdownMenu>
           </div>
         </header>
-        <main className="flex-1 bg-background px-[20px] py-[16px] sm:px-[40px] sm:py-[32px] overflow-x-hidden overflow-y-auto">
+        <main className="flex-1 bg-background px-4 py-4 sm:px-8 sm:py-8 overflow-x-hidden overflow-y-auto">
           {children}
         </main>
       </SidebarInset>

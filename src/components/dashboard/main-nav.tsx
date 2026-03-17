@@ -62,7 +62,7 @@ export function MainNav() {
   const pendingCount = pendingCotizaciones?.length || 0;
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="offcanvas">
       <SidebarHeader className="p-4 text-center">
         <h2 className="font-headline text-2xl font-semibold">
           <span className="text-primary">J&J</span> Admin
