@@ -126,23 +126,25 @@ export default function ConductoresPage() {
 
   return (
     <div className="page-container">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">Personal Operativo</h1>
-          <p className="page-subtitle mb-0 mt-1">Gestión de conductores y cumplimiento de licencias.</p>
+          <h1 className="text-xl sm:text-3xl font-black text-gray-900 tracking-tight">Personal Operativo</h1>
+          <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">Gestión de conductores y cumplimiento de licencias.</p>
         </div>
         <Dialog open={isFormOpen} onOpenChange={(open) => { if(!isSaving) { setIsFormOpen(open); if(!open) setSelectedConductor(null); } }}>
           <DialogTrigger asChild>
-            <Button className="btn-action bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-lg shadow-orange-200">
+            <Button className="btn-action w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-lg shadow-orange-200">
               <PlusCircle className="mr-2 h-5 w-5" /> Nuevo Conductor
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-2xl" aria-describedby={undefined}>
+          <DialogContent className="w-full max-w-[95vw] sm:max-w-2xl mx-auto rounded-3xl p-0 overflow-hidden border-none shadow-2xl flex flex-col max-h-[90vh]" aria-describedby={undefined}>
             <DialogDescription className="sr-only">Formulario para la gestión de conductores.</DialogDescription>
-            <DialogHeader>
-              <DialogTitle className="text-xl font-black">Información del Conductor</DialogTitle>
-            </DialogHeader>
-            <ConductorForm conductor={selectedConductor} onSave={handleSave} />
+            <div className="p-6 sm:p-8 border-b bg-slate-50/50">
+              <DialogTitle className="text-lg sm:text-xl font-black">Información del Conductor</DialogTitle>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8">
+              <ConductorForm conductor={selectedConductor} onSave={handleSave} />
+            </div>
             {isSaving && (
               <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] flex items-center justify-center rounded-lg z-50">
                 <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
@@ -157,7 +159,7 @@ export default function ConductoresPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por nombre o cédula..."
-            className="pl-9 h-11 bg-white border-slate-200 rounded-xl shadow-sm focus:ring-orange-500"
+            className="pl-9 h-11 bg-white border-slate-200 rounded-xl shadow-sm focus:ring-orange-500 w-full"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -166,104 +168,106 @@ export default function ConductoresPage() {
 
       <Card className="rounded-2xl shadow-sm border-none overflow-hidden bg-white">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center p-24 gap-4">
+          <div className="flex flex-col items-center justify-center p-16 sm:p-24 gap-4">
             <Loader2 className="h-10 w-10 animate-spin text-orange-500" />
-            <p className="text-sm font-black uppercase text-muted-foreground tracking-widest">Sincronizando plantilla...</p>
+            <p className="text-xs sm:text-sm font-black uppercase text-muted-foreground tracking-widest text-center">Sincronizando plantilla...</p>
           </div>
         ) : (
           <>
-            <Table>
-              <TableHeader className="bg-slate-50/50">
-                <TableRow className="border-b border-slate-100">
-                  <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400">Conductor</TableHead>
-                  <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400">Identificación</TableHead>
-                  <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400">Contacto</TableHead>
-                  <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400">Licencia</TableHead>
-                  <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400">Vencimiento</TableHead>
-                  <TableHead className="text-center p-5"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginated.map((c) => {
-                  const status = getStatus(c.vencimientoLicencia);
-                  const iniciales = `${c.nombres[0]}${c.apellidos[0]}`.toUpperCase();
-                  
-                  return (
-                    <TableRow key={c.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-50 last:border-0">
-                      <TableCell className="p-5">
-                        <div className="flex items-center gap-4">
-                          <Avatar className="h-11 w-11 border-2 border-white shadow-sm">
-                            <AvatarImage src={c.avatarUrl} />
-                            <AvatarFallback className="bg-orange-500 text-white font-black text-xs">{iniciales}</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-black text-slate-800 text-sm uppercase leading-tight">{c.nombres} {c.apellidos}</p>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5 tracking-tight">{c.barrio}</p>
+            <div className="overflow-x-auto w-full">
+              <Table className="min-w-full">
+                <TableHeader className="bg-slate-50/50">
+                  <TableRow className="border-b border-slate-100">
+                    <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400">Conductor</TableHead>
+                    <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400">Identificación</TableHead>
+                    <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400">Contacto</TableHead>
+                    <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400">Licencia</TableHead>
+                    <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400">Vencimiento</TableHead>
+                    <TableHead className="text-center p-5"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginated.map((c) => {
+                    const status = getStatus(c.vencimientoLicencia);
+                    const iniciales = `${c.nombres[0]}${c.apellidos[0]}`.toUpperCase();
+                    
+                    return (
+                      <TableRow key={c.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-50 last:border-0">
+                        <TableCell className="p-5">
+                          <div className="flex items-center gap-4">
+                            <Avatar className="h-11 w-11 border-2 border-white shadow-sm shrink-0">
+                              <AvatarImage src={c.avatarUrl} />
+                              <AvatarFallback className="bg-orange-500 text-white font-black text-xs">{iniciales}</AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="font-black text-slate-800 text-sm uppercase leading-tight truncate">{c.nombres} {c.apellidos}</p>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5 tracking-tight truncate">{c.barrio}</p>
+                            </div>
                           </div>
+                        </TableCell>
+                        <TableCell className="p-5">
+                          <div className="flex items-center gap-2 text-slate-600">
+                            <IdCard className="h-3.5 w-3.5 text-slate-300 shrink-0" />
+                            <span className="text-sm font-bold whitespace-nowrap">{c.cedula}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="p-5">
+                          <div className="flex items-center gap-2 text-slate-600">
+                            <Phone className="h-3.5 w-3.5 text-slate-300 shrink-0" />
+                            <span className="text-sm font-bold whitespace-nowrap">{c.telefono}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="p-5">
+                          <Badge variant="outline" className="font-black text-xs border-indigo-100 text-indigo-600 bg-indigo-50/30 whitespace-nowrap">
+                            CAT. {c.categoriaLicencia}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="p-5">
+                          <div className={cn("flex items-center gap-1.5 px-2.5 py-1 rounded-lg border w-fit text-[10px] font-black uppercase whitespace-nowrap", status.color)}>
+                            {status.icon}
+                            {format(new Date(c.vencimientoLicencia), 'dd MMM yyyy', { locale: es })}
+                          </div>
+                        </TableCell>
+                        <TableCell className="p-5 text-center">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-9 w-9 p-0 rounded-xl hover:bg-slate-100">
+                                <MoreHorizontal className="h-5 w-5 text-slate-400" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl shadow-xl">
+                              <DropdownMenuItem onClick={() => { setSelectedConductor(c); setTimeout(() => setIsFormOpen(true), 100); }} className="rounded-lg font-bold text-xs py-2.5">
+                                <Edit className="mr-2 h-4 w-4 text-slate-400" /> Editar Perfil
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600 rounded-lg font-bold text-xs py-2.5" onClick={() => handleDelete(c.id)}>
+                                <Trash2 className="mr-2 h-4 w-4" /> Eliminar Registro
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {filtered.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="p-20 text-center text-muted-foreground opacity-40">
+                        <div className="flex flex-col items-center gap-3">
+                          <IdCard className="h-12 w-12" />
+                          <p className="font-black uppercase text-xs">No se encontraron registros</p>
                         </div>
-                      </TableCell>
-                      <TableCell className="p-5">
-                        <div className="flex items-center gap-2 text-slate-600">
-                          <IdCard className="h-3.5 w-3.5 text-slate-300" />
-                          <span className="text-sm font-bold">{c.cedula}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="p-5">
-                        <div className="flex items-center gap-2 text-slate-600">
-                          <Phone className="h-3.5 w-3.5 text-slate-300" />
-                          <span className="text-sm font-bold">{c.telefono}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="p-5">
-                        <Badge variant="outline" className="font-black text-xs border-indigo-100 text-indigo-600 bg-indigo-50/30">
-                          CAT. {c.categoriaLicencia}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="p-5">
-                        <div className={cn("flex items-center gap-1.5 px-2.5 py-1 rounded-lg border w-fit text-[10px] font-black uppercase", status.color)}>
-                          {status.icon}
-                          {format(new Date(c.vencimientoLicencia), 'dd MMM yyyy', { locale: es })}
-                        </div>
-                      </TableCell>
-                      <TableCell className="p-5 text-center">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-9 w-9 p-0 rounded-xl hover:bg-slate-100">
-                              <MoreHorizontal className="h-5 w-5 text-slate-400" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl shadow-xl">
-                            <DropdownMenuItem onClick={() => { setSelectedConductor(c); setTimeout(() => setIsFormOpen(true), 100); }} className="rounded-lg font-bold text-xs py-2.5">
-                              <Edit className="mr-2 h-4 w-4 text-slate-400" /> Editar Perfil
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-red-600 rounded-lg font-bold text-xs py-2.5" onClick={() => handleDelete(c.id)}>
-                              <Trash2 className="mr-2 h-4 w-4" /> Eliminar Registro
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  );
-                })}
-                {filtered.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="p-20 text-center text-muted-foreground opacity-40">
-                      <div className="flex flex-col items-center gap-3">
-                        <IdCard className="h-12 w-12" />
-                        <p className="font-black uppercase text-xs">No se encontraron registros</p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-            <div className="p-5 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="p-5 border-t border-slate-50 bg-slate-50/30 flex flex-col sm:flex-row items-center justify-between gap-4">
               <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">
                 Página {currentPage} de {totalPages || 1}
               </p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="rounded-lg font-bold text-xs" onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1}>Anterior</Button>
-                <Button variant="outline" size="sm" className="rounded-lg font-bold text-xs" onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage >= totalPages}>Siguiente</Button>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button variant="outline" size="sm" className="rounded-lg font-bold text-xs flex-1 sm:flex-none" onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1}>Anterior</Button>
+                <Button variant="outline" size="sm" className="rounded-lg font-bold text-xs flex-1 sm:flex-none" onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage >= totalPages}>Siguiente</Button>
               </div>
             </div>
           </>
