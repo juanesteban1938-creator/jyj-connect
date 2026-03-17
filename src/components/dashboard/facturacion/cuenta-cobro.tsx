@@ -101,7 +101,6 @@ export function CuentaCobro({ servicio }: Props) {
                 useCORS: true,
                 allowTaint: true,
                 onclone: (clonedDoc) => {
-                    // Esperar que todas las imágenes carguen en el clon
                     const images = clonedDoc.querySelectorAll('img');
                     return Promise.all(Array.from(images).map(img => {
                         if (img.complete) return Promise.resolve();
@@ -144,8 +143,8 @@ export function CuentaCobro({ servicio }: Props) {
                         width: '100%',
                         maxWidth: '816px', 
                         minHeight: '1056px',
-                        margin: '32px auto',
-                        padding: '48px 64px',
+                        margin: '16px auto',
+                        padding: '32px 24px', // Reducido para móvil, print usará sus propios estilos
                         boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
                         boxSizing: 'border-box'
                     }}
@@ -171,63 +170,67 @@ export function CuentaCobro({ servicio }: Props) {
                                     className="border border-gray-200" 
                                 />
                             )}
-                            <p className="font-bold text-lg">CUENTA DE COBRO No: {servicio.consecutivo}</p>
-                            <p className="font-medium text-base">{format(new Date(servicio.fecha), 'dd/MM/yyyy')}</p>
+                            <p className="font-bold text-sm sm:text-lg">CUENTA DE COBRO No: {servicio.consecutivo}</p>
+                            <p className="font-medium text-xs sm:text-base">{format(new Date(servicio.fecha), 'dd/MM/yyyy')}</p>
                         </div>
                     </section>
 
                     <section className="text-center mb-8" style={{ pageBreakInside: 'avoid' }}>
-                        <h1 className="font-bold uppercase text-[18px]" style={{ letterSpacing: '3px', marginBottom: '8px' }}>{servicio.cliente}</h1>
-                        <p className="font-bold text-[14px] mt-[6px]">NIT {servicio.nitCliente}</p>
-                        <p className="text-gray-700 text-[14px] mt-[4px]">{servicio.emailCliente}</p>
+                        <h1 className="font-bold uppercase text-base sm:text-[18px]" style={{ letterSpacing: '3px', marginBottom: '8px' }}>{servicio.cliente}</h1>
+                        <p className="font-bold text-xs sm:text-[14px] mt-[6px]">NIT {servicio.nitCliente}</p>
+                        <p className="text-gray-700 text-xs sm:text-[14px] mt-[4px]">{servicio.emailCliente}</p>
                     </section>
 
                     <section className="mb-6" style={{ pageBreakInside: 'avoid' }}>
                         <p className="font-bold mb-1">Prestado a</p>
-                        <table className="w-full border-collapse border border-[#999]">
-                            <tbody>
-                                <tr>
-                                    <td className="border border-[#999] p-3 font-medium">Cliente: Juan Esteban Ovalle Pineda</td>
-                                    <td className="border border-[#999] p-3 text-right">1.023.940.641</td>
-                                </tr>
-                                <tr>
-                                    <td className="border border-[#999] p-3">DIRECCION: CALLE 34 B SUR # 3A-16</td>
-                                    <td className="border border-[#999] p-3 text-right font-bold uppercase text-[10px]">Telefono: 3058532676 | BOGOTA</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <div className="overflow-x-auto w-full">
+                            <table className="w-full border-collapse border border-[#999] min-w-[600px]">
+                                <tbody>
+                                    <tr>
+                                        <td className="border border-[#999] p-3 font-medium">Cliente: Juan Esteban Ovalle Pineda</td>
+                                        <td className="border border-[#999] p-3 text-right">1.023.940.641</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="border border-[#999] p-3">DIRECCION: CALLE 34 B SUR # 3A-16</td>
+                                        <td className="border border-[#999] p-3 text-right font-bold uppercase text-[10px]">Telefono: 3058532676 | BOGOTA</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </section>
 
                     <section className="mb-6" style={{ pageBreakInside: 'avoid' }}>
                         <div className="bg-[#9e9e9e] text-white py-2 text-center font-bold text-sm tracking-wider uppercase">Detalle da operación</div>
-                        <table className="w-full border-collapse border border-[#999]">
-                            <thead>
-                                <tr className="bg-[#1a5fa8] text-white">
-                                    <th className="border border-[#999] p-3 w-12 text-center">#</th>
-                                    <th className="border border-[#999] p-3 text-left">DESCRIPCIÓN DEL SERVICO</th>
-                                    <th className="border border-[#999] p-3 text-right">VALOR UNITARIO</th>
-                                    <th className="border border-[#999] p-3 text-right">TOTAL</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td className="border border-[#999] p-4 text-center align-top font-bold text-sm">1</td>
-                                    <td className="border border-[#999] p-4 align-top">
-                                        <p className="font-bold uppercase text-sm mb-2">Transporte especial de pasajeros</p>
-                                        <div className="text-gray-700 space-y-1">
-                                            <p><span className="font-bold uppercase text-[10px]">Vehículo:</span> {servicio.vehiculoPlaca || servicio.vehiculo}</p>
-                                            <p><span className="font-bold uppercase text-[10px]">Trayecto:</span> {servicio.origen} ➔ {servicio.destino}</p>
-                                        </div>
-                                    </td>
-                                    <td className="border border-[#999] p-4 text-right align-top font-bold">{currencyFormatter.format(servicio.valorServicio || 0)}</td>
-                                    <td className="border border-[#999] p-4 text-right align-top font-bold">{currencyFormatter.format(servicio.valorServicio || 0)}</td>
-                                </tr>
-                                <tr className="bg-[#d6d6d6]">
-                                    <td colSpan={3} className="border border-[#999] p-3 text-right font-bold text-sm uppercase">Total a Pagar</td>
-                                    <td className="border border-[#999] p-3 text-right font-bold text-sm">{currencyFormatter.format(servicio.valorServicio || 0)}</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <div className="overflow-x-auto w-full">
+                            <table className="w-full border-collapse border border-[#999] min-w-[600px]">
+                                <thead>
+                                    <tr className="bg-[#1a5fa8] text-white">
+                                        <th className="border border-[#999] p-3 w-12 text-center">#</th>
+                                        <th className="border border-[#999] p-3 text-left">DESCRIPCIÓN DEL SERVICO</th>
+                                        <th className="border border-[#999] p-3 text-right">VALOR UNITARIO</th>
+                                        <th className="border border-[#999] p-3 text-right">TOTAL</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td className="border border-[#999] p-4 text-center align-top font-bold text-sm">1</td>
+                                        <td className="border border-[#999] p-4 align-top">
+                                            <p className="font-bold uppercase text-sm mb-2">Transporte especial de pasajeros</p>
+                                            <div className="text-gray-700 space-y-1">
+                                                <p><span className="font-bold uppercase text-[10px]">Vehículo:</span> {servicio.vehiculoPlaca || servicio.vehiculo}</p>
+                                                <p><span className="font-bold uppercase text-[10px]">Trayecto:</span> {servicio.origen} ➔ {servicio.destino}</p>
+                                            </div>
+                                        </td>
+                                        <td className="border border-[#999] p-4 text-right align-top font-bold">{currencyFormatter.format(servicio.valorServicio || 0)}</td>
+                                        <td className="border border-[#999] p-4 text-right align-top font-bold">{currencyFormatter.format(servicio.valorServicio || 0)}</td>
+                                    </tr>
+                                    <tr className="bg-[#d6d6d6]">
+                                        <td colSpan={3} className="border border-[#999] p-3 text-right font-bold text-sm uppercase">Total a Pagar</td>
+                                        <td className="border border-[#999] p-3 text-right font-bold text-sm">{currencyFormatter.format(servicio.valorServicio || 0)}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </section>
 
                     <section className="mb-10" style={{ pageBreakInside: 'avoid' }}>
@@ -244,11 +247,11 @@ export function CuentaCobro({ servicio }: Props) {
                 </div>
             </ScrollArea>
 
-            <div className="action-group p-6 bg-white border-t no-print">
-                <Button onClick={handleSendEmail} disabled={isSending} variant="outline" className="btn-action border-blue-600 text-blue-600 hover:bg-blue-50 font-bold">
+            <div className="flex flex-col sm:flex-row gap-3 justify-end p-6 bg-white border-t no-print">
+                <Button onClick={handleSendEmail} disabled={isSending} variant="outline" className="w-full sm:w-auto border-blue-600 text-blue-600 hover:bg-blue-50 font-bold h-12">
                     <Mail className="mr-2 h-5 w-5" /> {isSending ? 'Enviando...' : 'Enviar por Correo'}
                 </Button>
-                <Button onClick={handlePrint} className="btn-action bg-[#1a5fa8] hover:bg-[#154d85] text-white font-bold uppercase tracking-widest">
+                <Button onClick={handlePrint} className="w-full sm:w-auto bg-[#1a5fa8] hover:bg-[#154d85] text-white font-bold uppercase tracking-widest h-12">
                     <Printer className="mr-2 h-5 w-5" /> Imprimir Documento
                 </Button>
             </div>
