@@ -13,6 +13,7 @@ import {
   Users2,
   MessageSquare,
   ClipboardList,
+  BarChart2,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -38,6 +39,7 @@ const menuItems = [
 ];
 
 const finanzasItems = [
+    { href: '/dashboard/analitica', label: 'Analítica', icon: BarChart2 },
     { href: '/dashboard/rentabilidad', label: 'Rentabilidad', icon: PieChart },
     { href: '/dashboard/facturacion', label: 'Facturación', icon: BookText },
 ]
