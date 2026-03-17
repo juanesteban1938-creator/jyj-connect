@@ -101,8 +101,10 @@ function WhatsAppBandejaContent() {
 
   // Función para obtener iniciales
   const getInitials = (name: string) => {
+    if (!name) return '?';
     return name
       .split(' ')
+      .filter(n => n.length > 0)
       .map(n => n[0])
       .slice(0, 2)
       .join('')
@@ -129,9 +131,14 @@ function WhatsAppBandejaContent() {
                            clienteMatch?.nombre || 
                            (cotizacionMatch?.nombreCliente !== 'Cliente' ? cotizacionMatch?.nombreCliente : null);
 
+        const rawPhone = msg.jid.split('@')[0];
+        const phoneDisplay = rawPhone.startsWith('57') && rawPhone.length === 12
+            ? '+57 ' + rawPhone.slice(2, 5) + ' ' + rawPhone.slice(5, 8) + ' ' + rawPhone.slice(8)
+            : '+' + rawPhone;
+
         groups[msg.jid] = {
           jid: msg.jid,
-          clienteNombre: resolvedName || ('+' + msg.jid.split('@')[0]),
+          clienteNombre: resolvedName || phoneDisplay,
           ultimoMensaje: msg,
           mensajes: [],
           noLeidos: 0,
@@ -240,32 +247,32 @@ function WhatsAppBandejaContent() {
                 key={chat.jid}
                 onClick={() => setSelectedJid(chat.jid)}
                 className={cn(
-                  "w-full flex items-center gap-4 p-4 transition-all hover:bg-slate-50 border-b last:border-0",
+                  "w-full flex items-center gap-4 p-4 transition-all hover:bg-slate-50 border-b last:border-0 min-h-[72px]",
                   selectedJid === chat.jid && "bg-orange-50/50 border-l-4 border-l-orange-500"
                 )}
               >
-                <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
+                <Avatar className="h-12 w-12 border-2 border-white shadow-sm shrink-0">
                   <AvatarFallback className="bg-slate-200 text-slate-600 font-bold uppercase">
                     {chat.hasRealName ? getInitials(chat.clienteNombre) : <User className="h-6 w-6 text-slate-400" />}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1 overflow-hidden text-left">
-                  <div className="flex items-center justify-between">
+                <div className="flex-1 overflow-hidden text-left flex flex-col justify-center">
+                  <div className="flex items-center justify-between gap-2">
                     <span className={cn(
-                      "text-sm uppercase truncate",
-                      chat.hasRealName ? "font-black text-slate-800" : "font-bold text-slate-500"
+                      "text-sm uppercase truncate font-black flex-1",
+                      chat.hasRealName ? "text-slate-800" : "text-slate-500"
                     )}>{chat.clienteNombre}</span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase shrink-0">
                       {format(chat.ultimoMensaje.fecha, 'HH:mm')}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2 mt-0.5">
-                    <p className="text-xs text-slate-500 truncate font-medium">
+                    <p className="text-xs text-slate-400 truncate font-medium flex-1">
                       {chat.ultimoMensaje.tipo === 'saliente' && <CheckCheck className="inline h-3 w-3 mr-1 text-blue-500" />}
                       {chat.ultimoMensaje.mensaje || chat.ultimoMensaje.cuerpo}
                     </p>
                     {chat.noLeidos > 0 && (
-                      <Badge className="h-5 min-w-[20px] bg-orange-500 text-white font-black text-[10px] flex items-center justify-center rounded-full p-0">
+                      <Badge className="h-5 min-w-[20px] bg-orange-500 text-white font-black text-[10px] flex items-center justify-center rounded-full p-0 shrink-0">
                         {chat.noLeidos}
                       </Badge>
                     )}
@@ -288,8 +295,8 @@ function WhatsAppBandejaContent() {
                   {selectedChat.hasRealName ? getInitials(selectedChat.clienteNombre) : <User className="h-5 w-5" />}
                 </AvatarFallback>
               </Avatar>
-              <div>
-                <h3 className="font-black text-slate-800 uppercase text-sm leading-none">{selectedChat.clienteNombre}</h3>
+              <div className="overflow-hidden">
+                <h3 className="font-black text-slate-800 uppercase text-sm leading-none truncate">{selectedChat.clienteNombre}</h3>
                 <p className="text-[10px] font-bold text-green-500 uppercase mt-1 flex items-center gap-1">
                   <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> Canal de WhatsApp activo
                 </p>
