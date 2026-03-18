@@ -26,6 +26,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
@@ -331,43 +332,45 @@ export default function ServiciosPage() {
             <Card 
               key={s.id} 
               className={cn(
-                "group relative overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300 bg-white rounded-xl w-full flex flex-wrap",
+                "group relative overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300 bg-white rounded-xl w-full",
                 "before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1",
                 styles.border.replace('border-l-', 'before:bg-')
               )}
             >
-              <div className="p-4 flex flex-1 items-center justify-between gap-4">
-                {/* Left: Time and Avatar */}
-                <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-                  <div className="flex flex-col items-center justify-center min-w-[50px] sm:min-w-[60px]">
-                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">Recogida</span>
-                    <p className="text-lg sm:text-2xl font-black text-orange-600 tracking-tighter leading-none">{s.hora}</p>
+              <div className="p-4 grid grid-cols-[auto_1fr_auto] sm:grid-cols-[100px_1fr_200px_auto] items-center gap-4 w-full">
+                {/* Left: Time and Date */}
+                <div className="flex flex-col items-center justify-center min-w-[80px]">
+                  <span className="text-[7px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">Recogida</span>
+                  <p className="text-lg sm:text-2xl font-black text-orange-600 tracking-tighter leading-none">{s.hora}</p>
+                  <p className="text-[9px] sm:text-[10px] text-gray-400 mt-1 font-bold whitespace-nowrap">
+                    {format(new Date(s.fecha), 'dd/MM/yyyy', { locale: es })}
+                  </p>
+                </div>
+
+                {/* Middle Left: Client and Trayecto */}
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="hidden xs:flex h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-[#F59E0B] items-center justify-center text-white font-black text-xs shadow-inner shrink-0">
+                    {iniciales}
                   </div>
-                  <div className="h-8 w-px bg-slate-100 hidden sm:block" />
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-[#F59E0B] flex items-center justify-center text-white font-black text-xs shadow-inner shrink-0">
-                      {iniciales}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <p className="font-black text-slate-800 text-xs sm:text-base leading-tight uppercase truncate">{s.cliente}</p>
+                      <Badge variant="outline" className="hidden lg:flex text-[8px] font-black uppercase h-3.5 px-1 border-slate-200 text-slate-400 shrink-0">
+                        {s.consecutivo}
+                      </Badge>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <p className="font-black text-slate-800 text-xs sm:text-base leading-tight uppercase truncate">{s.cliente}</p>
-                        <Badge variant="outline" className="hidden lg:flex text-[8px] font-black uppercase h-3.5 px-1 border-slate-200 text-slate-400 shrink-0">
-                          {s.consecutivo}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[9px] sm:text-xs font-bold text-slate-500">
-                        <span className="truncate">{s.origen}</span>
-                        <ArrowRight className="h-2 w-2 text-orange-400 flex-shrink-0" />
-                        <span className="truncate text-slate-800">{s.destino}</span>
-                      </div>
+                    <div className="flex items-center gap-1.5 text-[9px] sm:text-xs font-bold text-slate-500">
+                      <span className="truncate">{s.origen}</span>
+                      <ArrowRight className="h-2 w-2 text-orange-400 flex-shrink-0" />
+                      <span className="truncate text-slate-800">{s.destino}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Middle: Driver & Vehicle (Desktop Only) */}
-                <div className="hidden sm:flex items-center px-4 border-l border-slate-100 max-w-[250px] min-w-0">
-                  <div className="min-w-0">
-                    <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 truncate">
+                {/* Middle Right: Driver & Vehicle (Desktop Only) */}
+                <div className="hidden sm:flex items-center px-4 border-l border-slate-100 max-w-[200px] min-w-0">
+                  <div className="min-w-0 w-full">
+                    <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 truncate w-full">
                       <span className="font-black text-slate-700 uppercase">{s.conductor}</span>
                       <span className="mx-2 text-slate-300">·</span>
                       <span className="font-black text-blue-600 uppercase tracking-widest">{s.vehiculoPlaca}</span>
@@ -377,8 +380,8 @@ export default function ServiciosPage() {
 
                 {/* Right: Actions & Status */}
                 <div className="flex items-center gap-3 shrink-0">
-                  <div className="flex flex-col items-end gap-1">
-                    <Badge className={cn("text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md", styles.badge)}>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <Badge className={cn("text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md shrink-0", styles.badge)}>
                       {s.estado}
                     </Badge>
                     {s.notificacionEnviada && (

@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Servicio } from "@/lib/types";
@@ -21,6 +20,17 @@ const InfoRow = ({ label, value, icon: Icon, iconClassName }: { label: string, v
     </div>
 );
 
+const formatearHora = (hora: string) => {
+  if (!hora) return 'N/A';
+  try {
+    const [h, m] = hora.split(':').map(Number);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
+  } catch (e) {
+    return hora;
+  }
+};
 
 export function InfoServicioCard({ servicio }: Props) {
 
@@ -45,7 +55,7 @@ export function InfoServicioCard({ servicio }: Props) {
                         <Separator className="my-2"/>
                     </div>
                     <InfoRow label="Dirección de Recogida" value={servicio.origen} icon={MapPin} iconClassName="text-green-600" />
-                    <InfoRow label="Hora de Recogida" value={servicio.hora} icon={Clock} iconClassName="text-primary" />
+                    <InfoRow label="Hora de Recogida" value={formatearHora(servicio.hora)} icon={Clock} iconClassName="text-primary" />
                     <InfoRow label="Dirección de Destino" value={servicio.destino} icon={MapPin} iconClassName="text-red-600" />
                 </div>
             </CardContent>
