@@ -57,7 +57,7 @@ const COLORS = {
 const PIE_COLORS = [COLORS.verde, COLORS.naranja, COLORS.rojo, COLORS.azul];
 
 export default function AnaliticaPage() {
-  const [range, setRange] = useState('3');
+  const [periodo, setPeriodo] = useState('3M');
   const db = useFirestore();
   const { user } = useUser();
 
@@ -84,11 +84,12 @@ export default function AnaliticaPage() {
   const stats = useMemo(() => {
     if (!servicios || !clientes || !cotizaciones) return null;
 
-    const now = new Date();
-    const startDate = subMonths(now, parseInt(range));
+    const mesesPorPeriodo: Record<string, number> = { '1M': 1, '3M': 3, '6M': 6, '1A': 12 };
+    const fechaInicio = new Date();
+    fechaInicio.setMonth(fechaInicio.getMonth() - (mesesPorPeriodo[periodo] || 3));
 
     // Filtrar por rango
-    const filteredServicios = servicios.filter(s => isAfter(parseISO(s.fecha), startDate));
+    const filteredServicios = servicios.filter(s => isAfter(parseISO(s.fecha), fechaInicio));
     
     // 1. Ingresos por Mes
     const ingresosMap: Record<string, number> = {};
@@ -99,6 +100,7 @@ export default function AnaliticaPage() {
     const ingresosData = Object.entries(ingresosMap).map(([name, total]) => ({ name, total }));
 
     // 2. Area Chart Data
+    const now = new Date();
     const currentMonthStart = startOfMonth(now);
     const lastMonthStart = startOfMonth(subMonths(now, 1));
     
@@ -154,7 +156,7 @@ export default function AnaliticaPage() {
       totalIngresos: filteredServicios.reduce((acc, s) => acc + (Number(s.valorServicio) || 0), 0),
       countServicios: filteredServicios.length
     };
-  }, [servicios, clientes, cotizaciones, range]);
+  }, [servicios, clientes, cotizaciones, periodo]);
 
   if (loadingServicios || loadingClientes || loadingCotizaciones) {
     return (
@@ -206,17 +208,17 @@ export default function AnaliticaPage() {
           
           <div className="flex items-center gap-1 bg-slate-800/50 p-1.5 rounded-2xl border border-white/5 backdrop-blur-md">
             {[
-              { val: '1', label: '1M' },
-              { val: '3', label: '3M' },
-              { val: '6', label: '6M' },
-              { val: '12', label: '1A' }
+              { val: '1M', label: '1M' },
+              { val: '3M', label: '3M' },
+              { val: '6M', label: '6M' },
+              { val: '1A', label: '1A' }
             ].map(p => (
               <button
                 key={p.val}
-                onClick={() => setRange(p.val)}
+                onClick={() => setPeriodo(p.val)}
                 className={cn(
                   "px-4 py-2 text-[10px] font-black uppercase rounded-xl transition-all",
-                  range === p.val 
+                  periodo === p.val 
                     ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20" 
                     : "text-slate-400 hover:text-white"
                 )}
