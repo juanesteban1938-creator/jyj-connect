@@ -115,6 +115,14 @@ export default function GPSMonitoringPage() {
     }
   }, [mapLoaded, mapError]);
 
+  // Centrar mapa cuando lleguen los primeros datos (Corrección solicitada)
+  useEffect(() => {
+    if (!googleMap.current || locations.length === 0 || selectedService) return;
+    const u = locations[0];
+    googleMap.current.setCenter({ lat: u.lat, lng: u.lng });
+    googleMap.current.setZoom(15);
+  }, [locations, selectedService, mapLoaded]);
+
   // Actualización de Marcadores
   useEffect(() => {
     if (!googleMap.current || !mapLoaded || mapError) return;
@@ -127,9 +135,6 @@ export default function GPSMonitoringPage() {
         delete markers.current[id];
       }
     });
-
-    const bounds = new window.google.maps.LatLngBounds();
-    let hasPoints = false;
 
     locations.forEach(loc => {
       const isDelayed = (new Date().getTime() - loc.updatedAt.getTime()) > 120000; // > 2 min
@@ -179,15 +184,8 @@ export default function GPSMonitoringPage() {
           fillColor: isDelayed ? "#EF4444" : "#F59E0B"
         });
       }
-
-      bounds.extend(position);
-      hasPoints = true;
     });
-
-    if (hasPoints && locations.length > 0 && !selectedService) {
-      googleMap.current.fitBounds(bounds);
-    }
-  }, [locations, mapLoaded, mapError, selectedService]);
+  }, [locations, mapLoaded, mapError]);
 
   const handleFocusService = (loc: any) => {
     setSelectedService(loc.id);
