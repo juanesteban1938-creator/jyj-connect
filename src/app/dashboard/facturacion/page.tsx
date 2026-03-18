@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -6,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, DollarSign, TrendingUp, AlertTriangle, FileText, MoreHorizontal, CheckCircle, Mail, Edit, Loader2, FileSpreadsheet } from 'lucide-react';
+import { Search, DollarSign, TrendingUp, AlertTriangle, FileText, MoreHorizontal, CheckCircle, Mail, Edit, Loader2, FileSpreadsheet, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +20,7 @@ import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { cn } from '@/lib/utils';
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 });
 
@@ -31,6 +31,7 @@ export default function FacturacionPage() {
   const [isFacturaOpen, setIsFacturaOpen] = useState(false);
   const [isAbonoOpen, setIsAbonoOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isCarteraListOpen, setIsCarteraListOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
@@ -74,6 +75,12 @@ export default function FacturacionPage() {
       }
       return acc;
     }, { total: 0, ganancia: 0, cartera: 0 });
+  }, [servicios]);
+
+  const debtors = useMemo(() => {
+    return servicios
+      .filter(s => (Number(s.saldo) || 0) > 0)
+      .sort((a, b) => (Number(b.saldo) || 0) - (Number(a.saldo) || 0));
   }, [servicios]);
 
   const exportToExcel = () => {
@@ -338,13 +345,21 @@ export default function FacturacionPage() {
             <p className="text-xl sm:text-2xl font-black">{currencyFormatter.format(stats.ganancia)}</p>
           </CardContent>
         </Card>
-        <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none">
+        <Card 
+          className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none cursor-pointer hover:bg-rose-50/50 transition-colors group relative"
+          onClick={() => setIsCarteraListOpen(debtors.length > 0)}
+        >
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
               <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Cartera Pendiente</span>
-              <div className="bg-red-50 p-2 rounded-xl"><AlertTriangle className="h-4 w-4 text-red-600" /></div>
+              <div className="bg-red-50 p-2 rounded-xl group-hover:bg-red-100 transition-colors"><AlertTriangle className="h-4 w-4 text-red-600" /></div>
             </div>
             <p className="text-xl sm:text-2xl font-black text-red-600">{currencyFormatter.format(stats.cartera)}</p>
+            {debtors.length > 0 && (
+              <p className="text-[9px] font-black text-rose-400 uppercase mt-2 flex items-center gap-1">
+                Ver detalle de {debtors.length} deudores <MoreHorizontal className="h-3 w-3" />
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -409,6 +424,50 @@ export default function FacturacionPage() {
           </Table>
         </div>
       </Card>
+
+      {/* Detalle de Cartera */}
+      <Dialog open={isCarteraListOpen} onOpenChange={setIsCarteraListOpen}>
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl mx-auto rounded-3xl border-none shadow-2xl p-0 overflow-hidden flex flex-col max-h-[85vh]">
+          <DialogDescription className="sr-only">Desglose detallado de todos los servicios que tienen saldo pendiente de pago.</DialogDescription>
+          <div className="p-6 border-b bg-rose-50/50">
+            <DialogTitle className="text-lg sm:text-xl font-black text-rose-900 flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-rose-500 text-white shadow-lg shadow-rose-200">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              Deudores de Cartera
+            </DialogTitle>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            <Table>
+              <TableHeader className="bg-slate-50/50">
+                <TableRow className="border-b">
+                  <TableHead className="p-3 font-black text-[10px] uppercase text-slate-400">Cod.</TableHead>
+                  <TableHead className="p-3 font-black text-[10px] uppercase text-slate-400">Cliente</TableHead>
+                  <TableHead className="p-3 text-right font-black text-[10px] uppercase text-slate-400">Saldo Pendiente</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {debtors.map((s) => (
+                  <TableRow key={s.id} className="hover:bg-slate-50/50 border-b border-slate-50 last:border-0">
+                    <TableCell className="p-3 text-xs font-black text-slate-500">{s.consecutivo}</TableCell>
+                    <TableCell className="p-3">
+                      <p className="text-xs font-black uppercase text-slate-800 truncate max-w-[200px]">{s.cliente}</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">{format(new Date(s.fecha), 'dd/MM/yy')}</p>
+                    </TableCell>
+                    <TableCell className="p-3 text-right">
+                      <span className="text-sm font-black text-rose-600">{currencyFormatter.format(Number(s.saldo))}</span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="p-6 border-t bg-slate-50 flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Cartera:</span>
+            <span className="text-lg font-black text-rose-600">{currencyFormatter.format(stats.cartera)}</span>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isFacturaOpen} onOpenChange={setIsFacturaOpen}>
         <DialogContent className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl lg:max-w-4xl mx-auto rounded-3xl bg-[#f0f0f0] p-0 overflow-hidden border-none shadow-2xl" aria-describedby={undefined}>
