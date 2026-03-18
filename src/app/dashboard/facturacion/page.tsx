@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, DollarSign, TrendingUp, AlertTriangle, FileText, MoreHorizontal, CheckCircle, Mail, Edit, Loader2, FileSpreadsheet, User } from 'lucide-react';
+import { Search, DollarSign, TrendingUp, AlertTriangle, FileText, MoreHorizontal, CheckCircle, Mail, Edit, Loader2, FileSpreadsheet, User, ArrowUpRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -31,7 +31,12 @@ export default function FacturacionPage() {
   const [isFacturaOpen, setIsFacturaOpen] = useState(false);
   const [isAbonoOpen, setIsAbonoOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  
+  // Estados para diálogos de detalle KPI
   const [isCarteraListOpen, setIsCarteraListOpen] = useState(false);
+  const [isFacturacionListOpen, setIsFacturacionListOpen] = useState(false);
+  const [isGananciaListOpen, setIsGananciaListOpen] = useState(false);
+
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
@@ -327,26 +332,42 @@ export default function FacturacionPage() {
       </header>
 
       <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-3 mb-8">
-        <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none">
+        <Card 
+          className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none cursor-pointer hover:bg-blue-50/50 transition-all hover:scale-[1.01] group"
+          onClick={() => setIsFacturacionListOpen(servicios.length > 0)}
+        >
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
               <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Facturación Total</span>
-              <div className="bg-blue-50 p-2 rounded-xl"><DollarSign className="h-4 w-4 text-blue-600" /></div>
+              <div className="bg-blue-50 p-2 rounded-xl group-hover:bg-blue-100 transition-colors"><DollarSign className="h-4 w-4 text-blue-600" /></div>
             </div>
             <p className="text-xl sm:text-2xl font-black">{currencyFormatter.format(stats.total)}</p>
+            {servicios.length > 0 && (
+              <p className="text-[9px] font-black text-blue-400 uppercase mt-2 flex items-center gap-1">
+                Ver detalle de {servicios.length} servicios <MoreHorizontal className="h-3 w-3" />
+              </p>
+            )}
           </CardContent>
         </Card>
-        <Card className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none">
+
+        <Card 
+          className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none cursor-pointer hover:bg-green-50/50 transition-all hover:scale-[1.01] group"
+          onClick={() => setIsGananciaListOpen(stats.ganancia !== 0)}
+        >
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
               <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Ganancia Neta</span>
-              <div className="bg-green-50 p-2 rounded-xl"><TrendingUp className="h-4 w-4 text-green-600" /></div>
+              <div className="bg-green-50 p-2 rounded-xl group-hover:bg-green-100 transition-colors"><TrendingUp className="h-4 w-4 text-green-600" /></div>
             </div>
-            <p className="text-xl sm:text-2xl font-black">{currencyFormatter.format(stats.ganancia)}</p>
+            <p className="text-xl sm:text-2xl font-black text-emerald-600">{currencyFormatter.format(stats.ganancia)}</p>
+            <p className="text-[9px] font-black text-emerald-400 uppercase mt-2 flex items-center gap-1">
+              Ver rentabilidad por servicio <MoreHorizontal className="h-3 w-3" />
+            </p>
           </CardContent>
         </Card>
+
         <Card 
-          className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none cursor-pointer hover:bg-rose-50/50 transition-colors group relative"
+          className="rounded-lg shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-none cursor-pointer hover:bg-rose-50/50 transition-all hover:scale-[1.01] group relative"
           onClick={() => setIsCarteraListOpen(debtors.length > 0)}
         >
           <CardContent className="p-6">
@@ -465,6 +486,103 @@ export default function FacturacionPage() {
           <div className="p-6 border-t bg-slate-50 flex items-center justify-between">
             <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Cartera:</span>
             <span className="text-lg font-black text-rose-600">{currencyFormatter.format(stats.cartera)}</span>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Detalle de Facturación Total */}
+      <Dialog open={isFacturacionListOpen} onOpenChange={setIsFacturacionListOpen}>
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl mx-auto rounded-3xl border-none shadow-2xl p-0 overflow-hidden flex flex-col max-h-[85vh]">
+          <DialogDescription className="sr-only">Historial completo de servicios facturados.</DialogDescription>
+          <div className="p-6 border-b bg-blue-50/50">
+            <DialogTitle className="text-lg sm:text-xl font-black text-blue-900 flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-blue-500 text-white shadow-lg shadow-blue-200">
+                <DollarSign className="h-5 w-5" />
+              </div>
+              Auditoría de Facturación
+            </DialogTitle>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            <Table>
+              <TableHeader className="bg-slate-50/50">
+                <TableRow className="border-b">
+                  <TableHead className="p-3 font-black text-[10px] uppercase text-slate-400">Cod.</TableHead>
+                  <TableHead className="p-3 font-black text-[10px] uppercase text-slate-400">Cliente</TableHead>
+                  <TableHead className="p-3 text-right font-black text-[10px] uppercase text-slate-400">Monto Bruto</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {servicios.map((s) => (
+                  <TableRow key={s.id} className="hover:bg-slate-50/50 border-b border-slate-50 last:border-0">
+                    <TableCell className="p-3 text-xs font-black text-slate-500">{s.consecutivo}</TableCell>
+                    <TableCell className="p-3">
+                      <p className="text-xs font-black uppercase text-slate-800 truncate max-w-[200px]">{s.cliente}</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">{format(new Date(s.fecha), 'dd/MM/yy')}</p>
+                    </TableCell>
+                    <TableCell className="p-3 text-right">
+                      <span className="text-sm font-black text-slate-900">{currencyFormatter.format(Number(s.valorServicio))}</span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="p-6 border-t bg-slate-50 flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Acumulado:</span>
+            <span className="text-lg font-black text-blue-600">{currencyFormatter.format(stats.total)}</span>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Detalle de Ganancia Neta */}
+      <Dialog open={isGananciaListOpen} onOpenChange={setIsGananciaListOpen}>
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl mx-auto rounded-3xl border-none shadow-2xl p-0 overflow-hidden flex flex-col max-h-[85vh]">
+          <DialogDescription className="sr-only">Análisis de rentabilidad por cada servicio finalizado y pagado.</DialogDescription>
+          <div className="p-6 border-b bg-emerald-50/50">
+            <DialogTitle className="text-lg sm:text-xl font-black text-emerald-900 flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-emerald-500 text-white shadow-lg shadow-emerald-200">
+                <TrendingUp className="h-5 w-5" />
+              </div>
+              Análisis de Utilidades
+            </DialogTitle>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            <Table>
+              <TableHeader className="bg-slate-50/50">
+                <TableRow className="border-b">
+                  <TableHead className="p-3 font-black text-[10px] uppercase text-slate-400">Cod.</TableHead>
+                  <TableHead className="p-3 font-black text-[10px] uppercase text-slate-400">Cliente</TableHead>
+                  <TableHead className="p-3 text-right font-black text-[10px] uppercase text-slate-400">Margen (Venta - Costo)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {servicios.filter(s => s.estadoPago === 'Pagado').map((s) => {
+                  const venta = Number(s.valorServicio) || 0;
+                  const costo = Number(s.costoOperacion) || 0;
+                  const margen = venta - costo;
+                  return (
+                    <TableRow key={s.id} className="hover:bg-slate-50/50 border-b border-slate-50 last:border-0">
+                      <TableCell className="p-3 text-xs font-black text-slate-500">{s.consecutivo}</TableCell>
+                      <TableCell className="p-3">
+                        <p className="text-xs font-black uppercase text-slate-800 truncate max-w-[200px]">{s.cliente}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">
+                          Costo: {currencyFormatter.format(costo)}
+                        </p>
+                      </TableCell>
+                      <TableCell className="p-3 text-right">
+                        <span className="text-sm font-black text-emerald-600 flex items-center justify-end gap-1">
+                          <ArrowUpRight className="h-3 w-3" /> {currencyFormatter.format(margen)}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="p-6 border-t bg-slate-50 flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Utilidad Real Total:</span>
+            <span className="text-lg font-black text-emerald-600">{currencyFormatter.format(stats.ganancia)}</span>
           </div>
         </DialogContent>
       </Dialog>
