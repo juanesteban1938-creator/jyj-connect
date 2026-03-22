@@ -23,7 +23,7 @@ import {
   ArrowRight,
   Clock as ClockIcon
 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -161,7 +161,7 @@ export default function ServiciosPage() {
       if (servicioActual?.conductorTelefono) {
         const gpsLink = `${window.location.origin}/gps/${id}`;
         
-        // Enviar link GPS al conductor via bot
+        // Enviar link GPS al conductor via bot mediante el endpoint genérico habilitado
         fetch(`https://focused-harmony-production.up.railway.app/send-message`, {
           method: 'POST',
           headers: {
@@ -211,7 +211,7 @@ export default function ServiciosPage() {
       vehiculoPlaca: formData.esVehiculoNoRegistrado ? formData.vehiculoOtro : (vehiculoAsignado?.placa || ''),
       vehiculo: formData.esVehiculoNoRegistrado ? formData.vehiculoOtro : (vehiculoAsignado ? `${vehiculoAsignado.marca} ${vehiculoAsignado.linea}` : ''),
       conductor: formData.esConductorNoRegistrado ? formData.conductorOtro : (conductorAsignado ? `${conductorAsignado.nombres} ${conductorAsignado.apellidos}` : 'No asignado'),
-      conductorTelefono: formData.esConductorNoRegistrado ? formData.conductorTelefonoOtro : (conductorAsignado?.telefono || ''),
+      conductorTelefono: formData.esConductorNoRegistrado ? formData.conductorOtro : (conductorAsignado?.telefono || ''),
       estado: selected?.estado || 'Programado',
       valorServicio: Number(formData.valorServicio) || 0,
       anticipo: Number(formData.anticipo) || 0,

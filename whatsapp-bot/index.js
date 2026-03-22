@@ -1,7 +1,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 2.1.3 (Consolidación de Project ID)
+ * Versión: 2.1.4 (Habilitación de Mensajería Genérica)
  */
 
 const express = require('express');
@@ -168,6 +168,20 @@ app.post('/restart', checkApiKey, async (req, res) => {
         res.json({ success: true, message: 'Reinicio iniciado' });
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// NUEVO: Ruta para enviar mensajes genéricos (usada para GPS y Bandeja)
+app.post('/send-message', checkApiKey, async (req, res) => {
+    const { jid, mensaje } = req.body;
+    if (!isReady) return res.status(503).json({ error: 'Nova no está conectada' });
+
+    try {
+        await client.sendMessage(jid, mensaje);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[Nova] Error al enviar mensaje:', error.message);
+        res.status(500).json({ error: 'Fallo al enviar mensaje.' });
     }
 });
 
