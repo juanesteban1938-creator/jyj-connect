@@ -23,7 +23,7 @@ import {
   ArrowRight,
   Clock as ClockIcon
 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -155,13 +155,11 @@ export default function ServiciosPage() {
   const handleUpdateEstado = useCallback(async (id: string, nuevoEstado: Servicio['estado']) => {
     const docRef = doc(db, 'services', id);
 
-    // Lógica para notificar al conductor cuando el servicio comienza
     if (nuevoEstado === 'En Servicio') {
       const servicioActual = servicios.find(s => s.id === id);
       if (servicioActual?.conductorTelefono) {
         const gpsLink = `${window.location.origin}/gps/${id}`;
         
-        // Enviar link GPS al conductor via bot mediante el endpoint genérico habilitado
         fetch(`https://focused-harmony-production.up.railway.app/send-message`, {
           method: 'POST',
           headers: {
@@ -338,7 +336,6 @@ export default function ServiciosPage() {
               )}
             >
               <div className="p-4 grid grid-cols-[auto_1fr_auto] sm:grid-cols-[100px_1fr_200px_auto] items-center gap-4 w-full">
-                {/* Left: Time and Date */}
                 <div className="flex flex-col items-center justify-center min-w-[80px]">
                   <span className="text-[7px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">Recogida</span>
                   <p className="text-lg sm:text-2xl font-black text-orange-600 tracking-tighter leading-none">{s.hora}</p>
@@ -347,7 +344,6 @@ export default function ServiciosPage() {
                   </p>
                 </div>
 
-                {/* Middle Left: Client and Trayecto */}
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <div className="hidden xs:flex h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-[#F59E0B] items-center justify-center text-white font-black text-xs shadow-inner shrink-0">
                     {iniciales}
@@ -367,7 +363,6 @@ export default function ServiciosPage() {
                   </div>
                 </div>
 
-                {/* Middle Right: Driver & Vehicle (Desktop Only) */}
                 <div className="hidden sm:flex items-center px-4 border-l border-slate-100 max-w-[200px] min-w-0">
                   <div className="min-w-0 w-full">
                     <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 truncate w-full">
@@ -378,7 +373,6 @@ export default function ServiciosPage() {
                   </div>
                 </div>
 
-                {/* Right: Actions & Status */}
                 <div className="flex items-center gap-3 shrink-0">
                   <div className="flex flex-col items-end gap-1 shrink-0">
                     <Badge className={cn("text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md shrink-0", styles.badge)}>
