@@ -89,7 +89,7 @@ export default function AnaliticaPage() {
     fechaInicio.setMonth(fechaInicio.getMonth() - (mesesPorPeriodo[periodo] || 3));
 
     // Filtrar por rango
-    const filteredServicios = servicios.filter(s => isAfter(parseISO(s.fecha), fechaInicio));
+    const filteredServicios = servicios.filter(s => s.fecha && isAfter(parseISO(s.fecha), fechaInicio));
     
     // 1. Ingresos por Mes
     const ingresosMap: Record<string, number> = {};
@@ -108,6 +108,7 @@ export default function AnaliticaPage() {
     let lastMonthTotal = 0;
 
     servicios.forEach(s => {
+      if (!s.fecha) return;
       const date = parseISO(s.fecha);
       if (isSameMonth(date, currentMonthStart)) currentMonthTotal += Number(s.valorServicio) || 0;
       if (isSameMonth(date, lastMonthStart)) lastMonthTotal += Number(s.valorServicio) || 0;
@@ -130,7 +131,7 @@ export default function AnaliticaPage() {
       'En Servicio': 0
     };
     filteredServicios.forEach(s => {
-      if (estadosMap[s.estado] !== undefined) {
+      if (s.estado && estadosMap[s.estado] !== undefined) {
         estadosMap[s.estado] = (estadosMap[s.estado] || 0) + 1;
       }
     });
@@ -283,7 +284,7 @@ export default function AnaliticaPage() {
             </CardHeader>
             <CardContent className="p-8 h-[400px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats?.ingresosData}>
+                <BarChart data={stats?.ingresosData || []}>
                   <defs>
                     <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#F59E0B" stopOpacity={1} />
@@ -348,7 +349,7 @@ export default function AnaliticaPage() {
             </CardHeader>
             <CardContent className="p-8 h-[400px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={stats?.comparativoData}>
+                <AreaChart data={stats?.comparativoData || []}>
                   <defs>
                     <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.2} />
@@ -386,13 +387,13 @@ export default function AnaliticaPage() {
             </CardHeader>
             <CardContent className="p-8 h-[400px] relative">
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[40%] text-center z-10">
-                <p className="text-4xl font-black text-white leading-none">{stats?.countServicios}</p>
+                <p className="text-4xl font-black text-white leading-none">{stats?.countServicios || 0}</p>
                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Servicios</p>
               </div>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={stats?.estadosData}
+                    data={stats?.estadosData || []}
                     cx="50%"
                     cy="50%"
                     innerRadius={85}
@@ -401,7 +402,7 @@ export default function AnaliticaPage() {
                     dataKey="value"
                     animationDuration={1500}
                   >
-                    {stats?.estadosData.map((entry, index) => (
+                    {(stats?.estadosData || []).map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} stroke="none" />
                     ))}
                   </Pie>
@@ -432,9 +433,9 @@ export default function AnaliticaPage() {
             <CardContent className="p-8 h-[400px]">
               <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#3B82F6 1px, transparent 0)', backgroundSize: '20px 20px' }} />
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats?.clientesData}>
+                <BarChart data={stats?.clientesData || []}>
                   <defs>
-                    <linearGradient id="blueOrangeGradient" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="blueOrangeGradient" x1="0" x1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#3B82F6" stopOpacity={1} />
                       <stop offset="100%" stopColor="#F59E0B" stopOpacity={0.8} />
                     </linearGradient>
