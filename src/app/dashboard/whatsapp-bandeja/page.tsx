@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Search, Send, User, CheckCheck, MessageSquareOff, Loader2, ArrowLeft, BellRing } from 'lucide-react';
+import { Search, Send, User, CheckCheck, MessageSquareOff, Loader2, ArrowLeft, BellRing, Paperclip } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -23,6 +23,7 @@ interface Message {
   tipo: 'entrante' | 'saliente';
   leido: boolean;
   clienteNombre?: string;
+  nombre?: string;
 }
 
 interface ChatGroup {
@@ -46,6 +47,7 @@ function WhatsAppBandejaContent() {
   const { user } = useUser();
   const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -125,7 +127,9 @@ function WhatsAppBandejaContent() {
 
     messages.forEach(msg => {
       if (!groups[msg.jid]) {
-        const phoneRawSearch = msg.jid.split('@')[0].replace(/\D/g, '').slice(-10);
+        const rawPhone = msg.jid.split('@')[0];
+        const phoneRawSearch = rawPhone.replace(/\D/g, '').slice(-10);
+        
         const clienteMatch = clientesRaw?.find(c => 
           c.telefono?.replace(/\D/g, '').includes(phoneRawSearch)
         );
@@ -133,11 +137,16 @@ function WhatsAppBandejaContent() {
           c.telefono?.replace(/\D/g, '').includes(phoneRawSearch)
         );
 
+        // Bug 1: Buscar nombre en la colección de conversaciones
+        const nombreConv = messages
+          .filter(m => m.jid === msg.jid && m.nombre && m.nombre !== rawPhone)
+          .find(m => m.nombre)?.nombre;
+
         const resolvedName = clienteMatch?.razonSocial || 
                            clienteMatch?.nombre || 
-                           (cotizacionMatch?.nombreCliente !== 'Cliente' ? cotizacionMatch?.nombreCliente : null);
+                           (cotizacionMatch?.nombreCliente !== 'Cliente' ? cotizacionMatch?.nombreCliente : null) ||
+                           nombreConv;
 
-        const rawPhone = msg.jid.split('@')[0];
         const digits = rawPhone.replace(/\D/g, '');
         const colombianDigits = digits.slice(-10);
         const phoneDisplay = colombianDigits.length === 10
@@ -216,11 +225,53 @@ function WhatsAppBandejaContent() {
       if (!response.ok) throw new Error('Error al enviar');
       
       setMensajeInput('');
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
     } catch(e) {
       toast({ variant: 'destructive', title: 'Error al enviar mensaje' });
     } finally {
       setEnviando(false);
     }
+  };
+
+  // Bug 2: Envío de fotos y documentos
+  const handleEnviarArchivo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedJid) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ variant: 'destructive', title: 'Archivo demasiado grande', description: 'El límite es 10MB.' });
+      return;
+    }
+
+    setEnviando(true);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = (reader.result as string).split(',')[1];
+      try {
+        const response = await fetch(`https://focused-harmony-production.up.railway.app/send-file`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-api-key': 'jj-connect-2026'
+          },
+          body: JSON.stringify({
+            jid: selectedJid,
+            fileBase64: base64,
+            fileName: file.name,
+            mimeType: file.type
+          })
+        });
+        
+        if (!response.ok) throw new Error('Error al enviar archivo');
+        toast({ title: 'Archivo enviado con éxito' });
+      } catch (err) {
+        toast({ variant: 'destructive', title: 'Error al enviar archivo' });
+      } finally {
+        setEnviando(false);
+        e.target.value = '';
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleBack = () => {
@@ -369,7 +420,7 @@ function WhatsAppBandejaContent() {
                         ? "bg-white text-slate-800 rounded-tl-none border border-slate-100" 
                         : "bg-orange-500 text-white rounded-tr-none"
                     )}>
-                      <p className="text-xs sm:text-sm font-medium leading-relaxed">{msg.mensaje || msg.cuerpo}</p>
+                      <p className="text-xs sm:text-sm font-medium leading-relaxed whitespace-pre-wrap">{msg.mensaje || msg.cuerpo}</p>
                       <div className={cn(
                         "flex items-center gap-1 mt-1 justify-end",
                         isIncoming ? "text-slate-400" : "text-orange-100"
@@ -385,22 +436,52 @@ function WhatsAppBandejaContent() {
               })}
             </div>
 
-            {/* Input de Respuesta */}
+            {/* Input de Respuesta (Bug 3: Textarea multilínea) */}
             <footer className="p-3 sm:p-4 bg-white border-t">
               <div className="flex items-center gap-2 sm:gap-3 bg-slate-50 p-1.5 sm:p-2 rounded-2xl border">
-                <Input 
-                  placeholder="Responde vía Nova..." 
-                  className="border-none bg-transparent focus-visible:ring-0 shadow-none text-xs sm:text-sm h-9"
+                {/* Bug 2: Botón de adjuntar */}
+                <div className="px-1">
+                  <input 
+                    type="file" 
+                    id="file-input" 
+                    className="hidden" 
+                    accept="image/*,application/pdf"
+                    onChange={handleEnviarArchivo} 
+                    disabled={enviando}
+                  />
+                  <label htmlFor="file-input">
+                    <Paperclip className={cn(
+                      "h-5 w-5 text-slate-400 cursor-pointer hover:text-orange-500 transition-colors",
+                      enviando && "opacity-50 cursor-not-allowed"
+                    )} />
+                  </label>
+                </div>
+
+                <textarea
+                  ref={textareaRef}
+                  className="flex-1 resize-none bg-transparent outline-none text-sm placeholder:text-slate-400 max-h-32 min-h-[40px] py-2 scrollbar-none"
+                  placeholder="Responde vía Nova..."
+                  rows={1}
                   value={mensajeInput}
-                  onChange={(e) => setMensajeInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleEnviarMensaje()}
+                  onChange={e => {
+                    setMensajeInput(e.target.value);
+                    e.target.style.height = 'auto';
+                    e.target.style.height = e.target.scrollHeight + 'px';
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleEnviarMensaje();
+                    }
+                  }}
                   disabled={enviando}
                 />
+                
                 <button 
                   onClick={handleEnviarMensaje}
                   disabled={enviando || !mensajeInput.trim()}
                   className={cn(
-                    "p-2 sm:p-3 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition-colors shadow-lg shadow-orange-200",
+                    "p-2 sm:p-3 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition-colors shadow-lg shadow-orange-200 shrink-0",
                     (enviando || !mensajeInput.trim()) && "opacity-50 cursor-not-allowed"
                   )}
                 >
