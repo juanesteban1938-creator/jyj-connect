@@ -15,6 +15,7 @@ import {
   ClipboardList,
   BarChart2,
   MapPin,
+  CreditCard,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -43,6 +44,7 @@ const finanzasItems = [
     { href: '/dashboard/analitica', label: 'Analítica', icon: BarChart2 },
     { href: '/dashboard/rentabilidad', label: 'Rentabilidad', icon: PieChart },
     { href: '/dashboard/facturacion', label: 'Facturación', icon: BookText },
+    { href: '/dashboard/pagos', label: 'Pagos', icon: CreditCard },
 ]
 
 const sistemaItems = [
@@ -67,11 +69,18 @@ export function MainNav() {
     return query(collection(db, 'ubicaciones_gps'), where('activo', '==', true));
   }, [db, user]);
 
+  const pendingPaymentsQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'pagos_pendientes_correo'), where('pendiente', '==', true));
+  }, [db, user]);
+
   const { data: pendingCotizaciones } = useCollection(pendingCotQuery);
   const { data: activeGPS } = useCollection(activeGPSQuery);
+  const { data: pendingPayments } = useCollection(pendingPaymentsQuery);
   
   const pendingCount = pendingCotizaciones?.length || 0;
   const activeGPSCount = activeGPS?.length || 0;
+  const pendingPaymentsCount = pendingPayments?.length || 0;
 
   return (
     <Sidebar collapsible="offcanvas">
@@ -130,7 +139,14 @@ export function MainNav() {
                         tooltip={item.label}
                         className="justify-start"
                         >
-                        <item.icon />
+                        <div className="relative">
+                          <item.icon />
+                          {item.href === '/dashboard/pagos' && pendingPaymentsCount > 0 && (
+                            <span className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-rose-500 text-[8px] font-black text-white ring-2 ring-white animate-pulse">
+                              {pendingPaymentsCount}
+                            </span>
+                          )}
+                        </div>
                         <span>{item.label}</span>
                         </SidebarMenuButton>
                     </Link>
