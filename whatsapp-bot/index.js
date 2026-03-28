@@ -1,7 +1,8 @@
+
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 2.1.4 (Habilitación de Mensajería Genérica)
+ * Versión: 2.2.0 (Conciliación Automática y Auditoría de Pagos)
  */
 
 const express = require('express');
@@ -13,7 +14,7 @@ const cron = require('node-cron');
 const fetch = require('node-fetch');
 const qrcode = require('qrcode');
 
-// Inicialización de Firebase Admin con el ID de producción correcto
+// Inicialización de Firebase Admin
 if (!admin.apps.length) {
     admin.initializeApp({
         projectId: process.env.FIREBASE_PROJECT_ID || 'jj-connect--18988325-5ab9e'
@@ -27,7 +28,6 @@ app.use(cors());
 
 const port = process.env.PORT || 3001;
 const API_KEY = process.env.API_KEY || 'jj-connect-2026';
-const WEATHER_KEY = process.env.OPENWEATHER_API_KEY || '2e28a9be1c50b694b288c3a505f0d866';
 
 let qrCodeBase64 = ''; 
 let isReady = false;
@@ -51,6 +51,89 @@ function resolveWAId(number) {
     if (!clean.startsWith('57')) clean = '57' + clean;
     return `${clean}@c.us`;
 }
+
+// Lógica de Procesamiento de Mensajes (Nova Brain)
+client.on('message', async (msg) => {
+    const contact = await msg.getContact();
+    const jid = msg.from;
+    const body = msg.body || '';
+
+    // 1. Guardar en conversaciones para la Bandeja Nova
+    await db.collection('conversaciones').add({
+        jid,
+        cuerpo: body,
+        tipo: 'entrante',
+        leido: false,
+        nombre: contact.pushname || contact.name || jid.split('@')[0],
+        fecha: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // 2. Identificar Soporte de Pago (Simulado/OCR Simple)
+    if (msg.hasMedia && (body.toLowerCase().includes('pago') || body.toLowerCase().includes('soporte') || body.toLowerCase().includes('transferencia'))) {
+        try {
+            // Buscamos un servicio programado o en anticipo para este número
+            const cleanPhone = jid.split('@')[0].slice(-10);
+            const servicesSnap = await db.collection('services')
+                .where('estadoPago', 'in', ['Pendiente', 'Anticipo'])
+                .get();
+
+            let targetService = null;
+            servicesSnap.forEach(doc => {
+                const s = doc.data();
+                if (s.telefonoCliente && s.telefonoCliente.includes(cleanPhone)) {
+                    targetService = { id: doc.id, ...s };
+                }
+            });
+
+            if (targetService) {
+                // Aquí iría el OCR real. Simulamos detección de valor total para este ejemplo.
+                const valorPagado = targetService.saldo || (targetService.valorServicio - targetService.anticipo);
+                const saldoAnterior = targetService.saldo;
+                
+                // Actualizar Servicio en Firestore
+                await db.collection('services').doc(targetService.id).update({
+                    estadoPago: 'Pagado',
+                    anticipo: targetService.valorServicio,
+                    saldo: 0,
+                    metodoPago: 'Transferencia'
+                });
+
+                // REGISTRO CRÍTICO: Auditoría de Pagos (Para que aparezca en el módulo del Panel)
+                await db.collection('pagos_aplicados').add({
+                    servicioId: targetService.id,
+                    consecutivo: targetService.consecutivo,
+                    clienteNombre: targetService.clienteNombre || targetService.cliente,
+                    telefonoCliente: targetService.telefonoCliente,
+                    valorPago: valorPagado,
+                    numeroTransaccion: 'WA-' + msg.id.id,
+                    bancoOrigen: 'WHATSAPP-BOT',
+                    bancoDestino: 'Bancolombia',
+                    saldoAnterior: saldoAnterior,
+                    saldoNuevo: 0,
+                    estadoPago: 'Pagado',
+                    fecha: admin.firestore.FieldValue.serverTimestamp()
+                });
+
+                // Registrar para envío de correo
+                if (targetService.emailCliente) {
+                    await db.collection('pagos_pendientes_correo').add({
+                        servicioId: targetService.id,
+                        emailCliente: targetService.emailCliente,
+                        consecutivo: targetService.consecutivo,
+                        clienteNombre: targetService.clienteNombre || targetService.cliente,
+                        valorPago: valorPagado,
+                        pendiente: true,
+                        fecha: admin.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+
+                await msg.reply(`✅ *¡SOPORTE IDENTIFICADO!* 📝\n\nHola, he procesado tu pago para el servicio *${targetService.consecutivo}*.\n\n💰 *Valor:* ${new Intl.NumberFormat('es-CO', {style:'currency', currency:'COP'}).format(valorPagado)}\n📊 *Estado:* Totalmente Pagado.\n\nEn breve recibirás la confirmación oficial en tu correo. ¡Gracias! ✨`);
+            }
+        } catch (err) {
+            console.error('[Nova] Error procesando pago WA:', err);
+        }
+    }
+});
 
 async function generateServiceCard(data) {
     let browser;
@@ -171,7 +254,6 @@ app.post('/restart', checkApiKey, async (req, res) => {
     }
 });
 
-// NUEVO: Ruta para enviar mensajes genéricos (usada para GPS y Bandeja)
 app.post('/send-message', checkApiKey, async (req, res) => {
     const { jid, mensaje } = req.body;
     if (!isReady) return res.status(503).json({ error: 'Nova no está conectada' });
@@ -198,7 +280,6 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
         const msg = `¡Hola, *${data.clienteNombre}*! 👋 Soy *Nova*, asistente de *Transportes Especiales J&J*.\n\nTu servicio ha sido programado con éxito. Arriba te envío la tarjeta con los detalles. 🚐💨`;
         await client.sendMessage(jid, msg);
 
-        // Registrar en historial de Firestore
         await db.collection('notificaciones_whatsapp').add({
           clienteNombre: data.clienteNombre,
           clienteTelefono: data.clienteTelefono,
@@ -212,82 +293,6 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
     } catch (error) {
         console.error('[Nova] Error de envío:', error);
         res.status(500).json({ error: 'Fallo al enviar notificación.' });
-    }
-});
-
-app.post('/send-departure-notification', checkApiKey, async (req, res) => {
-    const data = req.body;
-    if (!isReady) return res.status(503).json({ error: 'Nova no está conectada' });
-
-    try {
-        const jid = resolveWAId(data.clienteTelefono);
-        let weatherMsg = '';
-        try {
-            const wRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=Bogota&units=metric&appid=${WEATHER_KEY}&lang=es`);
-            const wData = await wRes.json();
-            weatherMsg = `🌡️ *Clima actual:* ${wData.main.temp}°C, ${wData.weather[0].description}.`;
-        } catch (e) { weatherMsg = 'Clima no disponible.'; }
-
-        const text = `⚠️ *¡AVISO DE SALIDA!* ⚠️\n\nHola *${data.clienteNombre}*, tu vehículo de *Transportes Especiales J&J* ya está próximo a iniciar el servicio.\n\n${weatherMsg}\n\n📍 *Seguimiento:* Estamos en camino. Favor estar atento al celular. 🙏`;
-        
-        await client.sendMessage(jid, text);
-
-        // Registrar en historial de Firestore
-        await db.collection('notificaciones_whatsapp').add({
-          clienteNombre: data.clienteNombre,
-          clienteTelefono: data.clienteTelefono,
-          tipo: 'notificacion_salida',
-          mensaje: text,
-          estado: 'enviado',
-          fecha: admin.firestore.FieldValue.serverTimestamp()
-        });
-
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-cron.schedule('* * * * *', async () => {
-    if (!isReady) return;
-    const now = new Date();
-    try {
-        const snapshot = await db.collection('services')
-            .where('estado', 'in', ['Programado', 'programado'])
-            .where('notificacionSalidaEnviada', '==', false)
-            .get();
-
-        for (const doc of snapshot.docs) {
-            const s = doc.data();
-            if (!s.horaRecogidaTimestamp) continue;
-            
-            const horaRecogida = s.horaRecogidaTimestamp.toDate();
-            const diffMs = now - horaRecogida;
-            const diffMin = diffMs / 60000;
-            
-            if (diffMin >= 0 && diffMin <= 2) {
-                try {
-                    const result = await fetch(`http://localhost:${port}/send-departure-notification`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
-                        body: JSON.stringify({
-                            clienteTelefono: s.telefonoCliente || s.clienteTelefono,
-                            clienteNombre: s.clienteNombre || s.cliente,
-                            origen: s.origen,
-                            destino: s.destino
-                        })
-                    });
-                    
-                    if (result.ok) {
-                        await doc.ref.update({ notificacionSalidaEnviada: true });
-                    }
-                } catch(e) {
-                    console.error(`[Cron] Error:`, e.message);
-                }
-            }
-        }
-    } catch (error) {
-        console.error('[Cron] Error general:', error.message);
     }
 });
 

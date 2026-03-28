@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -16,7 +17,7 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { AbonoForm, type AbonoFormValues } from '@/components/dashboard/facturacion/abono-form';
 import { FacturacionForm, type FacturacionFormValues } from '@/components/dashboard/facturacion/facturacion-form';
 import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -32,7 +33,6 @@ export default function FacturacionPage() {
   const [isAbonoOpen, setIsAbonoOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   
-  // Estados para diálogos de detalle KPI
   const [isCarteraListOpen, setIsCarteraListOpen] = useState(false);
   const [isFacturacionListOpen, setIsFacturacionListOpen] = useState(false);
   const [isGananciaListOpen, setIsGananciaListOpen] = useState(false);
@@ -105,7 +105,7 @@ export default function FacturacionPage() {
     const totalRecaudado = servicesWithBalance.reduce((acc, s) => acc + (Number(s.anticipo) || 0), 0);
     const totalCartera = servicesWithBalance.reduce((acc, s) => acc + (Number(s.saldo) || 0), 0);
 
-    rows.push({ Consecutivo: '', Cliente: '', NIT: '', Fecha: '', 'Valor Servicio': 0, Anticipo: 0, Saldo: 0, 'Estado Pago': '' }); // Espacio
+    rows.push({ Consecutivo: '', Cliente: '', NIT: '', Fecha: '', 'Valor Servicio': 0, Anticipo: 0, Saldo: 0, 'Estado Pago': '' });
     rows.push({ Consecutivo: 'TOTAL FACTURADO', Cliente: '', NIT: '', Fecha: '', 'Valor Servicio': totalFacturado, Anticipo: 0, Saldo: 0, 'Estado Pago': '' });
     rows.push({ Consecutivo: 'TOTAL RECAUDADO', Cliente: '', NIT: '', Fecha: '', 'Valor Servicio': 0, Anticipo: totalRecaudado, Saldo: 0, 'Estado Pago': '' });
     rows.push({ Consecutivo: 'CARTERA PENDIENTE', Cliente: '', NIT: '', Fecha: '', 'Valor Servicio': 0, Anticipo: 0, Saldo: totalCartera, 'Estado Pago': '' });
@@ -145,7 +145,7 @@ export default function FacturacionPage() {
 
     const finalY = (doc as any).lastAutoTable.finalY || 35;
     doc.setFontSize(12);
-    doc.setTextColor(255, 0, 0); // Rojo
+    doc.setTextColor(255, 0, 0);
     doc.setFont('helvetica', 'bold');
     doc.text(`TOTAL CARTERA PENDIENTE: ${currencyFormatter.format(totalCartera)}`, 14, finalY + 15);
 
@@ -156,15 +156,31 @@ export default function FacturacionPage() {
     setIsProcessing(true);
     const docRef = doc(db, 'services', servicio.id);
     const valor = Number(servicio.valorServicio) || 0;
+    const saldoAnterior = Number(servicio.saldo) || (valor - (Number(servicio.anticipo) || 0));
     const updates = { estadoPago: 'Pagado', saldo: 0, anticipo: valor };
     
     updateDoc(docRef, updates)
       .then(async () => {
+        // Registrar Auditoría de Pago
+        await addDoc(collection(db, 'pagos_aplicados'), {
+          servicioId: servicio.id,
+          consecutivo: servicio.consecutivo,
+          clienteNombre: servicio.clienteNombre || servicio.cliente,
+          telefonoCliente: servicio.telefonoCliente || '',
+          valorPago: saldoAnterior,
+          numeroTransaccion: 'MANUAL-' + Date.now(),
+          bancoOrigen: 'MANUAL',
+          bancoDestino: 'CAJA',
+          saldoAnterior: saldoAnterior,
+          saldoNuevo: 0,
+          estadoPago: 'Pagado',
+          fecha: serverTimestamp()
+        });
+
         toast({ title: "✅ Servicio Pagado" });
 
         if (servicio.emailCliente) {
-          toast({ title: "📧 Enviando confirmación de pago..." });
-          const response = await fetch('/api/send-invoice', {
+          fetch('/api/send-invoice', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -181,10 +197,9 @@ export default function FacturacionPage() {
                 vehiculo: servicio.vehiculo
               }
             })
+          }).then(r => {
+            if(r.ok) toast({ title: "📧 Confirmación de pago enviada" });
           });
-          if (response.ok) {
-            toast({ title: "📧 Confirmación de pago enviada automáticamente" });
-          }
         }
       })
       .catch((err) => {
@@ -206,7 +221,8 @@ export default function FacturacionPage() {
     const docRef = doc(db, 'services', selected.id);
     const valorOriginal = Number(selected.valorServicio) || 0;
     const anticipoAnterior = Number(selected.anticipo) || 0;
-    const nuevoAnticipo = anticipoAnterior + Number(data.valorAbono);
+    const valorAbono = Number(data.valorAbono);
+    const nuevoAnticipo = anticipoAnterior + valorAbono;
     const nuevoSaldo = Math.max(0, valorOriginal - nuevoAnticipo);
     
     const updates = { 
@@ -220,12 +236,27 @@ export default function FacturacionPage() {
 
     updateDoc(docRef, updates)
       .then(async () => {
+        // Registrar Auditoría de Pago
+        await addDoc(collection(db, 'pagos_aplicados'), {
+          servicioId: selected.id,
+          consecutivo: selected.consecutivo,
+          clienteNombre: selected.clienteNombre || selected.cliente,
+          telefonoCliente: selected.telefonoCliente || '',
+          valorPago: valorAbono,
+          numeroTransaccion: data.numeroComprobante || 'ABONO-' + Date.now(),
+          bancoOrigen: 'CLIENTE',
+          bancoDestino: data.banco || 'CAJA',
+          saldoAnterior: (valorOriginal - anticipoAnterior),
+          saldoNuevo: nuevoSaldo,
+          estadoPago: data.nuevoEstadoPago,
+          fecha: serverTimestamp()
+        });
+
         setIsAbonoOpen(false);
         toast({ title: "Abono Registrado" });
 
         if (data.nuevoEstadoPago === 'Pagado' && selected.emailCliente) {
-          toast({ title: "📧 Enviando confirmación de pago..." });
-          const response = await fetch('/api/send-invoice', {
+          fetch('/api/send-invoice', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -242,10 +273,9 @@ export default function FacturacionPage() {
                 vehiculo: selected.vehiculo
               }
             })
+          }).then(r => {
+            if(r.ok) toast({ title: "📧 Confirmación enviada" });
           });
-          if (response.ok) {
-            toast({ title: "📧 Confirmación de pago enviada automáticamente" });
-          }
         }
       })
       .catch((err) => {
@@ -273,31 +303,6 @@ export default function FacturacionPage() {
       .then(async () => {
         setIsEditOpen(false);
         toast({ title: "Facturación Actualizada" });
-
-        if (data.estadoPago === 'Pagado' && selected.emailCliente) {
-          toast({ title: "📧 Enviando confirmación de pago..." });
-          const response = await fetch('/api/send-invoice', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              to: selected.emailCliente,
-              nroFactura: selected.consecutivo,
-              servicioData: {
-                cliente: selected.clienteNombre || selected.cliente,
-                nit: selected.nitCliente,
-                fecha: selected.fecha,
-                origen: selected.origen,
-                destino: selected.destino,
-                valor: valor,
-                conductor: selected.conductor,
-                vehiculo: selected.vehiculo
-              }
-            })
-          });
-          if (response.ok) {
-            toast({ title: "📧 Confirmación de pago enviada" });
-          }
-        }
       })
       .catch((err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -431,22 +436,11 @@ export default function FacturacionPage() {
                   </TableCell>
                 </TableRow>
               ))}
-              {(!user || filtered.length === 0) && (
-                <TableRow>
-                  <TableCell colSpan={5} className="p-12 text-center text-muted-foreground">
-                    <div className="flex flex-col items-center gap-3 opacity-40">
-                      <DollarSign className="h-10 w-10" />
-                      <p className="font-bold uppercase text-xs">{!user ? 'Sincronizando sesión...' : 'No se encontraron registros de facturación'}</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         </div>
       </Card>
 
-      {/* Detalle de Cartera */}
       <Dialog open={isCarteraListOpen} onOpenChange={setIsCarteraListOpen}>
         <DialogContent className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl mx-auto rounded-3xl border-none shadow-2xl p-0 overflow-hidden flex flex-col max-h-[85vh]">
           <DialogDescription className="sr-only">Desglose detallado de todos los servicios que tienen saldo pendiente de pago.</DialogDescription>
@@ -490,7 +484,6 @@ export default function FacturacionPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Detalle de Facturación Total */}
       <Dialog open={isFacturacionListOpen} onOpenChange={setIsFacturacionListOpen}>
         <DialogContent className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl mx-auto rounded-3xl border-none shadow-2xl p-0 overflow-hidden flex flex-col max-h-[85vh]">
           <DialogDescription className="sr-only">Historial completo de servicios facturados.</DialogDescription>
@@ -534,7 +527,6 @@ export default function FacturacionPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Detalle de Ganancia Neta */}
       <Dialog open={isGananciaListOpen} onOpenChange={setIsGananciaListOpen}>
         <DialogContent className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl mx-auto rounded-3xl border-none shadow-2xl p-0 overflow-hidden flex flex-col max-h-[85vh]">
           <DialogDescription className="sr-only">Análisis de rentabilidad por cada servicio finalizado y pagado.</DialogDescription>
