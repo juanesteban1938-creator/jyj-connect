@@ -21,8 +21,10 @@ export type Servicio = {
   saldo: number;
   metodoPago: 'Efectivo' | 'Transferencia' | 'Facturacion';
   costoOperacion: number;
-  estadoPago: 'Pendiente' | 'Anticipo' | 'Pagado' | 'Anulado';
+  estadoPago: 'Pending' | 'Anticipo' | 'Pagado' | 'Anulado' | 'Pendiente';
   paradasAdicionales?: string[];
+  puntosRecogida?: string[];
+  puntosDestino?: string[];
   numeroComprobante?: string;
   banco?: string;
   notificacionEnviada: boolean;

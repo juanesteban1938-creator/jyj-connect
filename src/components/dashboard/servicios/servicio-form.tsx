@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { User, Briefcase, MapPin, Clock, Loader2, DollarSign, Mail, Calendar as CalendarIcon } from 'lucide-react';
+import { User, Briefcase, MapPin, Clock, Loader2, DollarSign, Mail, Calendar as CalendarIcon, Plus, Trash2 } from 'lucide-react';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { format, parseISO } from 'date-fns';
@@ -29,6 +29,11 @@ import { useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Servicio, Conductor, Vehiculo } from '@/lib/types';
+import { cn } from '@/lib/utils';
+
+const addressSchema = z.object({
+  address: z.string().min(1, 'La dirección es requerida'),
+});
 
 const formSchema = z.object({
     nombreCliente: z.string().min(1, 'El nombre es requerido'),
@@ -47,8 +52,10 @@ const formSchema = z.object({
 
     fechaRecogida: z.date({ required_error: 'La fecha es requerida' }),
     horaRecogida: z.string({ required_error: 'La hora es requerida' }),
-    direccionRecogida: z.string().min(1, 'La dirección es requerida'),
-    direccionDestino: z.string().min(1, 'El destino es requerido'),
+    
+    esRutaMultiple: z.boolean().default(false),
+    puntosRecogida: z.array(addressSchema).min(1),
+    puntosDestino: z.array(addressSchema).min(1),
 
     metodoPago: z.enum(['Efectivo', 'Transferencia', 'Facturacion']),
     valorServicio: z.coerce.number().optional(),
@@ -84,8 +91,9 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
       vehiculoId: '',
       vehiculoOtro: '',
       horaRecogida: '00:00',
-      direccionRecogida: '',
-      direccionDestino: '',
+      esRutaMultiple: false,
+      puntosRecogida: [{ address: '' }],
+      puntosDestino: [{ address: '' }],
       metodoPago: 'Facturacion',
       valorServicio: 0,
       costoOperacion: 0,
@@ -94,10 +102,23 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
     },
   });
 
+  const { fields: recogidaFields, append: appendRecogida, remove: removeRecogida } = useFieldArray({
+    control: form.control,
+    name: "puntosRecogida"
+  });
+
+  const { fields: destinoFields, append: appendDestino, remove: removeDestino } = useFieldArray({
+    control: form.control,
+    name: "puntosDestino"
+  });
+
   useEffect(() => {
     if (servicio) {
         const conductorMatched = conductores.find(c => `${c.nombres} ${c.apellidos}` === servicio.conductor);
         const vehiculoMatched = vehiculos.find(v => v.placa === servicio.vehiculoPlaca);
+
+        const pr = servicio.puntosRecogida?.map(a => ({ address: a })) || [{ address: servicio.origen || '' }];
+        const pd = servicio.puntosDestino?.map(a => ({ address: a })) || [{ address: servicio.destino || '' }];
 
         form.reset({
             nombreCliente: servicio.clienteNombre || servicio.cliente,
@@ -106,12 +127,13 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
             emailCliente: servicio.emailCliente || '',
             fechaRecogida: servicio.fecha ? parseISO(servicio.fecha) : new Date(),
             horaRecogida: servicio.hora || '',
-            direccionRecogida: servicio.origen,
-            direccionDestino: servicio.destino,
+            esRutaMultiple: pr.length > 1 || pd.length > 1,
+            puntosRecogida: pr,
+            puntosDestino: pd,
             metodoPago: servicio.metodoPago || 'Facturacion',
             valorServicio: servicio.valorServicio || 0,
             costoOperacion: servicio.costoOperacion || 0,
-            estadoPago: servicio.estadoPago || 'Pendiente',
+            estadoPago: servicio.estadoPago as any || 'Pendiente',
             anticipo: servicio.anticipo || 0,
             esConductorNoRegistrado: !conductorMatched,
             conductorId: conductorMatched?.id || '',
@@ -122,10 +144,11 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
             vehiculoOtro: servicio.vehiculoPlaca || ''
         });
     }
-  }, [servicio, conductores, vehiculos]);
+  }, [servicio, conductores, vehiculos, form]);
 
   const valorServicio = form.watch('valorServicio') || 0;
   const estadoPago = form.watch('estadoPago');
+  const esRutaMultiple = form.watch('esRutaMultiple');
 
   useEffect(() => {
     if (estadoPago === 'Pagado') {
@@ -274,6 +297,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                     <h3 className="text-lg font-bold uppercase tracking-tight">Detalles de la Ruta</h3>
                 </div>
                 <Separator className="bg-primary/20" />
+                 
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField control={form.control} name="fechaRecogida" render={({ field }) => (
                         <FormItem className="flex flex-col">
@@ -306,13 +330,95 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                             <FormMessage />
                         </FormItem>
                     )} />
-                    
-                    <FormField name="direccionRecogida" control={form.control} render={({ field }) => (
-                        <FormItem className="sm:col-span-2"><FormLabel>Dirección de Origen / Recogida</FormLabel><FormControl><Input placeholder="Ej. Calle 123 #45-67" {...field} className="w-full" /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField name="direccionDestino" control={form.control} render={({ field }) => (
-                        <FormItem className="sm:col-span-2"><FormLabel>Dirección de Destino / Llegada</FormLabel><FormControl><Input placeholder="Ej. Aeropuerto El Dorado" {...field} className="w-full" /></FormControl><FormMessage /></FormItem>
-                    )} />
+                 </div>
+
+                 <div className="mt-4">
+                    <FormField
+                        control={form.control}
+                        name="esRutaMultiple"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-xl border p-4 bg-orange-50/30 border-orange-100 mb-6">
+                                <FormControl>
+                                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                                </FormControl>
+                                <div className="space-y-1 leading-none">
+                                    <FormLabel className="text-xs font-black uppercase text-orange-600 cursor-pointer">
+                                        ¿Es una ruta con múltiples puntos de parada?
+                                    </FormLabel>
+                                </div>
+                            </FormItem>
+                        )}
+                    />
+
+                    <div className="space-y-6">
+                        {/* SECCIÓN RECOGIDA */}
+                        <div className="space-y-3">
+                            <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Puntos de Recogida / Origen</FormLabel>
+                            {recogidaFields.map((field, index) => (
+                                <div key={field.id} className="flex gap-2 items-start">
+                                    <FormField
+                                        control={form.control}
+                                        name={`puntosRecogida.${index}.address`}
+                                        render={({ field: inputField }) => (
+                                            <FormItem className="flex-1">
+                                                <FormControl>
+                                                    <div className="relative">
+                                                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-500" />
+                                                        <Input {...inputField} placeholder={index === 0 ? "Dirección de origen principal" : `Parada de recogida #${index + 1}`} className="pl-10" />
+                                                    </div>
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    {esRutaMultiple && index > 0 && (
+                                        <Button variant="ghost" size="icon" className="text-rose-500 hover:text-rose-700 hover:bg-rose-50" onClick={() => removeRecogida(index)}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    )}
+                                </div>
+                            ))}
+                            {esRutaMultiple && (
+                                <Button type="button" variant="outline" size="sm" className="text-[10px] font-black uppercase h-8 border-dashed border-emerald-300 text-emerald-600 bg-emerald-50/50" onClick={() => appendRecogida({ address: '' })}>
+                                    <Plus className="h-3 w-3 mr-1" /> Añadir Parada de Recogida
+                                </Button>
+                            )}
+                        </div>
+
+                        {/* SECCIÓN DESTINO */}
+                        <div className="space-y-3">
+                            <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Puntos de Destino / Llegada</FormLabel>
+                            {destinoFields.map((field, index) => (
+                                <div key={field.id} className="flex gap-2 items-start">
+                                    <FormField
+                                        control={form.control}
+                                        name={`puntosDestino.${index}.address`}
+                                        render={({ field: inputField }) => (
+                                            <FormItem className="flex-1">
+                                                <FormControl>
+                                                    <div className="relative">
+                                                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-rose-500" />
+                                                        <Input {...inputField} placeholder={index === 0 ? "Dirección de destino principal" : `Parada de destino #${index + 1}`} className="pl-10" />
+                                                    </div>
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    {esRutaMultiple && index > 0 && (
+                                        <Button variant="ghost" size="icon" className="text-rose-500 hover:text-rose-700 hover:bg-rose-50" onClick={() => removeDestino(index)}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    )}
+                                </div>
+                            ))}
+                            {esRutaMultiple && (
+                                <Button type="button" variant="outline" size="sm" className="text-[10px] font-black uppercase h-8 border-dashed border-rose-300 text-rose-600 bg-rose-50/50" onClick={() => appendDestino({ address: '' })}>
+                                    <Plus className="h-3 w-3 mr-1" /> Añadir Parada de Destino
+                                </Button>
+                            )}
+                        </div>
+                    </div>
                  </div>
             </div>
 

@@ -29,7 +29,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { ServicioForm } from '@/components/dashboard/servicios/servicio-form';
+import { ServicioForm, type ServicioFormValues } from '@/components/dashboard/servicios/servicio-form';
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { useFirestore, useUser, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, updateDoc, collection, query } from 'firebase/firestore';
@@ -186,7 +186,7 @@ export default function ServiciosPage() {
       });
   }, [db, toast, servicios]);
 
-  const handleSave = async (formData: any) => {
+  const handleSave = async (formData: ServicioFormValues) => {
     setIsSaving(true);
     const esNuevo = !selected || !selected.id;
     const servicioId = esNuevo ? String(Date.now()) : selected.id;
@@ -194,13 +194,18 @@ export default function ServiciosPage() {
     const conductorAsignado = conductores.find(c => c.id === formData.conductorId);
     const vehiculoAsignado = vehiculos.find(v => v.id === formData.vehiculoId);
 
+    const puntosRecogidaStrings = formData.puntosRecogida.map(p => p.address);
+    const puntosDestinoStrings = formData.puntosDestino.map(p => p.address);
+
     const payload: Servicio = {
       id: servicioId,
       consecutivo: selected?.consecutivo || `JJ-${servicios.length + 1001}`,
       cliente: formData.nombreCliente,
       clienteNombre: formData.nombreCliente,
-      origen: formData.direccionRecogida,
-      destino: formData.direccionDestino,
+      origen: puntosRecogidaStrings[0] || '',
+      destino: puntosDestinoStrings[puntosDestinoStrings.length - 1] || '',
+      puntosRecogida: puntosRecogidaStrings,
+      puntosDestino: puntosDestinoStrings,
       telefonoCliente: formData.telefonoCliente,
       emailCliente: formData.emailCliente,
       fecha: formData.fechaRecogida.toISOString(),
@@ -215,7 +220,7 @@ export default function ServiciosPage() {
       anticipo: Number(formData.anticipo) || 0,
       saldo: (Number(formData.valorServicio) || 0) - (Number(formData.anticipo) || 0),
       metodoPago: formData.metodoPago,
-      estadoPago: formData.estadoPago,
+      estadoPago: formData.estadoPago as any,
       costoOperacion: Number(formData.costoOperacion) || 0,
       notificacionEnviada: selected?.notificacionEnviada || false,
       notificacionSalidaEnviada: selected?.notificacionSalidaEnviada || false,
