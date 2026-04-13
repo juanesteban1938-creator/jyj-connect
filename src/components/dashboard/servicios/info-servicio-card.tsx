@@ -3,6 +3,7 @@
 import type { Servicio } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { User, Truck, Briefcase, Phone, MapPin, Clock, ArrowDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -39,8 +40,6 @@ export function InfoServicioCard({ servicio }: Props) {
     const conductorDisplay = servicio.conductorTelefono 
         ? `${servicio.conductor} - ${servicio.conductorTelefono}`
         : servicio.conductor;
-
-    const tieneRutaDetallada = (servicio.puntosRecogida && servicio.puntosRecogida.length > 1) || (servicio.puntosDestino && servicio.puntosDestino.length > 1);
 
     return (
         <Card className="border-none shadow-sm">
