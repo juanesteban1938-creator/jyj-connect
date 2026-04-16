@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useFirestore, useUser, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, orderBy, where, doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, where, doc, updateDoc, Timestamp, getDocs, getDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,8 @@ import {
   Calendar,
   DollarSign,
   TrendingUp,
-  Landmark
+  Landmark,
+  RefreshCcw
 } from 'lucide-react';
 import { format, isToday, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -118,6 +119,45 @@ export default function PagosAuditPage() {
     }
   };
 
+  const handleReconcile = async () => {
+    if (!confirm('¿Deseas sincronizar todos los pagos registrados con la cartera? Esto corregirá inconsistencias de saldo.')) return;
+    setIsProcessing('reconcile');
+    let fixedCount = 0;
+
+    try {
+      // Re-consultamos los pagos para asegurar datos frescos
+      const pagosSnap = await getDocs(collection(db, 'pagos_aplicados'));
+      
+      for (const pDoc of pagosSnap.docs) {
+        const p = pDoc.data();
+        if (p.servicioId) {
+          const sRef = doc(db, 'services', p.servicioId);
+          const sSnap = await getDoc(sRef);
+          
+          if (sSnap.exists()) {
+            const sData = sSnap.data();
+            // Si el estado o el saldo en el servicio no coinciden con el último pago registrado
+            if (sData.estadoPago !== p.estadoPago || sData.saldo !== p.saldoNuevo) {
+              await updateDoc(sRef, {
+                estadoPago: p.estadoPago,
+                saldo: p.saldoNuevo,
+                // Si el pago fue total, aseguramos que el anticipo sea igual al valor total
+                ...(p.estadoPago === 'Pagado' ? { anticipo: sData.valorServicio || p.valorPago } : {})
+              });
+              fixedCount++;
+            }
+          }
+        }
+      }
+      toast({ title: "Sincronización Exitosa", description: `Se han actualizado ${fixedCount} servicios en cartera.` });
+    } catch (err) {
+      console.error('Error en reconciliación:', err);
+      toast({ variant: "destructive", title: "Error de Sincronización", description: "No se pudieron reconciliar todos los registros." });
+    } finally {
+      setIsProcessing(null);
+    }
+  };
+
   const exportToExcel = () => {
     const rows = filteredPagos.map(p => ({
       Fecha: format(p.fecha instanceof Timestamp ? p.fecha.toDate() : new Date(p.fecha), 'dd/MM/yyyy HH:mm'),
@@ -152,6 +192,15 @@ export default function PagosAuditPage() {
           <p className="text-slate-500 text-sm font-medium mt-1">Supervisión de conciliaciones automáticas procesadas por Nova.</p>
         </div>
         <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            onClick={handleReconcile} 
+            disabled={isProcessing === 'reconcile'}
+            className="font-black text-[10px] uppercase border-orange-200 text-orange-600 hover:bg-orange-50 h-11"
+          >
+            {isProcessing === 'reconcile' ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCcw className="h-4 w-4 mr-2" />}
+            Reconciliar Cartera
+          </Button>
           <Button variant="outline" onClick={exportToExcel} className="font-black text-[10px] uppercase border-slate-200 hover:bg-emerald-50 h-11">
             <FileSpreadsheet className="h-4 w-4 mr-2 text-emerald-600" /> Exportar Excel
           </Button>
