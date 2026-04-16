@@ -1,8 +1,7 @@
-
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 2.2.0 (Conciliación Automática y Auditoría de Pagos)
+ * Versión: 2.2.1 (Sync Corregido y Resolución de Servicios)
  */
 
 const express = require('express');
@@ -10,8 +9,6 @@ const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const cors = require('cors');
 const puppeteer = require('puppeteer');
 const admin = require('firebase-admin');
-const cron = require('node-cron');
-const fetch = require('node-fetch');
 const qrcode = require('qrcode');
 
 // Inicialización de Firebase Admin
@@ -68,47 +65,56 @@ client.on('message', async (msg) => {
         fecha: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    // 2. Identificar Soporte de Pago (Simulado/OCR Simple)
-    if (msg.hasMedia && (body.toLowerCase().includes('pago') || body.toLowerCase().includes('soporte') || body.toLowerCase().includes('transferencia'))) {
+    // 2. Identificar Soporte de Pago
+    if (msg.hasMedia && (body.toLowerCase().includes('pago') || body.toLowerCase().includes('soporte') || body.toLowerCase().includes('transferencia') || body.toLowerCase().includes('comprobante'))) {
         try {
             // Buscamos un servicio programado o en anticipo para este número
-            const cleanPhone = jid.split('@')[0].slice(-10);
+            const rawPhone = jid.split('@')[0];
+            const cleanPhone = rawPhone.replace(/\D/g, '').slice(-10);
+            
+            // Consultar todos los servicios pendientes de este cliente
             const servicesSnap = await db.collection('services')
-                .where('estadoPago', 'in', ['Pendiente', 'Anticipo'])
+                .where('estadoPago', 'in', ['Pendiente', 'Anticipo', 'Pending'])
                 .get();
 
-            let targetService = null;
+            let matches = [];
             servicesSnap.forEach(doc => {
                 const s = doc.data();
-                if (s.telefonoCliente && s.telefonoCliente.includes(cleanPhone)) {
-                    targetService = { id: doc.id, ...s };
+                const sPhone = (s.telefonoCliente || '').replace(/\D/g, '');
+                if (sPhone.includes(cleanPhone)) {
+                    matches.push({ id: doc.id, ...s });
                 }
             });
 
-            if (targetService) {
-                // Aquí iría el OCR real. Simulamos detección de valor total para este ejemplo.
-                const valorPagado = targetService.saldo || (targetService.valorServicio - targetService.anticipo);
-                const saldoAnterior = targetService.saldo;
+            // Priorizar el servicio más reciente si hay varios
+            if (matches.length > 0) {
+                // Ordenar por fecha descendente
+                matches.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+                const targetService = matches[0];
+
+                const valorTotal = Number(targetService.valorServicio) || 0;
+                const anticipoActual = Number(targetService.anticipo) || 0;
+                const saldoPendiente = Math.max(0, valorTotal - anticipoActual);
                 
-                // Actualizar Servicio en Firestore
+                // Actualizar Servicio en Firestore (Sincronización Total)
                 await db.collection('services').doc(targetService.id).update({
                     estadoPago: 'Pagado',
-                    anticipo: targetService.valorServicio,
+                    anticipo: valorTotal,
                     saldo: 0,
                     metodoPago: 'Transferencia'
                 });
 
-                // REGISTRO CRÍTICO: Auditoría de Pagos (Para que aparezca en el módulo del Panel)
+                // REGISTRO Auditoría de Pagos
                 await db.collection('pagos_aplicados').add({
                     servicioId: targetService.id,
                     consecutivo: targetService.consecutivo,
                     clienteNombre: targetService.clienteNombre || targetService.cliente,
                     telefonoCliente: targetService.telefonoCliente,
-                    valorPago: valorPagado,
+                    valorPago: saldoPendiente,
                     numeroTransaccion: 'WA-' + msg.id.id,
                     bancoOrigen: 'WHATSAPP-BOT',
-                    bancoDestino: 'Bancolombia',
-                    saldoAnterior: saldoAnterior,
+                    bancoDestino: 'Transferencia',
+                    saldoAnterior: saldoPendiente,
                     saldoNuevo: 0,
                     estadoPago: 'Pagado',
                     fecha: admin.firestore.FieldValue.serverTimestamp()
@@ -121,13 +127,13 @@ client.on('message', async (msg) => {
                         emailCliente: targetService.emailCliente,
                         consecutivo: targetService.consecutivo,
                         clienteNombre: targetService.clienteNombre || targetService.cliente,
-                        valorPago: valorPagado,
+                        valorPago: saldoPendiente,
                         pendiente: true,
                         fecha: admin.firestore.FieldValue.serverTimestamp()
                     });
                 }
 
-                await msg.reply(`✅ *¡SOPORTE IDENTIFICADO!* 📝\n\nHola, he procesado tu pago para el servicio *${targetService.consecutivo}*.\n\n💰 *Valor:* ${new Intl.NumberFormat('es-CO', {style:'currency', currency:'COP'}).format(valorPagado)}\n📊 *Estado:* Totalmente Pagado.\n\nEn breve recibirás la confirmación oficial en tu correo. ¡Gracias! ✨`);
+                await msg.reply(`✅ *¡PAGO REGISTRADO!* 📝\n\nHola, he procesado tu soporte para el servicio *${targetService.consecutivo}*.\n\n💰 *Monto Aplicado:* ${new Intl.NumberFormat('es-CO', {style:'currency', currency:'COP', minimumFractionDigits: 0}).format(saldoPendiente)}\n📊 *Estado:* Totalmente Pagado.\n\nEn breve recibirás la confirmación oficial en tu correo. ¡Gracias por tu puntualidad! ✨`);
             }
         } catch (err) {
             console.error('[Nova] Error procesando pago WA:', err);
@@ -264,6 +270,20 @@ app.post('/send-message', checkApiKey, async (req, res) => {
     } catch (error) {
         console.error('[Nova] Error al enviar mensaje:', error.message);
         res.status(500).json({ error: 'Fallo al enviar mensaje.' });
+    }
+});
+
+app.post('/send-file', checkApiKey, async (req, res) => {
+    const { jid, fileBase64, fileName, mimeType } = req.body;
+    if (!isReady) return res.status(503).json({ error: 'Nova no está conectada' });
+
+    try {
+        const media = new MessageMedia(mimeType, fileBase64, fileName);
+        await client.sendMessage(jid, media);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[Nova] Error al enviar archivo:', error.message);
+        res.status(500).json({ error: 'Fallo al enviar archivo.' });
     }
 });
 

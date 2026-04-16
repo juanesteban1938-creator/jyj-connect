@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -69,13 +68,14 @@ export default function FacturacionPage() {
       const valor = Number(s.valorServicio) || 0;
       const costo = Number(s.costoOperacion) || 0;
       const anticipo = Number(s.anticipo) || 0;
-      const saldo = (s.saldo !== undefined && s.saldo !== null) ? Number(s.saldo) : (valor - anticipo);
+      const saldo = (s.saldo !== undefined && s.saldo !== null) ? Number(s.saldo) : Math.max(0, valor - anticipo);
 
       acc.total += valor;
       if (s.estadoPago === 'Pagado') {
         acc.ganancia += (valor - costo);
       }
-      if (s.estadoPago === 'Pendiente' || s.estadoPago === 'Anticipo') {
+      // Considerar Pendiente, Anticipo o el antiguo Pending como deuda si el saldo es > 0
+      if ((s.estadoPago === 'Pendiente' || s.estadoPago === 'Anticipo' || s.estadoPago === 'Pending') && saldo > 0) {
         acc.cartera += saldo;
       }
       return acc;
@@ -84,12 +84,16 @@ export default function FacturacionPage() {
 
   const debtors = useMemo(() => {
     return servicios
-      .filter(s => (Number(s.saldo) || 0) > 0)
+      .filter(s => {
+        const saldo = (s.saldo !== undefined && s.saldo !== null) ? Number(s.saldo) : (Number(s.valorServicio || 0) - Number(s.anticipo || 0));
+        const isNotPaid = s.estadoPago !== 'Pagado' && s.estadoPago !== 'Anulado';
+        return isNotPaid && saldo > 0;
+      })
       .sort((a, b) => (Number(b.saldo) || 0) - (Number(a.saldo) || 0));
   }, [servicios]);
 
   const exportToExcel = () => {
-    const servicesWithBalance = servicios.filter(s => (Number(s.saldo) || 0) > 0);
+    const servicesWithBalance = debtors;
     const rows = servicesWithBalance.map(s => ({
       Consecutivo: s.consecutivo,
       Cliente: s.cliente,
@@ -118,7 +122,7 @@ export default function FacturacionPage() {
 
   const exportToPDF = () => {
     const doc = jsPDF();
-    const servicesWithBalance = servicios.filter(s => (Number(s.saldo) || 0) > 0);
+    const servicesWithBalance = debtors;
     const totalCartera = servicesWithBalance.reduce((acc, s) => acc + (Number(s.saldo) || 0), 0);
     
     doc.setFontSize(16);
@@ -297,7 +301,7 @@ export default function FacturacionPage() {
     const docRef = doc(db, 'services', selected.id);
     const valor = Number(data.valorServicio) || 0;
     const anticipo = Number(data.anticipo) || 0;
-    const saldo = valor - anticipo;
+    const saldo = Math.max(0, valor - anticipo);
     
     updateDoc(docRef, { ...data, saldo })
       .then(async () => {
