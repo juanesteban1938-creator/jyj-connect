@@ -1,7 +1,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 2.2.1 (Sync Corregido y Resolución de Servicios)
+ * Versión: 2.2.2 (Prevención de Duplicados y Auditoría)
  */
 
 const express = require('express');
@@ -68,11 +68,24 @@ client.on('message', async (msg) => {
     // 2. Identificar Soporte de Pago
     if (msg.hasMedia && (body.toLowerCase().includes('pago') || body.toLowerCase().includes('soporte') || body.toLowerCase().includes('transferencia') || body.toLowerCase().includes('comprobante'))) {
         try {
+            const transaccionId = 'WA-' + msg.id.id;
+
+            // --- FILTRO DE PREVENCIÓN DE DUPLICADOS ---
+            const duplicateCheck = await db.collection('pagos_aplicados')
+                .where('numeroTransaccion', '==', transaccionId)
+                .limit(1)
+                .get();
+
+            if (!duplicateCheck.empty) {
+                console.log(`[Nova] Pago duplicado detectado omitido: ${transaccionId}`);
+                await msg.reply(`⚠️ *AVISO:* He detectado que este comprobante ya fue procesado anteriormente. No se aplicará un nuevo cargo para evitar duplicidad en tu cuenta. Si crees que es un error, por favor contacta a un asesor. ¡Gracias!`);
+                return;
+            }
+
             // Buscamos un servicio programado o en anticipo para este número
             const rawPhone = jid.split('@')[0];
             const cleanPhone = rawPhone.replace(/\D/g, '').slice(-10);
             
-            // Consultar todos los servicios pendientes de este cliente
             const servicesSnap = await db.collection('services')
                 .where('estadoPago', 'in', ['Pendiente', 'Anticipo', 'Pending'])
                 .get();
@@ -86,9 +99,7 @@ client.on('message', async (msg) => {
                 }
             });
 
-            // Priorizar el servicio más reciente si hay varios
             if (matches.length > 0) {
-                // Ordenar por fecha descendente
                 matches.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
                 const targetService = matches[0];
 
@@ -96,7 +107,6 @@ client.on('message', async (msg) => {
                 const anticipoActual = Number(targetService.anticipo) || 0;
                 const saldoPendiente = Math.max(0, valorTotal - anticipoActual);
                 
-                // Actualizar Servicio en Firestore (Sincronización Total)
                 await db.collection('services').doc(targetService.id).update({
                     estadoPago: 'Pagado',
                     anticipo: valorTotal,
@@ -104,14 +114,13 @@ client.on('message', async (msg) => {
                     metodoPago: 'Transferencia'
                 });
 
-                // REGISTRO Auditoría de Pagos
                 await db.collection('pagos_aplicados').add({
                     servicioId: targetService.id,
                     consecutivo: targetService.consecutivo,
                     clienteNombre: targetService.clienteNombre || targetService.cliente,
                     telefonoCliente: targetService.telefonoCliente,
                     valorPago: saldoPendiente,
-                    numeroTransaccion: 'WA-' + msg.id.id,
+                    numeroTransaccion: transaccionId,
                     bancoOrigen: 'WHATSAPP-BOT',
                     bancoDestino: 'Transferencia',
                     saldoAnterior: saldoPendiente,
@@ -120,7 +129,6 @@ client.on('message', async (msg) => {
                     fecha: admin.firestore.FieldValue.serverTimestamp()
                 });
 
-                // Registrar para envío de correo
                 if (targetService.emailCliente) {
                     await db.collection('pagos_pendientes_correo').add({
                         servicioId: targetService.id,

@@ -2,13 +2,19 @@
 
 import { useState, useMemo } from 'react';
 import { useFirestore, useUser, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, orderBy, where, doc, updateDoc, Timestamp, getDocs, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, where, doc, updateDoc, Timestamp, getDocs, getDoc, deleteDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { 
   CreditCard, 
   Search, 
@@ -23,13 +29,17 @@ import {
   DollarSign,
   TrendingUp,
   Landmark,
-  RefreshCcw
+  RefreshCcw,
+  MoreHorizontal,
+  Trash2,
+  Eye
 } from 'lucide-react';
 import { format, isToday, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', {
   style: 'currency',
@@ -44,6 +54,7 @@ export default function PagosAuditPage() {
   const db = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
+  const router = useRouter();
 
   // Consultas a Firestore
   const pagosQuery = useMemoFirebase(() => {
@@ -125,7 +136,6 @@ export default function PagosAuditPage() {
     let fixedCount = 0;
 
     try {
-      // Re-consultamos los pagos para asegurar datos frescos
       const pagosSnap = await getDocs(collection(db, 'pagos_aplicados'));
       
       for (const pDoc of pagosSnap.docs) {
@@ -136,12 +146,10 @@ export default function PagosAuditPage() {
           
           if (sSnap.exists()) {
             const sData = sSnap.data();
-            // Si el estado o el saldo en el servicio no coinciden con el último pago registrado
             if (sData.estadoPago !== p.estadoPago || sData.saldo !== p.saldoNuevo) {
               await updateDoc(sRef, {
                 estadoPago: p.estadoPago,
                 saldo: p.saldoNuevo,
-                // Si el pago fue total, aseguramos que el anticipo sea igual al valor total
                 ...(p.estadoPago === 'Pagado' ? { anticipo: sData.valorServicio || p.valorPago } : {})
               });
               fixedCount++;
@@ -153,6 +161,21 @@ export default function PagosAuditPage() {
     } catch (err) {
       console.error('Error en reconciliación:', err);
       toast({ variant: "destructive", title: "Error de Sincronización", description: "No se pudieron reconciliar todos los registros." });
+    } finally {
+      setIsProcessing(null);
+    }
+  };
+
+  const handleDeletePago = async (id: string) => {
+    if (!confirm('¿Desea eliminar este registro de pago de la bitácora? Esta acción no revierte los cambios en el servicio, solo limpia el historial de auditoría.')) return;
+    
+    setIsProcessing(id);
+    const docRef = doc(db, 'pagos_aplicados', id);
+    try {
+      await deleteDoc(docRef);
+      toast({ title: "Registro eliminado", description: "El pago ha sido removido del historial." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar el registro." });
     } finally {
       setIsProcessing(null);
     }
@@ -340,19 +363,20 @@ export default function PagosAuditPage() {
                 <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400">Transacción / Banco</TableHead>
                 <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400 text-right">Conciliación (Saldos)</TableHead>
                 <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400 text-center">Estado</TableHead>
+                <TableHead className="w-[50px] p-5"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loadingPagos ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="p-20 text-center">
+                  <TableCell colSpan={8} className="p-20 text-center">
                     <Loader2 className="h-8 w-8 animate-spin text-orange-500 mx-auto mb-4" />
                     <p className="text-xs font-black uppercase text-slate-400 tracking-widest">Sincronizando cobros...</p>
                   </TableCell>
                 </TableRow>
               ) : filteredPagos.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="p-20 text-center opacity-40">
+                  <TableCell colSpan={8} className="p-20 text-center opacity-40">
                     <CreditCard className="h-12 w-12 mx-auto mb-4 text-slate-300" />
                     <p className="text-xs font-black uppercase text-slate-400 tracking-widest">No se encontraron pagos registrados</p>
                   </TableCell>
@@ -408,6 +432,29 @@ export default function PagosAuditPage() {
                       )}>
                         {p.estadoPago}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="p-5 text-center">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" disabled={isProcessing === p.id}>
+                            {isProcessing === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl shadow-xl">
+                          <DropdownMenuItem 
+                            className="rounded-lg font-bold text-xs py-2.5"
+                            onClick={() => router.push(`/dashboard/servicios?consecutivo=${p.consecutivo}`)}
+                          >
+                            <Eye className="mr-2 h-4 w-4 text-slate-400" /> Ver Servicio
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="text-red-600 rounded-lg font-bold text-xs py-2.5 bg-red-50/50 mt-1"
+                            onClick={() => handleDeletePago(p.id)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" /> Eliminar Registro
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 );
