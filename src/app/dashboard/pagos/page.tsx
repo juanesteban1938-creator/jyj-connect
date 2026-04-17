@@ -9,6 +9,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Label } from '@/components/ui/label';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription 
+} from '@/components/ui/dialog';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -32,9 +47,10 @@ import {
   RefreshCcw,
   MoreHorizontal,
   Trash2,
-  Eye
+  Eye,
+  Edit
 } from 'lucide-react';
-import { format, isToday, startOfDay, endOfDay } from 'date-fns';
+import { format, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
@@ -51,6 +67,10 @@ export default function PagosAuditPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstado, setFilterEstado] = useState('Todos');
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  
+  const [editingPago, setEditingPago] = useState<any | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+
   const db = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
@@ -176,6 +196,31 @@ export default function PagosAuditPage() {
       toast({ title: "Registro eliminado", description: "El pago ha sido removido del historial." });
     } catch (e) {
       toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar el registro." });
+    } finally {
+      setIsProcessing(null);
+    }
+  };
+
+  const handleSaveEditPago = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPago) return;
+    
+    setIsProcessing(editingPago.id);
+    const docRef = doc(db, 'pagos_aplicados', editingPago.id);
+    
+    try {
+      await updateDoc(docRef, {
+        valorPago: Number(editingPago.valorPago),
+        numeroTransaccion: editingPago.numeroTransaccion,
+        bancoOrigen: editingPago.bancoOrigen,
+        bancoDestino: editingPago.bancoDestino,
+        estadoPago: editingPago.estadoPago
+      });
+      setIsEditOpen(false);
+      setEditingPago(null);
+      toast({ title: "Registro actualizado", description: "La información del pago ha sido modificada con éxito." });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el registro." });
     } finally {
       setIsProcessing(null);
     }
@@ -440,12 +485,18 @@ export default function PagosAuditPage() {
                             {isProcessing === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl shadow-xl">
+                        <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl shadow-xl">
                           <DropdownMenuItem 
                             className="rounded-lg font-bold text-xs py-2.5"
                             onClick={() => router.push(`/dashboard/servicios?consecutivo=${p.consecutivo}`)}
                           >
                             <Eye className="mr-2 h-4 w-4 text-slate-400" /> Ver Servicio
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="rounded-lg font-bold text-xs py-2.5"
+                            onClick={() => { setEditingPago({...p}); setIsEditOpen(true); }}
+                          >
+                            <Edit className="mr-2 h-4 w-4 text-slate-400" /> Editar Registro
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             className="text-red-600 rounded-lg font-bold text-xs py-2.5 bg-red-50/50 mt-1"
@@ -463,6 +514,95 @@ export default function PagosAuditPage() {
           </Table>
         </div>
       </Card>
+
+      {/* Diálogo de Edición */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-[425px] rounded-3xl border-none shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-black uppercase tracking-tight">
+              <div className="p-2 rounded-xl bg-orange-500 text-white">
+                <Edit className="h-5 w-5" />
+              </div>
+              Editar Registro
+            </DialogTitle>
+            <DialogDescription className="font-medium text-slate-500">
+              Corrija los datos de la conciliación procesada.
+            </DialogDescription>
+          </DialogHeader>
+          {editingPago && (
+            <form onSubmit={handleSaveEditPago} className="space-y-5 pt-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Valor Recaudado</Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input 
+                    type="number" 
+                    className="pl-9 h-12 bg-slate-50 border-slate-200 rounded-xl font-bold"
+                    value={editingPago.valorPago} 
+                    onChange={e => setEditingPago({...editingPago, valorPago: e.target.value})} 
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Referencia / Comprobante</Label>
+                <Input 
+                  className="h-12 bg-slate-50 border-slate-200 rounded-xl font-bold"
+                  value={editingPago.numeroTransaccion} 
+                  onChange={e => setEditingPago({...editingPago, numeroTransaccion: e.target.value})} 
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Banco Origen</Label>
+                  <Input 
+                    className="h-11 bg-slate-50 border-slate-200 rounded-xl text-xs font-bold"
+                    value={editingPago.bancoOrigen} 
+                    onChange={e => setEditingPago({...editingPago, bancoOrigen: e.target.value})} 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Banco Destino</Label>
+                  <Input 
+                    className="h-11 bg-slate-50 border-slate-200 rounded-xl text-xs font-bold"
+                    value={editingPago.bancoDestino} 
+                    onChange={e => setEditingPago({...editingPago, bancoDestino: e.target.value})} 
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Estado de la Conciliación</Label>
+                <Select 
+                  value={editingPago.estadoPago} 
+                  onValueChange={val => setEditingPago({...editingPago, estadoPago: val})}
+                >
+                  <SelectTrigger className="h-12 bg-slate-50 border-slate-200 rounded-xl font-bold">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="Pagado" className="font-bold text-xs uppercase">Pagado (Total)</SelectItem>
+                    <SelectItem value="Anticipo" className="font-bold text-xs uppercase">Anticipo (Parcial)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-6 border-t">
+                <Button type="button" variant="ghost" onClick={() => setIsEditOpen(false)} className="rounded-xl font-bold">Cancelar</Button>
+                <Button 
+                  type="submit" 
+                  className="bg-orange-500 hover:bg-orange-600 text-white font-black px-6 rounded-xl"
+                  disabled={!!isProcessing}
+                >
+                  {isProcessing === editingPago.id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Guardar Cambios
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
