@@ -151,36 +151,49 @@ export default function PagosAuditPage() {
   };
 
   const handleReconcile = async () => {
-    if (!confirm('¿Deseas sincronizar todos los pagos registrados con la cartera? Esto corregirá inconsistencias de saldo.')) return;
+    if (!confirm('¿Deseas sincronizar todos los pagos registrados con la cartera? Esto corregirá inconsistencias de saldo aplicando siempre el último pago registrado.')) return;
     setIsProcessing('reconcile');
     let fixedCount = 0;
 
     try {
       const pagosSnap = await getDocs(collection(db, 'pagos_aplicados'));
       
-      for (const pDoc of pagosSnap.docs) {
+      // FIX: Agrupar por servicioId y mantener solo el registro más reciente cronológicamente
+      const latestPaymentsByService: Record<string, { data: any, date: number }> = {};
+
+      pagosSnap.docs.forEach(pDoc => {
         const p = pDoc.data();
         if (p.servicioId) {
-          const sRef = doc(db, 'services', p.servicioId);
-          const sSnap = await getDoc(sRef);
-          
-          if (sSnap.exists()) {
-            const sData = sSnap.data();
-            if (sData.estadoPago !== p.estadoPago || sData.saldo !== p.saldoNuevo) {
-              await updateDoc(sRef, {
-                estadoPago: p.estadoPago,
-                saldo: p.saldoNuevo,
-                ...(p.estadoPago === 'Pagado' ? { anticipo: sData.valorServicio || p.valorPago } : {})
-              });
-              fixedCount++;
-            }
+          const pDate = p.fecha instanceof Timestamp ? p.fecha.toMillis() : new Date(p.fecha).getTime();
+          if (!latestPaymentsByService[p.servicioId] || pDate > latestPaymentsByService[p.servicioId].date) {
+            latestPaymentsByService[p.servicioId] = { data: p, date: pDate };
+          }
+        }
+      });
+      
+      for (const serviceId in latestPaymentsByService) {
+        const p = latestPaymentsByService[serviceId].data;
+        const sRef = doc(db, 'services', serviceId);
+        const sSnap = await getDoc(sRef);
+        
+        if (sSnap.exists()) {
+          const sData = sSnap.data();
+          // Solo actualizar si el estado o el saldo difieren del ÚLTIMO pago registrado
+          if (sData.estadoPago !== p.estadoPago || sData.saldo !== p.saldoNuevo) {
+            await updateDoc(sRef, {
+              estadoPago: p.estadoPago,
+              saldo: p.saldoNuevo,
+              // Si el último estado es Pagado, el anticipo debe ser igual al valor total del servicio
+              ...(p.estadoPago === 'Pagado' ? { anticipo: sData.valorServicio || p.valorPago } : {})
+            });
+            fixedCount++;
           }
         }
       }
-      toast({ title: "Sincronización Exitosa", description: `Se han actualizado ${fixedCount} servicios en cartera.` });
+      toast({ title: "Sincronización Exitosa", description: `Se han ajustado ${fixedCount} servicios basados en el historial más reciente.` });
     } catch (err) {
       console.error('Error en reconciliación:', err);
-      toast({ variant: "destructive", title: "Error de Sincronización", description: "No se pudieron reconciliar todos los registros." });
+      toast({ variant: "destructive", title: "Error de Sincronización", description: "Ocurrió un problema al procesar los registros." });
     } finally {
       setIsProcessing(null);
     }

@@ -1,7 +1,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 2.2.2 (Prevención de Duplicados y Auditoría)
+ * Versión: 2.2.3 (Optimización de Sincronización y Cartera)
  */
 
 const express = require('express');
@@ -78,14 +78,14 @@ client.on('message', async (msg) => {
 
             if (!duplicateCheck.empty) {
                 console.log(`[Nova] Pago duplicado detectado omitido: ${transaccionId}`);
-                await msg.reply(`⚠️ *AVISO:* He detectado que este comprobante ya fue procesado anteriormente. No se aplicará un nuevo cargo para evitar duplicidad en tu cuenta. Si crees que es un error, por favor contacta a un asesor. ¡Gracias!`);
                 return;
             }
 
-            // Buscamos un servicio programado o en anticipo para este número
+            // Buscamos servicios activos para este número
             const rawPhone = jid.split('@')[0];
             const cleanPhone = rawPhone.replace(/\D/g, '').slice(-10);
             
+            // Priorizamos servicios que tengan deuda
             const servicesSnap = await db.collection('services')
                 .where('estadoPago', 'in', ['Pendiente', 'Anticipo', 'Pending'])
                 .get();
@@ -100,6 +100,7 @@ client.on('message', async (msg) => {
             });
 
             if (matches.length > 0) {
+                // Ordenar por fecha descendente para aplicar al servicio más reciente
                 matches.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
                 const targetService = matches[0];
 
@@ -107,6 +108,7 @@ client.on('message', async (msg) => {
                 const anticipoActual = Number(targetService.anticipo) || 0;
                 const saldoPendiente = Math.max(0, valorTotal - anticipoActual);
                 
+                // Actualizar Servicio Atómicamente
                 await db.collection('services').doc(targetService.id).update({
                     estadoPago: 'Pagado',
                     anticipo: valorTotal,
@@ -114,6 +116,7 @@ client.on('message', async (msg) => {
                     metodoPago: 'Transferencia'
                 });
 
+                // Registrar en Auditoría de Pagos
                 await db.collection('pagos_aplicados').add({
                     servicioId: targetService.id,
                     consecutivo: targetService.consecutivo,
@@ -129,6 +132,7 @@ client.on('message', async (msg) => {
                     fecha: admin.firestore.FieldValue.serverTimestamp()
                 });
 
+                // Registrar Correo Pendiente
                 if (targetService.emailCliente) {
                     await db.collection('pagos_pendientes_correo').add({
                         servicioId: targetService.id,
