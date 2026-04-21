@@ -54,20 +54,22 @@ export async function POST(request: Request) {
           }
       ];
     } else if (servicioData) {
-      // Caso 2: Notificación de Pago Confirmado (Sin PDF)
+      // Caso 2: Notificación de Pago Confirmado (Sin PDF) - Limpieza de NaN y Undefined
       const currencyFormatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 });
+      const valorLimpio = Number(servicioData.valor) || 0;
+      
       mailOptions.subject = `✅ Pago Confirmado - Cuenta de Cobro ${nroFactura}`;
       mailOptions.html = `
           <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
               <h2 style="color: #000; font-family: 'Poppins', sans-serif;">¡Pago Recibido con Éxito!</h2>
-              <p>Hola, <b>${servicioData.cliente}</b>. Esperamos que se encuentre muy bien.</p>
+              <p>Hola, <b>${servicioData.cliente || 'estimado cliente'}</b>. Esperamos que se encuentre muy bien.</p>
               <p>Le confirmamos que hemos recibido el pago correspondiente al servicio con número de cuenta de cobro: <b>${nroFactura}</b>.</p>
               <div style="background: #f9f9f9; padding: 20px; border-radius: 12px; margin: 20px 0; border: 1px dashed #ddd;">
                   <h3 style="margin-top: 0; color: #F97316;">Resumen del Servicio</h3>
-                  <p style="margin: 5px 0;"><b>📅 Fecha:</b> ${new Date(servicioData.fecha).toLocaleDateString()}</p>
-                  <p style="margin: 5px 0;"><b>📍 Trayecto:</b> ${servicioData.origen} ➔ ${servicioData.destino}</p>
-                  <p style="margin: 5px 0;"><b>💰 Valor Pagado:</b> ${currencyFormatter.format(servicioData.valor)}</p>
-                  <p style="margin: 5px 0;"><b>🚐 Vehículo/Conductor:</b> ${servicioData.vehiculo} / ${servicioData.conductor}</p>
+                  <p style="margin: 5px 0;"><b>📅 Fecha:</b> ${servicioData.fecha ? new Date(servicioData.fecha).toLocaleDateString() : 'N/A'}</p>
+                  <p style="margin: 5px 0;"><b>📍 Trayecto:</b> ${servicioData.origen || 'No especificado'} ➔ ${servicioData.destino || 'No especificado'}</p>
+                  <p style="margin: 5px 0;"><b>💰 Valor Pagado:</b> ${currencyFormatter.format(valorLimpio)}</p>
+                  <p style="margin: 5px 0;"><b>🚐 Vehículo/Conductor:</b> ${servicioData.vehiculo || 'Asignado'} / ${servicioData.conductor || 'Asignado'}</p>
               </div>
               <p>Gracias por elegir a <b>Transportes Especiales J&J</b>. Seguiremos trabajando para ofrecerle la mejor experiencia en movilidad.</p>
               <br>
