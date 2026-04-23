@@ -4,8 +4,10 @@ import type { Servicio } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { User, Truck, Briefcase, Phone, MapPin, Clock, ArrowDown } from "lucide-react";
+import { User, Truck, Briefcase, Phone, MapPin, Clock, ArrowDown, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 type Props = {
     servicio: Servicio;
@@ -48,6 +50,23 @@ export function InfoServicioCard({ servicio }: Props) {
             </CardHeader>
             <CardContent className="p-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
+                    
+                    {/* BLOQUE DE PROGRAMACIÓN DESTACADO */}
+                    <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 bg-orange-50/50 p-4 rounded-xl border border-orange-100 mb-4 shadow-sm">
+                         <InfoRow 
+                            label="Fecha del Servicio" 
+                            value={format(new Date(servicio.fecha), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es }).toUpperCase()} 
+                            icon={CalendarDays} 
+                            iconClassName="text-orange-600" 
+                         />
+                         <InfoRow 
+                            label="Hora de Inicio" 
+                            value={formatearHora(servicio.hora)} 
+                            icon={Clock} 
+                            iconClassName="text-orange-600" 
+                         />
+                    </div>
+
                     <InfoRow label="Cliente" value={servicio.cliente} icon={Briefcase} iconClassName="text-primary" />
                     <InfoRow label="Contacto Cliente" value={servicio.telefonoCliente} icon={Phone} iconClassName="text-primary" />
                     <InfoRow label="Conductor Asignado" value={conductorDisplay} icon={User} iconClassName="text-primary" />
@@ -94,12 +113,6 @@ export function InfoServicioCard({ servicio }: Props) {
                             </div>
                         </div>
                     </div>
-
-                    <div className="sm:col-span-2">
-                        <Separator className="my-4"/>
-                    </div>
-
-                    <InfoRow label="Hora de Inicio Programada" value={formatearHora(servicio.hora)} icon={Clock} iconClassName="text-orange-500" />
                 </div>
             </CardContent>
         </Card>
