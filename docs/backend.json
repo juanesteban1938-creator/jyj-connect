@@ -1,55 +1,564 @@
 {
   "entities": {
     "Driver": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Driver",
       "type": "object",
+      "description": "Represents a driver employed by Transportes Especiales J&J.",
       "properties": {
-        "id": { "type": "string" },
-        "nombres": { "type": "string" },
-        "apellidos": { "type": "string" },
-        "cedula": { "type": "string" },
-        "telefono": { "type": "string" },
-        "vencimientoLicencia": { "type": "string", "format": "date-time" }
-      }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Driver entity."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The driver's first name."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The driver's last name."
+        },
+        "email": {
+          "type": "string",
+          "description": "The driver's email address.",
+          "format": "email"
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "The driver's contact phone number."
+        },
+        "licenseNumber": {
+          "type": "string",
+          "description": "The driver's unique license number."
+        },
+        "licenseExpiryDate": {
+          "type": "string",
+          "description": "The expiration date of the driver's license.",
+          "format": "date"
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Indicates if the driver is currently active."
+        },
+        "dateHired": {
+          "type": "string",
+          "description": "The date when the driver was hired.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName",
+        "email",
+        "phoneNumber",
+        "licenseNumber",
+        "licenseExpiryDate",
+        "isActive",
+        "dateHired"
+      ]
     },
     "Vehicle": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Vehicle",
       "type": "object",
+      "description": "Represents a vehicle in the company's fleet.",
       "properties": {
-        "id": { "type": "string" },
-        "placa": { "type": "string" },
-        "marca": { "type": "string" },
-        "modelo": { "type": "string" },
-        "vencimientoSoat": { "type": "string", "format": "date-time" }
-      }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Vehicle entity."
+        },
+        "licensePlate": {
+          "type": "string",
+          "description": "The vehicle's license plate number."
+        },
+        "make": {
+          "type": "string",
+          "description": "The manufacturer of the vehicle."
+        },
+        "model": {
+          "type": "string",
+          "description": "The model of the vehicle."
+        },
+        "year": {
+          "type": "number",
+          "description": "The manufacturing year of the vehicle."
+        },
+        "capacity": {
+          "type": "number",
+          "description": "The passenger capacity of the vehicle."
+        },
+        "vin": {
+          "type": "string",
+          "description": "The Vehicle Identification Number (VIN)."
+        },
+        "lastMaintenanceDate": {
+          "type": "string",
+          "description": "The date of the last scheduled maintenance.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current operational status of the vehicle (e.g., 'Active', 'In Maintenance', 'Inactive')."
+        },
+        "currentDriverId": {
+          "type": "string",
+          "description": "Reference to the currently assigned Driver. (Relationship: Driver 1:N Vehicle)"
+        }
+      },
+      "required": [
+        "id",
+        "licensePlate",
+        "make",
+        "model",
+        "year",
+        "capacity",
+        "vin",
+        "status"
+      ]
     },
-    "SolicitudAsesor": {
-      "title": "Solicitud Asesor",
-      "description": "Clientes que solicitan atención humana en el chat",
+    "Customer": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Customer",
       "type": "object",
+      "description": "Represents a customer who uses transportation services.",
       "properties": {
-        "id": { "type": "string" },
-        "jid": { "type": "string" },
-        "nombreCliente": { "type": "string" },
-        "estado": { "type": "string", "enum": ["pendiente", "atendido"] },
-        "fecha": { "type": "string", "format": "date-time" }
-      }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Customer entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the customer (company or individual)."
+        },
+        "contactPerson": {
+          "type": "string",
+          "description": "The primary contact person for the customer."
+        },
+        "email": {
+          "type": "string",
+          "description": "The customer's email address.",
+          "format": "email"
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "The customer's contact phone number."
+        },
+        "address": {
+          "type": "string",
+          "description": "The primary billing or contact address of the customer."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "contactPerson",
+        "email",
+        "phoneNumber",
+        "address"
+      ]
+    },
+    "Service": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Service",
+      "type": "object",
+      "description": "Represents a scheduled transportation service.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Service entity."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of the service provided."
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Reference to the Customer for whom the service is provided. (Relationship: Customer 1:N Service)"
+        },
+        "driverId": {
+          "type": "string",
+          "description": "Reference to the Driver assigned to this service. (Relationship: Driver 1:N Service)"
+        },
+        "vehicleId": {
+          "type": "string",
+          "description": "Reference to the Vehicle assigned to this service. (Relationship: Vehicle 1:N Service)"
+        },
+        "scheduledStartTime": {
+          "type": "string",
+          "description": "The planned start time of the service.",
+          "format": "date-time"
+        },
+        "scheduledEndTime": {
+          "type": "string",
+          "description": "The planned end time of the service.",
+          "format": "date-time"
+        },
+        "actualStartTime": {
+          "type": "string",
+          "description": "The actual start time of the service (null if not started).",
+          "format": "date-time"
+        },
+        "actualEndTime": {
+          "type": "string",
+          "description": "The actual end time of the service (null if not completed).",
+          "format": "date-time"
+        },
+        "originAddress": {
+          "type": "string",
+          "description": "The starting address for the service route."
+        },
+        "destinationAddress": {
+          "type": "string",
+          "description": "The final destination address for the service route."
+        },
+        "passengerCount": {
+          "type": "number",
+          "description": "The number of passengers for this service."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the service (e.g., 'Scheduled', 'In Progress', 'Completed', 'Cancelled')."
+        },
+        "estimatedCost": {
+          "type": "number",
+          "description": "The estimated cost of the service."
+        },
+        "actualCost": {
+          "type": "number",
+          "description": "The actual cost incurred for the service (null if not finalized)."
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "customerId",
+        "driverId",
+        "vehicleId",
+        "scheduledStartTime",
+        "scheduledEndTime",
+        "originAddress",
+        "destinationAddress",
+        "passengerCount",
+        "status",
+        "estimatedCost"
+      ]
+    },
+    "VehicleLocation": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "VehicleLocation",
+      "type": "object",
+      "description": "Records real-time or historical location data for a vehicle.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the VehicleLocation record."
+        },
+        "vehicleId": {
+          "type": "string",
+          "description": "Reference to the Vehicle whose location is being recorded. (Relationship: Vehicle 1:N VehicleLocation)"
+        },
+        "latitude": {
+          "type": "number",
+          "description": "The latitude coordinate of the vehicle's location."
+        },
+        "longitude": {
+          "type": "number",
+          "description": "The longitude coordinate of the vehicle's location."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The date and time when the location was recorded.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "vehicleId",
+        "latitude",
+        "longitude",
+        "timestamp"
+      ]
+    },
+    "Invoice": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Invoice",
+      "type": "object",
+      "description": "Represents an invoice issued for completed services.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Invoice entity."
+        },
+        "serviceId": {
+          "type": "string",
+          "description": "Reference to the Service for which this invoice is generated. (Relationship: Service 1:N Invoice)"
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Reference to the Customer associated with this invoice. (Relationship: Customer 1:N Invoice)"
+        },
+        "invoiceNumber": {
+          "type": "string",
+          "description": "A unique, human-readable invoice number."
+        },
+        "issueDate": {
+          "type": "string",
+          "description": "The date when the invoice was issued.",
+          "format": "date-time"
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "The date by which the invoice payment is due.",
+          "format": "date-time"
+        },
+        "amount": {
+          "type": "number",
+          "description": "The total amount of the invoice."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current payment status of the invoice (e.g., 'Pending', 'Paid', 'Overdue', 'Cancelled')."
+        },
+        "paymentDate": {
+          "type": "string",
+          "description": "The date when the invoice was paid (null if not paid).",
+          "format": "date-time"
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "The method used for payment (null if not paid)."
+        }
+      },
+      "required": [
+        "id",
+        "serviceId",
+        "customerId",
+        "invoiceNumber",
+        "issueDate",
+        "dueDate",
+        "amount",
+        "status"
+      ]
+    },
+    "Expense": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Expense",
+      "type": "object",
+      "description": "Tracks various operational expenses not directly tied to a specific service.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Expense entity."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the expense."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The monetary amount of the expense."
+        },
+        "expenseDate": {
+          "type": "string",
+          "description": "The date when the expense was incurred.",
+          "format": "date-time"
+        },
+        "category": {
+          "type": "string",
+          "description": "The category of the expense (e.g., 'Fuel', 'Maintenance', 'Driver Salary')."
+        },
+        "vehicleId": {
+          "type": "string",
+          "description": "Optional reference to a Vehicle if the expense is directly related to it. (Relationship: Vehicle 0:N Expense)"
+        },
+        "driverId": {
+          "type": "string",
+          "description": "Optional reference to a Driver if the expense is directly related to them. (Relationship: Driver 0:N Expense)"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "amount",
+        "expenseDate",
+        "category"
+      ]
     }
   },
   "auth": {
-    "providers": ["password"]
+    "providers": [
+      "password",
+      "anonymous"
+    ]
   },
   "firestore": {
     "structure": [
-      { "path": "/admins/{id}", "description": "Admin users list" },
-      { "path": "/conductores/{id}", "description": "Fleet drivers" },
-      { "path": "/vehiculos/{id}", "description": "Fleet vehicles" },
-      { "path": "/clientes/{id}", "description": "Client database" },
-      { "path": "/services/{id}", "description": "Transportation services" },
-      { "path": "/transacciones/{id}", "description": "Financial records" },
-      { "path": "/cotizaciones/{id}", "description": "WhatsApp quotes" },
-      { "path": "/conversaciones/{id}", "description": "Chat history" },
-      { "path": "/solicitudes_asesor/{id}", "description": "Human intervention requests" }
-    ]
+      {
+        "path": "/adminUsers/{userId}",
+        "definition": {
+          "entityName": "AdminRole",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "This collection identifies users with administrative privileges. The mere existence of a document for a `userId` in this collection grants administrative access to internal application data. This enables Database Access Control (DBAC) without custom claims and supports authorization independence for all admin-restricted collections.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique ID of the user who possesses administrative privileges."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/drivers/{driverId}",
+        "definition": {
+          "entityName": "Driver",
+          "schema": {
+            "$ref": "#/backend/entities/Driver"
+          },
+          "description": "Stores comprehensive details for each driver employed by Transportes Especiales J&J. Access to this collection is restricted to authenticated administrators.",
+          "params": [
+            {
+              "name": "driverId",
+              "description": "The unique identifier for a driver."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/vehicles/{vehicleId}",
+        "definition": {
+          "entityName": "Vehicle",
+          "schema": {
+            "$ref": "#/backend/entities/Vehicle"
+          },
+          "description": "Stores details for each vehicle in the company's fleet, including status and assignments. Access to this collection is restricted to authenticated administrators.",
+          "params": [
+            {
+              "name": "vehicleId",
+              "description": "The unique identifier for a vehicle."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/customers/{customerId}",
+        "definition": {
+          "entityName": "Customer",
+          "schema": {
+            "$ref": "#/backend/entities/Customer"
+          },
+          "description": "Stores information about customers who utilize the transportation services. Access to this collection is restricted to authenticated administrators.",
+          "params": [
+            {
+              "name": "customerId",
+              "description": "The unique identifier for a customer."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/services/{serviceId}",
+        "definition": {
+          "entityName": "Service",
+          "schema": {
+            "$ref": "#/backend/entities/Service"
+          },
+          "description": "Manages and stores details of each scheduled transportation service. Includes references to customer, driver, and vehicle, and uses an explicit 'status' field for clear state modeling. Access is restricted to authenticated administrators.",
+          "params": [
+            {
+              "name": "serviceId",
+              "description": "The unique identifier for a transportation service."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/vehicles/{vehicleId}/locationHistory/{locationRecordId}",
+        "definition": {
+          "entityName": "VehicleLocation",
+          "schema": {
+            "$ref": "#/backend/entities/VehicleLocation"
+          },
+          "description": "A subcollection storing historical location records for a specific vehicle. Used for internal auditing, route analysis, and reporting. Access restricted to authenticated administrators, adhering to hierarchical path-based ownership for entity-related data.",
+          "params": [
+            {
+              "name": "vehicleId",
+              "description": "The unique identifier of the parent vehicle."
+            },
+            {
+              "name": "locationRecordId",
+              "description": "The unique identifier for a specific historical location record."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/currentVehicleLocations/{vehicleId}",
+        "definition": {
+          "entityName": "CurrentVehicleLocation",
+          "schema": {
+            "$ref": "#/backend/entities/VehicleLocation"
+          },
+          "description": "Stores the *latest* known location and timestamp for each active vehicle. This collection is intended for internal real-time monitoring by administrators. Each document's ID corresponds to the `vehicleId`, and it represents the most recent `VehicleLocation` update. Access restricted to authenticated administrators.",
+          "params": [
+            {
+              "name": "vehicleId",
+              "description": "The unique identifier for the vehicle whose current location is stored."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/publicServiceTracking/{serviceId}",
+        "definition": {
+          "entityName": "PublicServiceTracking",
+          "schema": {
+            "$ref": "#/backend/entities/Service"
+          },
+          "description": "A dedicated, top-level collection for storing publicly viewable real-time tracking information for *active* services. Each document's ID is the `serviceId`. This collection ensures Authorization Independence by including denormalized fields such as `currentLatitude`, `currentLongitude`, `lastUpdatedTimestamp` (from `VehicleLocation` data), `serviceStatus`, and a critical `isPubliclyTrackable` boolean flag within the document itself. This design directly supports the `/gps/[id]` public route with simple, atomic security rules, as all required authorization context is self-contained.",
+          "params": [
+            {
+              "name": "serviceId",
+              "description": "The unique identifier for the service being publicly tracked."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/invoices/{invoiceId}",
+        "definition": {
+          "entityName": "Invoice",
+          "schema": {
+            "$ref": "#/backend/entities/Invoice"
+          },
+          "description": "Manages financial invoices issued to customers for completed services. Access to this collection is restricted to authenticated administrators.",
+          "params": [
+            {
+              "name": "invoiceId",
+              "description": "The unique identifier for an invoice."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/expenses/{expenseId}",
+        "definition": {
+          "entityName": "Expense",
+          "schema": {
+            "$ref": "#/backend/entities/Expense"
+          },
+          "description": "Tracks various operational expenses incurred by the company, optionally linked to specific vehicles or drivers. Access to this collection is restricted to authenticated administrators.",
+          "params": [
+            {
+              "name": "expenseId",
+              "description": "The unique identifier for an expense."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to be secure, scalable, and debuggable, strictly adhering to the core design principles and strategy mandates. \n\n**Authorization Independence via Denormalization:**\nThis design primarily achieves authorization independence for publicly accessible data through explicit denormalization. For instance, the `/publicServiceTracking/{serviceId}` collection is critical for the `/gps/[id]` public route. Each document in this collection directly contains all necessary public authorization context, such as the `isPubliclyTrackable` boolean flag, along with denormalized location and service status data. This eliminates the need for `get()` calls in Firestore Security Rules to check parent `Service` documents for permissions, allowing for atomic and highly performant reads for public users. Internal data (e.g., Drivers, Vehicles, Services) relies on the existence of a user's UID in the `/adminUsers/{userId}` collection, which is also an independent, atomic check.\n\n**QAPs (Rules are not Filters) and Structural Segregation:**\nStructural segregation is applied to ensure a homogeneous security posture within collections. For example, internal `VehicleLocation` history is kept in `/vehicles/{vehicleId}/locationHistory/{locationRecordId}` or real-time internal status in `/currentVehicleLocations/{vehicleId}` – both are restricted to authenticated administrators. In contrast, publicly trackable service data resides in the dedicated `/publicServiceTracking/{serviceId}` collection. This segregation ensures that public data does not share collections with sensitive internal data, simplifying security rules significantly. QAPs are supported as rules can directly assert permissions based on document IDs (e.g., `request.auth.uid == userId` for private user data) or specific document fields (e.g., `resource.data.isPubliclyTrackable == true` for public data), enabling efficient and secure `get()` and `list()` operations without acting as filters. For admin-facing collections, a simple `allow list: if exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid));` rule ensures that listing all documents is secure and efficient for authorized users."
   }
 }

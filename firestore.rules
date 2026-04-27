@@ -3,55 +3,183 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * TRANSPORTES ESPECIALES J&J - SECURITY RULES (V2.3)
-     *
-     * CORE PHILOSOPHY:
-     * Full administrative access for the master account and registered admins.
-     * FIX: Explicit path matching for new operational collections to prevent 'Missing Permissions' errors.
+     * Transportes Especiales J&J - Security Rules Philosophy
+     * 
+     * Core Philosophy: This ruleset implements a strict Administrative Role-Based Access Control (RBAC) 
+     * model alongside a secure Public Tracking mechanism.
+     * 
+     * Data Structure:
+     * - Internal data (Drivers, Vehicles, Customers, Services, Financials) is restricted to 
+     *   administrators verified via the /adminUsers/ collection.
+     * - Public data (/publicServiceTracking) is decoupled from internal records to allow 
+     *   anonymous access for external drivers/clients without compromising internal system integrity.
+     * 
+     * Key Security Decisions:
+     * - Administrative access is determined by the existence of a document in the /adminUsers collection.
+     * - The /publicServiceTracking collection uses a boolean flag (isPubliclyTrackable) for 
+     *   fine-grained control over which active routes are visible to external users.
+     * - Listing operations are generally disabled for public data to prevent ID discovery and scraping.
+     * - Structural Segregation is used to separate internal location history from real-time public links.
+     * 
+     * Denormalization for Authorization:
+     * - The 'isPubliclyTrackable' flag and 'serviceStatus' are denormalized into the tracking 
+     *   collection to ensure the public route /gps/[id] can authorize reads instantly 
+     *   without performing expensive cross-collection lookups.
      */
 
     // --- Helper Functions ---
 
+    /** @description Checks if the request is from an authenticated user. */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** 
-     * @description Checks if user is admin. 
-     * Prioritizes the master email to ensure access even if the database is uninitialized.
-     */
+    /** @description Checks if the authenticated user has an entry in the adminUsers collection. */
     function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == 'transportes.especialesjyj@gmail.com' ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
-      );
+      return isSignedIn() && exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid));
     }
 
-    // --- Global Admin Rule ---
-    // This ensures any collection (services, conductores, vehiculos, etc.) is accessible to admins.
-    match /{document=**} {
-      allow read, write: if isAdmin();
+    /** @description Validates admin status and ensures the document exists for update/delete. */
+    function isExistingAdmin() {
+      return isAdmin() && resource != null;
     }
 
-    // --- Specific Collection Overrides ---
-    // Explicitly defining paths helps the rule engine during 'list' operations on new collections.
-    
-    match /solicitudes_asesor/{id} {
-      allow read, write: if isAdmin();
+    /** @description Verifies the tracking document is explicitly marked for public consumption. */
+    function isPubliclyTrackable() {
+      return resource.data.isPubliclyTrackable == true;
     }
 
-    match /conversaciones/{id} {
-      allow read, write: if isAdmin();
+    // --- Collection Rules ---
+
+    /**
+     * @description Authorization source for administrative privileges.
+     * @path /adminUsers/{userId}
+     * @allow Authenticated user can (get) their own status; Admins can (list, create, update, delete).
+     * @deny Non-authenticated users or non-admin modification.
+     * @principle Database Access Control (DBAC) via document existence.
+     */
+    match /adminUsers/{userId} {
+      allow get: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
     }
 
-    match /admins/{adminId} {
-      // Allow any signed-in user to 'get' their own potential admin doc to check status
-      allow get: if isSignedIn();
+    /**
+     * @description Management of driver records.
+     * @path /drivers/{driverId}
+     * @allow Admin can (get, list, create, update, delete).
+     * @deny Any non-admin access.
+     * @principle Administrative restriction for HR/PII data.
+     */
+    match /drivers/{driverId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.id == driverId;
+      allow update, delete: if isExistingAdmin();
     }
 
-    // Nova Session Handling (Internal)
-    match /sesiones_nova/{id} {
-      allow read, write: if isAdmin();
+    /**
+     * @description Fleet management and status tracking.
+     * @path /vehicles/{vehicleId}
+     * @allow Admin can (get, list, create, update, delete).
+     * @deny Any non-admin access.
+     * @principle Administrative restriction for assets.
+     */
+    match /vehicles/{vehicleId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.id == vehicleId;
+      allow update, delete: if isExistingAdmin();
+
+      /**
+       * @description Historical location logs for audit and analysis.
+       * @path /vehicles/{vehicleId}/locationHistory/{locationRecordId}
+       * @allow Admin can (get, list, create, update, delete).
+       * @deny Public access.
+       * @principle Hierarchical path-based protection.
+       */
+      match /locationHistory/{locationRecordId} {
+        allow get, list: if isAdmin();
+        allow create: if isAdmin();
+        allow update, delete: if isExistingAdmin();
+      }
+    }
+
+    /**
+     * @description Customer CRM data.
+     * @path /customers/{customerId}
+     * @allow Admin can (get, list, create, update, delete).
+     * @deny Any non-admin access.
+     * @principle Administrative restriction for customer PII.
+     */
+    match /customers/{customerId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.id == customerId;
+      allow update, delete: if isExistingAdmin();
+    }
+
+    /**
+     * @description Core logistics service management.
+     * @path /services/{serviceId}
+     * @allow Admin can (get, list, create, update, delete).
+     * @deny Public or driver access to internal schedules.
+     * @principle Administrative restriction for business logic.
+     */
+    match /services/{serviceId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.id == serviceId;
+      allow update, delete: if isExistingAdmin();
+    }
+
+    /**
+     * @description High-frequency real-time internal monitoring.
+     * @path /currentVehicleLocations/{vehicleId}
+     * @allow Admin can (get, list, create, update, delete).
+     * @deny Public access.
+     * @principle Real-time monitoring restricted to operation staff.
+     */
+    match /currentVehicleLocations/{vehicleId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.id == vehicleId;
+      allow update, delete: if isExistingAdmin();
+    }
+
+    /**
+     * @description Public-facing route for the /gps/[id] tracking interface.
+     * @path /publicServiceTracking/{serviceId}
+     * @allow Anyone can (get) if isPubliclyTrackable is true; Admin can (list, create, update, delete).
+     * @deny Listing for public users; writing for non-admins.
+     * @principle Public access with flag-based authorization and structural segregation.
+     */
+    match /publicServiceTracking/{serviceId} {
+      allow get: if isPubliclyTrackable() || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.id == serviceId;
+      allow update, delete: if isExistingAdmin();
+    }
+
+    /**
+     * @description Financial records for services.
+     * @path /invoices/{invoiceId}
+     * @allow Admin can (get, list, create, update, delete).
+     * @deny Any non-admin access.
+     * @principle Administrative restriction for sensitive financial data.
+     */
+    match /invoices/{invoiceId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.id == invoiceId;
+      allow update, delete: if isExistingAdmin();
+    }
+
+    /**
+     * @description General business and fleet expenses.
+     * @path /expenses/{expenseId}
+     * @allow Admin can (get, list, create, update, delete).
+     * @deny Any non-admin access.
+     * @principle Administrative restriction for financial data.
+     */
+    match /expenses/{expenseId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.id == expenseId;
+      allow update, delete: if isExistingAdmin();
     }
   }
 }
