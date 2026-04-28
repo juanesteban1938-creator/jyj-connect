@@ -74,12 +74,11 @@ export function MainNav() {
     return query(collection(db, 'pagos_pendientes_correo'), where('pendiente', '==', true));
   }, [db, user]);
 
-  const { data: pendingCotizaciones } = useCollection(pendingCotQuery);
+  const { data: cotizaciones } = useCollection(pendingCotQuery);
   const { data: activeGPS } = useCollection(activeGPSQuery);
   const { data: pendingPayments } = useCollection(pendingPaymentsQuery);
   
-  // CRÍTICO: Asegurar que estos valores sean siempre primitivos numéricos para evitar crashes de renderizado
-  const pendingCount = Number(pendingCotizaciones?.length || 0);
+  const pendingCount = Number(cotizaciones?.length || 0);
   const activeGPSCount = Number(activeGPS?.length || 0);
   const pendingPaymentsCount = Number(pendingPayments?.length || 0);
 
@@ -117,9 +116,9 @@ export function MainNav() {
               >
                 <div className="relative">
                   <ClipboardList />
-                  {pendingCount > 0 && (
+                  {(cotizaciones?.length || 0) > 0 && (
                     <span className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-orange-500 text-[8px] font-black text-white ring-2 ring-white animate-pulse">
-                      {pendingCount}
+                      {cotizaciones?.length}
                     </span>
                   )}
                 </div>
@@ -142,9 +141,9 @@ export function MainNav() {
                         >
                         <div className="relative">
                           <item.icon />
-                          {item.href === '/dashboard/pagos' && pendingPaymentsCount > 0 && (
+                          {item.href === '/dashboard/pagos' && (pendingPayments?.length || 0) > 0 && (
                             <span className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-rose-500 text-[8px] font-black text-white ring-2 ring-white animate-pulse">
-                              {pendingPaymentsCount}
+                              {pendingPayments?.length}
                             </span>
                           )}
                         </div>
@@ -168,7 +167,7 @@ export function MainNav() {
                         >
                         <div className="relative">
                           <item.icon />
-                          {item.href === '/dashboard/gps' && activeGPSCount > 0 && (
+                          {item.href === '/dashboard/gps' && (activeGPS?.length || 0) > 0 && (
                             <span className="absolute -top-1 -right-1 flex h-2 w-2">
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>

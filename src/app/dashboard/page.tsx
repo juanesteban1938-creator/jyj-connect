@@ -13,6 +13,7 @@ import {
   Clock,
   CheckCircle2,
   Car,
+  ClipboardList,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,7 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useMemo, useState, useEffect } from 'react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, limit, orderBy } from 'firebase/firestore';
+import { collection, query, limit, orderBy, where } from 'firebase/firestore';
 import { 
   format, 
   startOfMonth, 
@@ -103,9 +104,15 @@ export default function DashboardHomePage() {
     return query(collection(db, 'vehiculos'));
   }, [db, user]);
 
+  const cotizacionesQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'cotizaciones'), where('estado', '==', 'pendiente'));
+  }, [db, user]);
+
   const { data: serviciosRaw, isLoading: isServicesLoading } = useCollection(servicesQuery);
   const { data: conductoresRaw } = useCollection(conductoresQuery);
   const { data: vehiculosRaw } = useCollection(vehiculosQuery);
+  const { data: cotizaciones } = useCollection(cotizacionesQuery);
 
   const servicios = serviciosRaw || [];
   const conductores = conductoresRaw || [];
@@ -124,10 +131,11 @@ export default function DashboardHomePage() {
     return {
       venta: currencyFormatter.format(totalVenta),
       cartera: currencyFormatter.format(totalCartera),
-      vehiculosCount: Number(vehiculos.length),
-      conductoresCount: Number(conductores.length),
+      vehiculosCount: String(vehiculos?.length || 0),
+      conductoresCount: String(conductores?.length || 0),
+      cotizacionesCount: String(cotizaciones?.length || 0),
     };
-  }, [servicios, vehiculos, conductores]);
+  }, [servicios, vehiculos, conductores, cotizaciones]);
 
   // Lógica de Calendario
   const monthDays = useMemo(() => {
@@ -185,7 +193,7 @@ export default function DashboardHomePage() {
         <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-gray-900 tracking-tight">
-              {greeting}, {user?.email?.split('@')[0] || 'Admin'} 👋
+              {greeting}, {user?.email ? user.email.split('@')[0] : 'Admin'} 👋
             </h1>
             <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">
               {format(currentDate, "EEEE, d 'de' MMMM", { locale: es })}
@@ -215,18 +223,18 @@ export default function DashboardHomePage() {
             shadowColor="shadow-indigo-100"
           />
           <StatCard
-            title="Cartera Pendiente"
+            title="Cotizaciones"
+            value={`${stats.cotizacionesCount} Pendientes`}
+            icon={ClipboardList}
+            gradient="bg-gradient-to-br from-orange-600 to-orange-400"
+            shadowColor="shadow-orange-100"
+          />
+          <StatCard
+            title="Cartera"
             value={stats.cartera}
             icon={AlertTriangle}
             gradient="bg-gradient-to-br from-rose-600 to-rose-400"
             shadowColor="shadow-rose-100"
-          />
-          <StatCard
-            title="Ventas Totales"
-            value={stats.venta}
-            icon={TrendingUp}
-            gradient="bg-gradient-to-br from-emerald-600 to-emerald-400"
-            shadowColor="shadow-emerald-100"
           />
         </div>
 
