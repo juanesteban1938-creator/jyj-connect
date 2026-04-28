@@ -78,9 +78,10 @@ export function MainNav() {
   const { data: activeGPS } = useCollection(activeGPSQuery);
   const { data: pendingPayments } = useCollection(pendingPaymentsQuery);
   
-  const pendingCount = pendingCotizaciones?.length || 0;
-  const activeGPSCount = activeGPS?.length || 0;
-  const pendingPaymentsCount = pendingPayments?.length || 0;
+  // CRÍTICO: Asegurar que estos valores sean siempre primitivos numéricos para evitar crashes de renderizado
+  const pendingCount = Number(pendingCotizaciones?.length || 0);
+  const activeGPSCount = Number(activeGPS?.length || 0);
+  const pendingPaymentsCount = Number(pendingPayments?.length || 0);
 
   return (
     <Sidebar collapsible="offcanvas">

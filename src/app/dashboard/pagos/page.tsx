@@ -91,6 +91,8 @@ export default function PagosAuditPage() {
   const { data: pendientesCorreo, isLoading: loadingPendientes } = useCollection(pendientesCorreoQuery);
 
   const pagos = pagosRaw || [];
+  
+  // CRÍTICO: Asegurar que pendientes sea siempre un array para evitar crashes al renderizar .length
   const pendientes = pendientesCorreo || [];
 
   // Estadísticas del día
@@ -121,7 +123,6 @@ export default function PagosAuditPage() {
   const handleSendEmail = async (pend: any) => {
     setIsProcessing(pend.id);
     try {
-      // FIX: Pasar todos los campos para evitar NaN y undefined en el template
       const response = await fetch('/api/send-invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -321,13 +322,13 @@ export default function PagosAuditPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
             <div>
               <AlertTitle className="text-orange-900 font-black uppercase text-xs tracking-tight">Acción Requerida: Notificaciones de Pago</AlertTitle>
-              <AlertDescription className="text-orange-700 text-sm font-medium">Hay {pendientes.length} pagos conciliados por Nova que aún no han sido notificados por correo al cliente.</AlertDescription>
+              <AlertDescription className="text-orange-700 text-sm font-medium">Hay {Number(pendientes.length)} pagos conciliados por Nova que aún no han sido notificados por correo al cliente.</AlertDescription>
             </div>
             <div className="flex flex-wrap gap-2">
               {pendientes.slice(0, 3).map(pend => (
-                <Button key={pend.id} size="sm" onClick={() => handleSendEmail(pend)} disabled={isProcessing === pend.id} className="bg-white hover:bg-slate-100 text-orange-600 border border-orange-200 font-black text-[10px] uppercase h-8 px-4 shadow-sm">
+                <Button key={String(pend.id)} size="sm" onClick={() => handleSendEmail(pend)} disabled={isProcessing === pend.id} className="bg-white hover:bg-slate-100 text-orange-600 border border-orange-200 font-black text-[10px] uppercase h-8 px-4 shadow-sm">
                   {isProcessing === pend.id ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Mail className="h-3 w-3 mr-2" />}
-                  Enviar a {pend.consecutivo}
+                  Enviar a {String(pend.consecutivo)}
                 </Button>
               ))}
             </div>
