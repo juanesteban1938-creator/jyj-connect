@@ -52,6 +52,9 @@ export default function DashboardLayout({
     );
   }
 
+  // Obtener nombre amigable para mostrar
+  const adminName = user?.email ? user.email.split('@')[0].toUpperCase() : 'Admin';
+
   return (
     <SidebarProvider>
       <MainNav />
@@ -76,21 +79,20 @@ export default function DashboardLayout({
                   className="flex items-center gap-2 rounded-full p-1 sm:p-2 hover:bg-muted"
                 >
                   <div className="text-right hidden sm:block">
-                    <p className="text-sm font-semibold">Admin Principal</p>
-                    <p className="text-xs text-muted-foreground leading-none">
-                      Gerente
+                    <p className="text-sm font-semibold truncate max-w-[120px]">{adminName}</p>
+                    <p className="text-[9px] text-muted-foreground leading-none font-bold uppercase">
+                      Sesión Activa
                     </p>
                   </div>
                   <UserCircle className="h-8 w-8 text-primary" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Gestión de Cuenta</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Configuración</DropdownMenuItem>
-                <DropdownMenuItem>Soporte</DropdownMenuItem>
+                <DropdownMenuItem className="text-xs font-medium">{user?.email || 'Admin User'}</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout}>Cerrar Sesión</DropdownMenuItem>
+                <DropdownMenuItem onClick={logout} className="text-red-600 font-bold">Cerrar Sesión</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

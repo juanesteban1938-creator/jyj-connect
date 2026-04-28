@@ -124,8 +124,8 @@ export default function DashboardHomePage() {
     return {
       venta: currencyFormatter.format(totalVenta),
       cartera: currencyFormatter.format(totalCartera),
-      vehiculos: vehiculos.length,
-      conductores: conductores.length,
+      vehiculosCount: Number(vehiculos.length),
+      conductoresCount: Number(conductores.length),
     };
   }, [servicios, vehiculos, conductores]);
 
@@ -185,7 +185,7 @@ export default function DashboardHomePage() {
         <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-gray-900 tracking-tight">
-              {greeting}, Admin 👋
+              {greeting}, {user?.email?.split('@')[0] || 'Admin'} 👋
             </h1>
             <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">
               {format(currentDate, "EEEE, d 'de' MMMM", { locale: es })}
@@ -202,14 +202,14 @@ export default function DashboardHomePage() {
         <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Flota Activa"
-            value={`${stats.vehiculos} Vehículos`}
+            value={`${stats.vehiculosCount} Vehículos`}
             icon={Briefcase}
             gradient="bg-gradient-to-br from-blue-600 to-blue-400"
             shadowColor="shadow-blue-100"
           />
           <StatCard
             title="Talento Humano"
-            value={`${stats.conductores} Conductores`}
+            value={`${stats.conductoresCount} Conductores`}
             icon={Users}
             gradient="bg-gradient-to-br from-indigo-600 to-indigo-400"
             shadowColor="shadow-indigo-100"
