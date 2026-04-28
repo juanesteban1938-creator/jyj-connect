@@ -3,7 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * Transportes Especiales J&J - Reglas de Seguridad V2.5
+     * Transportes Especiales J&J - Reglas de Seguridad V2.6
      * 
      * Core Philosophy: Control de acceso basado en roles administrativos y 
      * acceso público limitado para funciones de rastreo y servicios externos.
@@ -16,11 +16,10 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid));
-    }
-
-    function isExistingAdmin() {
-      return isAdmin() && resource != null;
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid)) ||
+        request.auth.token.email == 'transportes.especialesjyj@gmail.com'
+      );
     }
 
     // --- Collection Rules ---
