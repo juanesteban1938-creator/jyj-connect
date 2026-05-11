@@ -91,8 +91,6 @@ export default function PagosAuditPage() {
   const { data: pendientesCorreo, isLoading: loadingPendientes } = useCollection(pendientesCorreoQuery);
 
   const pagos = pagosRaw || [];
-  
-  // CRÍTICO: Asegurar que pendientes sea siempre un array para evitar crashes al renderizar .length
   const pendientes = pendientesCorreo || [];
 
   // Estadísticas del día
@@ -156,43 +154,61 @@ export default function PagosAuditPage() {
     }
   };
 
+  /**
+   * RECONCILIACIÓN ESTRÍCTA DE CARTERA
+   * Esta función consolida matemáticamente todos los abonos por servicio.
+   */
   const handleReconcile = async () => {
-    if (!confirm('¿Deseas sincronizar todos los pagos registrados con la cartera? Esto corregirá inconsistencias de saldo aplicando siempre el último pago registrado.')) return;
+    if (!confirm('¿Deseas sincronizar la cartera basándote en el historial completo de pagos? El sistema sumará todos los abonos registrados para cada servicio y recalculará los saldos exactos.')) return;
     setIsProcessing('reconcile');
     let fixedCount = 0;
 
     try {
+      // 1. Obtener todos los documentos de pagos aplicados
       const pagosSnap = await getDocs(collection(db, 'pagos_aplicados'));
-      const latestPaymentsByService: Record<string, { data: any, date: number }> = {};
+      const sumsByService: Record<string, number> = {};
 
+      // 2. Agrupar y sumar todos los pagos por ID de servicio
       pagosSnap.docs.forEach(pDoc => {
         const p = pDoc.data();
         if (p.servicioId) {
-          const pDate = p.fecha instanceof Timestamp ? p.fecha.toMillis() : new Date(p.fecha).getTime();
-          if (!latestPaymentsByService[p.servicioId] || pDate > latestPaymentsByService[p.servicioId].date) {
-            latestPaymentsByService[p.servicioId] = { data: p, date: pDate };
-          }
+          sumsByService[p.servicioId] = (sumsByService[p.servicioId] || 0) + (Number(p.valorPago) || 0);
         }
       });
       
-      for (const serviceId in latestPaymentsByService) {
-        const p = latestPaymentsByService[serviceId].data;
+      // 3. Procesar cada servicio identificado en los pagos
+      for (const serviceId in sumsByService) {
+        const totalPagadoReal = sumsByService[serviceId];
         const sRef = doc(db, 'services', serviceId);
         const sSnap = await getDoc(sRef);
         
         if (sSnap.exists()) {
           const sData = sSnap.data();
-          if (sData.estadoPago !== p.estadoPago || sData.saldo !== p.saldoNuevo) {
+          const valorServicio = Number(sData.valorServicio) || 0;
+          
+          // Cálculo estricto del nuevo saldo
+          const nuevoSaldo = valorServicio - totalPagadoReal;
+          
+          // Definir estado basado en el saldo real acumulado
+          // Si el saldo es <= 0, el servicio está pagado al 100% o sobrepagado
+          const nuevoEstadoPago = nuevoSaldo <= 0 ? 'Pagado' : 'Anticipo';
+          
+          // Solo actualizar si hay discrepancia entre la data del servicio y la suma de pagos
+          if (sData.saldo !== nuevoSaldo || sData.anticipo !== totalPagadoReal || sData.estadoPago !== nuevoEstadoPago) {
             await updateDoc(sRef, {
-              estadoPago: p.estadoPago,
-              saldo: p.saldoNuevo,
-              ...(p.estadoPago === 'Pagado' ? { anticipo: sData.valorServicio || p.valorPago } : {})
+              anticipo: totalPagadoReal,
+              saldo: nuevoSaldo,
+              estadoPago: nuevoEstadoPago
             });
             fixedCount++;
           }
         }
       }
-      toast({ title: "Sincronización Exitosa", description: `Se han ajustado ${fixedCount} servicios basados en el historial más reciente.` });
+      
+      toast({ 
+        title: "Sincronización Exitosa", 
+        description: `Se han recalculado y ajustado ${fixedCount} servicios basados en la suma total de abonos.` 
+      });
     } catch (err) {
       console.error('Error en reconciliación:', err);
       toast({ variant: "destructive", title: "Error de Sincronización", description: "Ocurrió un problema al procesar los registros." });
