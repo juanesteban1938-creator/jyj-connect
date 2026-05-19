@@ -16,6 +16,7 @@ import {
   BarChart2,
   MapPin,
   CreditCard,
+  FileText,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -45,6 +46,7 @@ const finanzasItems = [
     { href: '/dashboard/rentabilidad', label: 'Rentabilidad', icon: PieChart },
     { href: '/dashboard/facturacion', label: 'Facturación', icon: BookText },
     { href: '/dashboard/pagos', label: 'Pagos', icon: CreditCard },
+    { href: '/dashboard/contabilidad', label: 'Contabilidad', icon: FileText },
 ]
 
 const sistemaItems = [
@@ -78,10 +80,6 @@ export function MainNav() {
   const { data: activeGPS } = useCollection(activeGPSQuery);
   const { data: pendingPayments } = useCollection(pendingPaymentsQuery);
   
-  const pendingCount = Number(cotizaciones?.length || 0);
-  const activeGPSCount = Number(activeGPS?.length || 0);
-  const pendingPaymentsCount = Number(pendingPayments?.length || 0);
-
   return (
     <Sidebar collapsible="offcanvas">
       <SidebarHeader className="p-4 text-center">
