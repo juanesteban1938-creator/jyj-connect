@@ -1,5 +1,6 @@
-import { Firestore, collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
-import type { AsientoContable, MovimientoContable, Servicio, Cliente, Transaccion } from './types';
+
+import { Firestore, collection, addDoc, serverTimestamp, doc, getDoc, getDocs, query, orderBy, limit, Timestamp } from 'firebase/firestore';
+import type { AsientoContable, MovimientoContable, Servicio, Cliente, Transaccion, CierreFiscal } from './types';
 
 /**
  * CONSTANTES DE TASAS IMPOSITIVAS (COLOMBIA 2026)
@@ -41,9 +42,33 @@ function validarPartidaDoble(movimientos: MovimientoContable[]): boolean {
 }
 
 /**
+ * Obtiene el último cierre fiscal registrado.
+ */
+async function obtenerUltimoCierre(db: Firestore): Promise<CierreFiscal | null> {
+  const cierresRef = collection(db, 'cierres_fiscales');
+  const q = query(cierresRef, orderBy('fechaCierre', 'desc'), limit(1));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const docData = snap.docs[0].data();
+  return { id: snap.docs[0].id, ...docData } as CierreFiscal;
+}
+
+/**
  * Registra un asiento contable en la colección central.
  */
 export async function registrarAsiento(db: Firestore, asiento: Omit<AsientoContable, 'id' | 'fecha' | 'totalDebito' | 'totalCredito'>) {
+  // 1. BLINDAJE DE CIERRE FISCAL
+  const ultimoCierre = await obtenerUltimoCierre(db);
+  if (ultimoCierre) {
+    const fechaActual = new Date();
+    const fechaCierre = ultimoCierre.fechaCierre instanceof Timestamp ? ultimoCierre.fechaCierre.toDate() : new Date(ultimoCierre.fechaCierre);
+    
+    // Si intentamos registrar algo en un momento menor o igual al último cierre
+    if (fechaActual <= fechaCierre) {
+      throw new Error(`PERIODO CERRADO: No se pueden registrar movimientos en un periodo fiscal ya clausurado (${ultimoCierre.mes + 1}/${ultimoCierre.anio}).`);
+    }
+  }
+
   const totalDebito = Math.round(asiento.movimientos
     .filter(m => m.tipo === 'debito')
     .reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0));
@@ -76,7 +101,23 @@ export async function registrarAsiento(db: Firestore, asiento: Omit<AsientoConta
 }
 
 /**
- * GENERADORES AUTOMÁTICOS DE ASIENTOS (EVENT SOURCING)
+ * Ejecuta un cierre de mes formal.
+ */
+export async function realizarCierreContable(db: Firestore, mes: number, anio: number, emailUsuario: string) {
+  const ultimoDia = new Date(anio, mes + 1, 0, 23, 59, 59);
+  
+  const payload: Omit<CierreFiscal, 'id'> = {
+    mes,
+    anio,
+    fechaCierre: Timestamp.fromDate(ultimoDia),
+    cerradoPor: emailUsuario
+  };
+
+  return addDoc(collection(db, 'cierres_fiscales'), payload);
+}
+
+/**
+ * GENERADORES AUTOMÁTICOS DE ASIENTOS
  */
 
 export async function generarAsientoServicio(db: Firestore, servicio: Servicio) {
@@ -94,7 +135,6 @@ export async function generarAsientoServicio(db: Firestore, servicio: Servicio) 
     const movimientos: MovimientoContable[] = [];
     const impuestos = [];
 
-    // Obtener tipo de cliente (Jurídico/Natural)
     let esJuridico = false;
     if (servicio.nitCliente) {
         try {
@@ -108,7 +148,6 @@ export async function generarAsientoServicio(db: Firestore, servicio: Servicio) 
         }
     }
 
-    // 1. CAUSACIÓN DEL INGRESO (CRÉDITO)
     movimientos.push({
       cuentaCodigo: CUENTAS.INGRESOS_TRANSPORTE.codigo,
       cuentaNombre: CUENTAS.INGRESOS_TRANSPORTE.nombre,
@@ -118,7 +157,6 @@ export async function generarAsientoServicio(db: Firestore, servicio: Servicio) 
       terceroNombre: nombreCliente
     });
 
-    // 2. CAUSACIÓN DEL ACTIVO (DÉBITO)
     if (esJuridico) {
       const valorRetefuente = Math.round(valorBase * TASA_RETEFUENTE);
       const valorReteICA = Math.round(valorBase * TASA_RETEICA);
@@ -156,7 +194,6 @@ export async function generarAsientoServicio(db: Firestore, servicio: Servicio) 
       impuestosAsociados: impuestos
     });
 
-    // 3. CAUSACIÓN DEL COSTO (Si hay costo definido)
     if (costoOperacion > 0) {
         const movsCosto: MovimientoContable[] = [
             { cuentaCodigo: CUENTAS.COSTO_VENTA.codigo, cuentaNombre: CUENTAS.COSTO_VENTA.nombre, tipo: 'debito', valor: costoOperacion, terceroId: idConductor, terceroNombre: nombreConductor },
@@ -197,7 +234,7 @@ export async function generarAsientoRecaudo(db: Firestore, servicio: Servicio, v
         cuentaNombre: CUENTAS.CLIENTES.nombre, 
         tipo: 'credito', 
         valor: monto, 
-        terceroId: idCliente,
+        terceroId: idCliente, 
         terceroNombre: nombreCliente 
       }
     ];
@@ -218,7 +255,7 @@ export async function generarAsientoGasto(db: Firestore, transaccion: Transaccio
     const valor = Math.round(Number(transaccion.valor) || 0);
     if (valor <= 0) return;
 
-    const idTercero = transaccion.terceroId || 'NIT-901456789-1'; // NIT Empresa por defecto para gastos generales
+    const idTercero = transaccion.terceroId || 'NIT-901456789-1'; 
     const nombreTercero = transaccion.terceroNombre || 'Transportes Especiales J&J';
 
     const movimientos: MovimientoContable[] = [
@@ -233,7 +270,6 @@ export async function generarAsientoGasto(db: Firestore, transaccion: Transaccio
       movimientos
     });
 
-    // REGLA GMF 4x1000
     const valorGMF = Math.round(valor * TASA_GMF);
     if (valorGMF > 0) {
       await registrarAsiento(db, {

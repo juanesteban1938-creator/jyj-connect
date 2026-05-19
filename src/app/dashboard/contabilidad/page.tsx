@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, getDocs, where, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, where, Timestamp, limit } from 'firebase/firestore';
 import { 
   Card, 
   CardContent, 
@@ -20,7 +21,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs-ui-fix'; // Re-implementing with standard tabs
 import { 
   Search, 
   DollarSign,
@@ -34,14 +35,17 @@ import {
   ArrowUpRight,
   TrendingDown,
   Scale,
-  BarChart3
+  BarChart3,
+  Lock,
+  Calendar,
+  AlertCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { generarAsientoServicio, generarAsientoRecaudo } from '@/lib/accounting-engine';
-import type { AsientoContable } from '@/lib/types';
+import { generarAsientoServicio, generarAsientoRecaudo, realizarCierreContable } from '@/lib/accounting-engine';
+import type { AsientoContable, CierreFiscal } from '@/lib/types';
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', {
   style: 'currency',
@@ -49,24 +53,36 @@ const currencyFormatter = new Intl.NumberFormat('es-CO', {
   minimumFractionDigits: 0,
 });
 
+const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
 export default function ContabilidadPage() {
   const [activeTab, setActiveTab] = useState('diario');
   const [searchTerm, setSearchTerm] = useState('');
   const [isMigrating, setIsMigrating] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  
   const db = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
 
-  // Suscripción al Libro Diario
+  // Consultas
   const asientosQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, 'asientos_contables'), orderBy('fecha', 'desc'));
   }, [db, user]);
 
-  const { data: asientosRaw, isLoading } = useCollection<AsientoContable>(asientosQuery);
-  const asientos = asientosRaw || [];
+  const cierresQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'cierres_fiscales'), orderBy('fechaCierre', 'desc'), limit(1));
+  }, [db, user]);
 
-  // 1. Lógica del Libro Mayor (Agrupación por Tercero y Cuenta)
+  const { data: asientosRaw, isLoading } = useCollection<AsientoContable>(asientosQuery);
+  const { data: cierresRaw } = useCollection<CierreFiscal>(cierresQuery);
+  
+  const asientos = asientosRaw || [];
+  const ultimoCierre = cierresRaw?.[0] || null;
+
+  // 1. Lógica del Libro Mayor
   const mayorData = useMemo(() => {
     const map: Record<string, {
       cuentaCodigo: string;
@@ -107,7 +123,7 @@ export default function ContabilidadPage() {
     }).sort((a, b) => a.cuentaCodigo.localeCompare(b.cuentaCodigo));
   }, [asientos]);
 
-  // 2. Lógica de Estados Financieros (P&G y Balance)
+  // 2. Lógica de Estados Financieros
   const reports = useMemo(() => {
     let activos = 0;
     let pasivos = 0;
@@ -122,19 +138,12 @@ export default function ContabilidadPage() {
         const valor = Number(mov.valor) || 0;
         const tipo = mov.tipo;
 
-        if (codigo.startsWith('1')) {
-          activos += tipo === 'debito' ? valor : -valor;
-        } else if (codigo.startsWith('2')) {
-          pasivos += tipo === 'credito' ? valor : -valor;
-        } else if (codigo.startsWith('3')) {
-          patrimonioBase += tipo === 'credito' ? valor : -valor;
-        } else if (codigo.startsWith('4')) {
-          ingresos += tipo === 'credito' ? valor : -valor;
-        } else if (codigo.startsWith('5')) {
-          gastos += tipo === 'debito' ? valor : -valor;
-        } else if (codigo.startsWith('6')) {
-          costos += tipo === 'debito' ? valor : -valor;
-        }
+        if (codigo.startsWith('1')) activos += tipo === 'debito' ? valor : -valor;
+        else if (codigo.startsWith('2')) pasivos += tipo === 'credito' ? valor : -valor;
+        else if (codigo.startsWith('3')) patrimonioBase += tipo === 'credito' ? valor : -valor;
+        else if (codigo.startsWith('4')) ingresos += tipo === 'credito' ? valor : -valor;
+        else if (codigo.startsWith('5')) gastos += tipo === 'debito' ? valor : -valor;
+        else if (codigo.startsWith('6')) costos += tipo === 'debito' ? valor : -valor;
       });
     });
 
@@ -147,14 +156,11 @@ export default function ContabilidadPage() {
     };
   }, [asientos]);
 
-  // Filtrado de Datos
+  // Filtrado
   const filteredDiario = useMemo(() => {
     return asientos.filter(a => 
       (a.concepto || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      a.movimientos?.some(m => 
-        (m.terceroNombre || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (m.cuentaCodigo || '').includes(searchTerm)
-      )
+      a.movimientos?.some(m => (m.terceroNombre || '').toLowerCase().includes(searchTerm.toLowerCase()) || (m.cuentaCodigo || '').includes(searchTerm))
     );
   }, [asientos, searchTerm]);
 
@@ -174,11 +180,7 @@ export default function ContabilidadPage() {
       const servicesSnap = await getDocs(collection(db, 'services'));
       for (const serviceDoc of servicesSnap.docs) {
         const serviceData = { id: serviceDoc.id, ...serviceDoc.data() } as any;
-        const checkQuery = query(
-          collection(db, 'asientos_contables'), 
-          where('sourceId', '==', serviceData.id),
-          where('sourceModule', '==', 'services')
-        );
+        const checkQuery = query(collection(db, 'asientos_contables'), where('sourceId', '==', serviceData.id), where('sourceModule', '==', 'services'));
         const checkSnap = await getDocs(checkQuery);
         if (checkSnap.empty) {
           await generarAsientoServicio(db, serviceData);
@@ -199,11 +201,29 @@ export default function ContabilidadPage() {
     }
   };
 
+  const handleCierre = async () => {
+    const ahora = new Date();
+    const mesActual = ahora.getMonth();
+    const anioActual = ahora.getFullYear();
+    
+    if (!confirm(`¿Deseas ejecutar el CIERRE FISCAL del periodo ${MESES[mesActual]} ${anioActual}? Esta acción bloqueará cualquier alteración de datos de este mes en adelante para garantizar la integridad contable.`)) return;
+    
+    setIsClosing(true);
+    try {
+      await realizarCierreContable(db, mesActual, anioActual, user?.email || 'admin');
+      toast({ title: "Cierre Fiscal Exitoso", description: `El periodo ${MESES[mesActual]} ha sido clausurado.` });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error al cerrar", description: e.message });
+    } finally {
+      setIsClosing(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-[80vh] flex-col items-center justify-center gap-4">
         <Loader2 className="h-12 w-12 animate-spin text-orange-500" />
-        <p className="text-xs font-black uppercase text-slate-400 tracking-[0.3em]">Sincronizando Libro Diario...</p>
+        <p className="text-xs font-black uppercase text-slate-400 tracking-[0.3em]">Cargando Sistema Contable...</p>
       </div>
     );
   }
@@ -220,22 +240,30 @@ export default function ContabilidadPage() {
           <p className="text-slate-500 text-sm font-medium mt-1">Gestión de partida doble y estados financieros consolidados.</p>
         </div>
         
-        <Button 
-          onClick={handleMigrate} 
-          disabled={isMigrating}
-          className="bg-orange-500 hover:bg-orange-600 text-white font-black text-[11px] uppercase tracking-wider px-6 h-12 rounded-xl shadow-lg shadow-orange-200 transition-all"
-        >
-          {isMigrating ? (
-            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> PROCESANDO...</>
-          ) : (
-            <><History className="mr-2 h-4 w-4" /> Ejecutar Migración Histórica</>
-          )}
-        </Button>
+        <div className="flex items-center gap-3">
+            <Button 
+                onClick={handleMigrate} 
+                disabled={isMigrating}
+                variant="outline"
+                className="border-orange-200 text-orange-600 hover:bg-orange-50 font-black text-[10px] uppercase tracking-wider px-6 h-12 rounded-xl transition-all"
+            >
+                {isMigrating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <History className="mr-2 h-4 w-4" />}
+                Migración
+            </Button>
+            <Button 
+                onClick={handleCierre} 
+                disabled={isClosing}
+                className="bg-slate-900 hover:bg-black text-white font-black text-[10px] uppercase tracking-wider px-6 h-12 rounded-xl shadow-lg shadow-slate-200 transition-all"
+            >
+                {isClosing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-4 w-4" />}
+                Realizar Cierre
+            </Button>
+        </div>
       </header>
 
-      {/* KPI Cards (Resumen Superior) */}
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="rounded-2xl shadow-sm border-none overflow-hidden transition-all hover:shadow-md">
+        <Card className="rounded-2xl shadow-sm border-none overflow-hidden hover:shadow-md transition-all">
           <div className="p-6 bg-emerald-500 text-white h-full flex flex-col justify-between">
             <div className="flex items-center justify-between mb-4">
               <span className="text-[10px] font-black uppercase opacity-90 tracking-widest">Activos Totales</span>
@@ -244,21 +272,19 @@ export default function ContabilidadPage() {
             <p className="text-2xl lg:text-3xl font-black tracking-tight">{currencyFormatter.format(reports.balance.activos)}</p>
           </div>
         </Card>
-
-        <Card className="rounded-2xl shadow-sm border-none overflow-hidden transition-all hover:shadow-md">
+        <Card className="rounded-2xl shadow-sm border-none overflow-hidden hover:shadow-md transition-all">
           <div className="p-6 bg-rose-500 text-white h-full flex flex-col justify-between">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-[10px] font-black uppercase opacity-90 tracking-widest">Pasivos (Cuentas por Pagar)</span>
+              <span className="text-[10px] font-black uppercase opacity-90 tracking-widest">Pasivos (CxP)</span>
               <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md"><TrendingDown className="h-5 w-5 text-white" /></div>
             </div>
             <p className="text-2xl lg:text-3xl font-black tracking-tight">{currencyFormatter.format(reports.balance.pasivos)}</p>
           </div>
         </Card>
-
-        <Card className="rounded-2xl shadow-sm border-none overflow-hidden transition-all hover:shadow-md">
+        <Card className="rounded-2xl shadow-sm border-none overflow-hidden hover:shadow-md transition-all">
           <div className="p-6 bg-orange-500 text-white h-full flex flex-col justify-between">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-[10px] font-black uppercase opacity-90 tracking-widest">Utilidad Neta del Ejercicio</span>
+              <span className="text-[10px] font-black uppercase opacity-90 tracking-widest">Utilidad Neta</span>
               <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md"><CreditCard className="h-5 w-5 text-white" /></div>
             </div>
             <p className="text-2xl lg:text-3xl font-black tracking-tight">{currencyFormatter.format(reports.estadoResultados.utilidadNeta)}</p>
@@ -282,15 +308,22 @@ export default function ContabilidadPage() {
             </TabsList>
           </Tabs>
 
-          {activeTab !== 'estados' && (
+          {activeTab !== 'estados' ? (
             <div className="relative w-full lg:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input 
-                placeholder={activeTab === 'diario' ? "Buscar concepto o cuenta..." : "Buscar por tercero o cuenta..."}
+                placeholder="Buscar por tercero o concepto..."
                 className="bg-slate-50 border-slate-200 text-slate-900 pl-9 h-11 rounded-xl focus:ring-orange-500"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
               />
+            </div>
+          ) : ultimoCierre && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-2xl shadow-sm">
+                <Lock className="h-3.5 w-3.5 text-orange-500" />
+                <span className="text-[10px] font-black uppercase tracking-widest">
+                    Cierre: {MESES[ultimoCierre.mes]} {ultimoCierre.anio}
+                </span>
             </div>
           )}
         </div>
@@ -311,23 +344,19 @@ export default function ContabilidadPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredDiario.length === 0 ? (
-                      <TableRow><TableCell colSpan={6} className="p-20 text-center text-slate-400 font-bold uppercase text-xs">No hay movimientos registrados.</TableCell></TableRow>
-                    ) : filteredDiario.map((asiento) => (
-                      asiento.movimientos?.map((mov, idx) => {
-                        const dateObj = asiento.fecha instanceof Timestamp ? asiento.fecha.toDate() : new Date(asiento.fecha);
-                        return (
-                          <TableRow key={`${asiento.id}-${idx}`} className={cn("border-b border-slate-50 hover:bg-slate-50/30", idx === 0 && "border-t-2 border-t-slate-100")}>
-                            <TableCell className="p-5">{idx === 0 ? <span className="text-xs font-black text-slate-700">{format(dateObj, 'dd MMM yy', { locale: es }).toUpperCase()}</span> : null}</TableCell>
-                            <TableCell className="p-5">{idx === 0 ? <span className="text-xs font-bold text-slate-800 uppercase truncate block max-w-[250px]">{asiento.concepto}</span> : null}</TableCell>
-                            <TableCell className="p-5"><div className="flex flex-col"><span className="text-xs font-black text-orange-600">{mov.cuentaCodigo}</span><span className="text-[10px] font-bold text-slate-500 uppercase truncate max-w-[150px]">{mov.cuentaNombre}</span></div></TableCell>
-                            <TableCell className="p-5"><div className="flex flex-col"><span className="text-xs font-bold text-slate-800 uppercase">{mov.terceroNombre}</span><span className="text-[9px] font-black text-slate-400">{mov.terceroId}</span></div></TableCell>
-                            <TableCell className="p-5 text-center"><Badge className={cn("text-[9px] font-black uppercase px-2 py-0.5", mov.tipo === 'debito' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-blue-50 text-blue-600 border-blue-100")}>{mov.tipo}</Badge></TableCell>
-                            <TableCell className="p-5 text-right"><span className={cn("text-sm font-black", mov.tipo === 'debito' ? "text-slate-900" : "text-slate-500")}>{currencyFormatter.format(mov.valor)}</span></TableCell>
-                          </TableRow>
-                        );
-                      })
-                    ))}
+                    {filteredDiario.map((asiento) => asiento.movimientos?.map((mov, idx) => {
+                      const dateObj = asiento.fecha instanceof Timestamp ? asiento.fecha.toDate() : new Date(asiento.fecha);
+                      return (
+                        <TableRow key={`${asiento.id}-${idx}`} className={cn("border-b border-slate-50", idx === 0 && "bg-slate-50/30")}>
+                          <TableCell className="p-5">{idx === 0 ? <span className="text-xs font-black text-slate-700">{format(dateObj, 'dd MMM yy', { locale: es }).toUpperCase()}</span> : null}</TableCell>
+                          <TableCell className="p-5">{idx === 0 ? <span className="text-xs font-bold text-slate-800 uppercase truncate block max-w-[200px]">{asiento.concepto}</span> : null}</TableCell>
+                          <TableCell className="p-5"><div className="flex flex-col"><span className="text-xs font-black text-orange-600">{mov.cuentaCodigo}</span><span className="text-[10px] font-bold text-slate-500 uppercase truncate max-w-[150px]">{mov.cuentaNombre}</span></div></TableCell>
+                          <TableCell className="p-5"><div className="flex flex-col"><span className="text-xs font-bold text-slate-800 uppercase">{mov.terceroNombre}</span><span className="text-[9px] font-black text-slate-400">{mov.terceroId}</span></div></TableCell>
+                          <TableCell className="p-5 text-center"><Badge className={cn("text-[9px] font-black uppercase px-2 py-0.5", mov.tipo === 'debito' ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600")}>{mov.tipo}</Badge></TableCell>
+                          <TableCell className="p-5 text-right font-black text-slate-900">{currencyFormatter.format(mov.valor)}</TableCell>
+                        </TableRow>
+                      );
+                    }))}
                   </TableBody>
                 </Table>
               </div>
@@ -340,37 +369,24 @@ export default function ContabilidadPage() {
                     <TableRow>
                       <TableHead className="p-5 font-black text-[10px] text-slate-400 uppercase tracking-widest">Cuenta</TableHead>
                       <TableHead className="p-5 font-black text-[10px] text-slate-400 uppercase tracking-widest">Tercero / Responsable</TableHead>
-                      <TableHead className="p-5 font-black text-[10px] text-slate-400 uppercase tracking-widest text-right">Suma Débitos</TableHead>
-                      <TableHead className="p-5 font-black text-[10px] text-slate-400 uppercase tracking-widest text-right">Suma Créditos</TableHead>
+                      <TableHead className="p-5 font-black text-[10px] text-slate-400 uppercase tracking-widest text-right">Débitos</TableHead>
+                      <TableHead className="p-5 font-black text-[10px] text-slate-400 uppercase tracking-widest text-right">Créditos</TableHead>
                       <TableHead className="p-5 font-black text-[10px] text-slate-400 uppercase tracking-widest text-right">Saldo Actual</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredMayor.length === 0 ? (
-                      <TableRow><TableCell colSpan={5} className="p-20 text-center text-slate-400 font-bold uppercase text-xs">No se han generado saldos consolidados.</TableCell></TableRow>
-                    ) : filteredMayor.map((item, idx) => (
-                      <TableRow key={`${item.cuentaCodigo}-${item.terceroId}-${idx}`} className="hover:bg-slate-50/30 border-b border-slate-50">
+                    {filteredMayor.map((item, idx) => (
+                      <TableRow key={idx} className="hover:bg-slate-50/30 border-b border-slate-50">
                         <TableCell className="p-5">
-                          <div className="flex flex-col">
-                            <span className="text-xs font-black text-slate-900">{item.cuentaCodigo}</span>
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">{item.cuentaNombre}</span>
-                          </div>
+                          <div className="flex flex-col"><span className="text-xs font-black text-slate-900">{item.cuentaCodigo}</span><span className="text-[10px] font-bold text-slate-400 uppercase">{item.cuentaNombre}</span></div>
                         </TableCell>
                         <TableCell className="p-5">
-                          <div className="flex flex-col">
-                            <span className="text-xs font-black text-slate-800 uppercase">{item.terceroNombre}</span>
-                            <span className="text-[10px] font-bold text-slate-400">{item.terceroId}</span>
-                          </div>
+                          <div className="flex flex-col"><span className="text-xs font-black text-slate-800 uppercase">{item.terceroNombre}</span><span className="text-[10px] font-bold text-slate-400">{item.terceroId}</span></div>
                         </TableCell>
                         <TableCell className="p-5 text-right text-xs font-bold text-slate-600">{currencyFormatter.format(item.debitos)}</TableCell>
                         <TableCell className="p-5 text-right text-xs font-bold text-slate-600">{currencyFormatter.format(item.creditos)}</TableCell>
                         <TableCell className="p-5 text-right">
-                          <div className={cn(
-                            "inline-flex items-center gap-2 px-3 py-1.5 rounded-xl font-black text-sm",
-                            item.saldo === 0 ? "bg-slate-50 text-slate-400" :
-                            item.saldo > 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
-                          )}>
-                            {item.saldo > 0 ? <ArrowUpRight className="h-3 w-3" /> : item.saldo < 0 ? <TrendingDown className="h-3 w-3" /> : null}
+                          <div className={cn("inline-flex items-center gap-2 px-3 py-1.5 rounded-xl font-black text-sm", item.saldo > 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600")}>
                             {currencyFormatter.format(item.saldo)}
                           </div>
                         </TableCell>
@@ -389,7 +405,6 @@ export default function ContabilidadPage() {
                     <Scale className="h-5 w-5 text-orange-500" />
                     <h2 className="text-xl font-black uppercase tracking-tight text-slate-800">Balance General</h2>
                   </div>
-                  
                   <div className="space-y-4">
                     <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl">
                       <span className="text-xs font-black uppercase text-slate-500">Activos (1)</span>
@@ -404,7 +419,7 @@ export default function ContabilidadPage() {
                       <span className="text-sm font-black text-slate-700">{currencyFormatter.format(reports.balance.patrimonioBase)}</span>
                     </div>
                     <div className="flex justify-between items-center bg-orange-50 p-3 rounded-xl border border-orange-100">
-                      <span className="text-xs font-black uppercase text-orange-600 italic">Utilidad del Ejercicio (Incluida)</span>
+                      <span className="text-xs font-black uppercase text-orange-600 italic">Utilidad del Ejercicio</span>
                       <span className="text-sm font-black text-orange-600">{currencyFormatter.format(reports.balance.utilidadNeta)}</span>
                     </div>
                     <div className="pt-6 border-t-2 border-slate-100 flex justify-between items-center">
@@ -412,15 +427,39 @@ export default function ContabilidadPage() {
                       <span className="text-lg font-black text-slate-900 border-b-4 border-orange-500 pb-1">{currencyFormatter.format(reports.balance.patrimonioTotal + reports.balance.pasivos)}</span>
                     </div>
                   </div>
+                  
+                  {/* Gestión de Cierre (Mini Card) */}
+                  <div className="mt-12 bg-slate-50 rounded-3xl p-6 border border-dashed border-slate-200">
+                    <div className="flex items-center gap-3 mb-4">
+                        <AlertCircle className="h-5 w-5 text-slate-400" />
+                        <h4 className="text-xs font-black uppercase text-slate-500">Gestión de Periodos</h4>
+                    </div>
+                    <p className="text-xs text-slate-400 leading-relaxed mb-6 font-medium">
+                        El cierre fiscal bloquea la edición de movimientos anteriores a la fecha seleccionada, garantizando que los estados financieros aquí mostrados sean definitivos.
+                    </p>
+                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                        <Button 
+                            onClick={handleCierre} 
+                            disabled={isClosing}
+                            className="bg-slate-900 hover:bg-black text-white font-black text-[10px] uppercase h-10 px-6 rounded-xl w-full sm:w-auto"
+                        >
+                            {isClosing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-3.5 w-3.5" />}
+                            Cerrar Mes Actual
+                        </Button>
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-400 bg-white px-4 h-10 rounded-xl border">
+                            <Calendar className="h-3.5 w-3.5" />
+                            {ultimoCierre ? `${MESES[ultimoCierre.mes]} ${ultimoCierre.anio}` : 'Sin cierres'}
+                        </div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Estado de Resultados */}
+                {/* P&G */}
                 <div className="space-y-6">
                   <div className="flex items-center gap-3 border-b pb-4">
                     <BarChart3 className="h-5 w-5 text-orange-500" />
-                    <h2 className="text-xl font-black uppercase tracking-tight text-slate-800">Estado de Resultados (P&G)</h2>
+                    <h2 className="text-xl font-black uppercase tracking-tight text-slate-800">Estado de Resultados</h2>
                   </div>
-
                   <div className="space-y-3">
                     <div className="flex justify-between items-center p-3 border-b border-slate-50">
                       <span className="text-xs font-black uppercase text-slate-500">Ingresos Operacionales (4)</span>
@@ -434,10 +473,10 @@ export default function ContabilidadPage() {
                       <span className="text-xs font-black uppercase text-slate-400">(-) Gastos Administrativos (5)</span>
                       <span className="text-sm font-bold text-slate-600">{currencyFormatter.format(reports.estadoResultados.gastos)}</span>
                     </div>
-                    <div className="pt-6 mt-4 flex justify-between items-center bg-slate-900 p-6 rounded-[2rem] text-white shadow-xl shadow-slate-200">
+                    <div className="pt-6 mt-4 flex justify-between items-center bg-slate-900 p-6 rounded-[2rem] text-white shadow-xl">
                       <div className="flex flex-col">
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400">Utilidad Neta Real</span>
-                        <span className="text-lg font-black tracking-tight">Resultado del Ejercicio</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400">Resultado Neto</span>
+                        <span className="text-lg font-black tracking-tight">Utilidad Real</span>
                       </div>
                       <span className="text-2xl font-black text-orange-500">{currencyFormatter.format(reports.estadoResultados.utilidadNeta)}</span>
                     </div>
@@ -450,10 +489,7 @@ export default function ContabilidadPage() {
       </div>
 
       <footer className="text-center pt-8">
-        <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-full">
-          <FileText className="h-3 w-3 text-slate-400" />
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Protocolo Contable J&J — Consolidación Estándar v3.0</p>
-        </div>
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Protocolo Contable J&J — Cierres Inmutables v3.2</p>
       </footer>
     </div>
   );

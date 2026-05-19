@@ -1,3 +1,4 @@
+
 export type Servicio = {
   id: string;
   consecutivo: string;
@@ -110,4 +111,12 @@ export interface AsientoContable {
     valor: number;
     base: number;
   }[];
+}
+
+export interface CierreFiscal {
+  id?: string;
+  mes: number; // 0-11
+  anio: number;
+  fechaCierre: any; // Timestamp del final del mes cerrado
+  cerradoPor: string;
 }

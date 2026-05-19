@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Driver": {
@@ -53,6 +54,17 @@
         "totalCredito": { "type": "number" },
         "movimientos": { "type": "array" }
       }
+    },
+    "CierreFiscal": {
+      "title": "Cierre Fiscal",
+      "type": "object",
+      "description": "Punto de control que bloquea alteraciones en periodos contables cerrados.",
+      "properties": {
+        "mes": { "type": "number" },
+        "anio": { "type": "number" },
+        "fechaCierre": { "type": "string", "format": "date-time" },
+        "cerradoPor": { "type": "string" }
+      }
     }
   },
   "auth": {
@@ -82,6 +94,10 @@
     "/asientos_contables/{id}": {
       "schema": "AsientoContable",
       "description": "Libro mayor inmutable de la empresa."
+    },
+    "/cierres_fiscales/{id}": {
+      "schema": "CierreFiscal",
+      "description": "Historial de bloqueos de periodos fiscales."
     },
     "/ubicaciones_gps/{serviceId}": {
       "schema": "VehicleLocation",
