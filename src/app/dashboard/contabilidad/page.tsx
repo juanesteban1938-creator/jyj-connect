@@ -32,7 +32,9 @@ import {
   FileText,
   User,
   ArrowUpRight,
-  TrendingDown
+  TrendingDown,
+  Scale,
+  BarChart3
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -96,50 +98,56 @@ export default function ContabilidadPage() {
     return Object.values(map).map(item => {
       const primerDigito = item.cuentaCodigo[0];
       let saldo = 0;
-      // Naturaleza Débito: Activos (1), Gastos (5), Costos (6)
       if (['1', '5', '6'].includes(primerDigito)) {
         saldo = item.debitos - item.creditos;
       } else {
-        // Naturaleza Crédito: Pasivos (2), Patrimonio (3), Ingresos (4)
         saldo = item.creditos - item.debitos;
       }
       return { ...item, saldo };
     }).sort((a, b) => a.cuentaCodigo.localeCompare(b.cuentaCodigo));
   }, [asientos]);
 
-  // Cálculos de Resumen Financiero Superior
-  const metrics = useMemo(() => {
+  // 2. Lógica de Estados Financieros (P&G y Balance)
+  const reports = useMemo(() => {
     let activos = 0;
     let pasivos = 0;
+    let patrimonioBase = 0;
     let ingresos = 0;
-    let costosGastos = 0;
+    let costos = 0;
+    let gastos = 0;
 
     asientos.forEach(asiento => {
       asiento.movimientos?.forEach(mov => {
         const codigo = mov.cuentaCodigo || '';
         const valor = Number(mov.valor) || 0;
+        const tipo = mov.tipo;
 
         if (codigo.startsWith('1')) {
-          activos += mov.tipo === 'debito' ? valor : -valor;
+          activos += tipo === 'debito' ? valor : -valor;
         } else if (codigo.startsWith('2')) {
-          pasivos += mov.tipo === 'credito' ? valor : -valor;
+          pasivos += tipo === 'credito' ? valor : -valor;
+        } else if (codigo.startsWith('3')) {
+          patrimonioBase += tipo === 'credito' ? valor : -valor;
         } else if (codigo.startsWith('4')) {
-          ingresos += mov.tipo === 'credito' ? valor : -valor;
-        } else if (codigo.startsWith('5') || codigo.startsWith('6')) {
-          costosGastos += mov.tipo === 'debito' ? valor : -valor;
+          ingresos += tipo === 'credito' ? valor : -valor;
+        } else if (codigo.startsWith('5')) {
+          gastos += tipo === 'debito' ? valor : -valor;
+        } else if (codigo.startsWith('6')) {
+          costos += tipo === 'debito' ? valor : -valor;
         }
       });
     });
 
+    const utilidadNeta = ingresos - costos - gastos;
+    const patrimonioTotal = patrimonioBase + utilidadNeta;
+
     return {
-      activos: currencyFormatter.format(activos),
-      pasivos: currencyFormatter.format(pasivos),
-      utilidad: currencyFormatter.format(ingresos - costosGastos),
-      isPositive: (ingresos - costosGastos) >= 0
+      balance: { activos, pasivos, patrimonioBase, utilidadNeta, patrimonioTotal },
+      estadoResultados: { ingresos, costos, gastos, utilidadNeta }
     };
   }, [asientos]);
 
-  // Filtrado de Datos según Tab activa
+  // Filtrado de Datos
   const filteredDiario = useMemo(() => {
     return asientos.filter(a => 
       (a.concepto || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -159,24 +167,19 @@ export default function ContabilidadPage() {
   }, [mayorData, searchTerm]);
 
   const handleMigrate = async () => {
-    if (!confirm('¿Deseas sincronizar los servicios históricos con la contabilidad? El sistema detectará servicios sin asientos y generará la causación y recaudo correspondientes.')) return;
-    
+    if (!confirm('¿Deseas sincronizar los servicios históricos con la contabilidad?')) return;
     setIsMigrating(true);
     let generados = 0;
-    
     try {
       const servicesSnap = await getDocs(collection(db, 'services'));
-      
       for (const serviceDoc of servicesSnap.docs) {
         const serviceData = { id: serviceDoc.id, ...serviceDoc.data() } as any;
-        
         const checkQuery = query(
           collection(db, 'asientos_contables'), 
           where('sourceId', '==', serviceData.id),
           where('sourceModule', '==', 'services')
         );
         const checkSnap = await getDocs(checkQuery);
-
         if (checkSnap.empty) {
           await generarAsientoServicio(db, serviceData);
           const saldo = Number(serviceData.saldo);
@@ -188,11 +191,7 @@ export default function ContabilidadPage() {
           generados++;
         }
       }
-      
-      toast({ 
-        title: "Migración Exitosa", 
-        description: `Se han sincronizado ${generados} servicios con el Libro Diario.` 
-      });
+      toast({ title: "Migración Exitosa", description: `Se han sincronizado ${generados} servicios.` });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error en Migración", description: error.message });
     } finally {
@@ -218,7 +217,7 @@ export default function ContabilidadPage() {
             <div className="h-8 w-1 bg-orange-500 rounded-full" />
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight uppercase leading-none">Contabilidad Central</h1>
           </div>
-          <p className="text-slate-500 text-sm font-medium mt-1">Gestión de partida doble y saldos consolidados por tercero.</p>
+          <p className="text-slate-500 text-sm font-medium mt-1">Gestión de partida doble y estados financieros consolidados.</p>
         </div>
         
         <Button 
@@ -234,61 +233,66 @@ export default function ContabilidadPage() {
         </Button>
       </header>
 
-      {/* KPI Cards */}
+      {/* KPI Cards (Resumen Superior) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="rounded-2xl shadow-sm border-none overflow-hidden transition-all hover:shadow-md">
           <div className="p-6 bg-emerald-500 text-white h-full flex flex-col justify-between">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-[10px] font-black uppercase opacity-90 tracking-widest">Activos (1)</span>
+              <span className="text-[10px] font-black uppercase opacity-90 tracking-widest">Activos Totales</span>
               <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md"><DollarSign className="h-5 w-5 text-white" /></div>
             </div>
-            <p className="text-2xl lg:text-3xl font-black tracking-tight">{metrics.activos}</p>
+            <p className="text-2xl lg:text-3xl font-black tracking-tight">{currencyFormatter.format(reports.balance.activos)}</p>
           </div>
         </Card>
 
         <Card className="rounded-2xl shadow-sm border-none overflow-hidden transition-all hover:shadow-md">
           <div className="p-6 bg-rose-500 text-white h-full flex flex-col justify-between">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-[10px] font-black uppercase opacity-90 tracking-widest">Pasivos (2)</span>
+              <span className="text-[10px] font-black uppercase opacity-90 tracking-widest">Pasivos (Cuentas por Pagar)</span>
               <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md"><TrendingDown className="h-5 w-5 text-white" /></div>
             </div>
-            <p className="text-2xl lg:text-3xl font-black tracking-tight">{metrics.pasivos}</p>
+            <p className="text-2xl lg:text-3xl font-black tracking-tight">{currencyFormatter.format(reports.balance.pasivos)}</p>
           </div>
         </Card>
 
         <Card className="rounded-2xl shadow-sm border-none overflow-hidden transition-all hover:shadow-md">
           <div className="p-6 bg-orange-500 text-white h-full flex flex-col justify-between">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-[10px] font-black uppercase opacity-90 tracking-widest">Utilidad Neta (4-5-6)</span>
+              <span className="text-[10px] font-black uppercase opacity-90 tracking-widest">Utilidad Neta del Ejercicio</span>
               <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md"><CreditCard className="h-5 w-5 text-white" /></div>
             </div>
-            <p className="text-2xl lg:text-3xl font-black tracking-tight">{metrics.utilidad}</p>
+            <p className="text-2xl lg:text-3xl font-black tracking-tight">{currencyFormatter.format(reports.estadoResultados.utilidadNeta)}</p>
           </div>
         </Card>
       </div>
 
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-3xl shadow-sm border">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
-            <TabsList className="bg-slate-100 p-1 rounded-xl h-11">
-              <TabsTrigger value="diario" className="rounded-lg px-6 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:text-orange-600 shadow-none">
-                <FileText className="h-3 w-3 mr-2" /> Libro Diario
+        <div className="flex flex-col lg:flex-row items-center justify-between gap-4 bg-white p-4 rounded-3xl shadow-sm border">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full lg:w-auto">
+            <TabsList className="bg-slate-100 p-1 rounded-xl h-11 w-full lg:w-auto">
+              <TabsTrigger value="diario" className="flex-1 lg:flex-none rounded-lg px-6 font-black uppercase text-[9px] sm:text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:text-orange-600 shadow-none">
+                <FileText className="h-3 w-3 mr-2" /> Diario
               </TabsTrigger>
-              <TabsTrigger value="mayor" className="rounded-lg px-6 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:text-orange-600 shadow-none">
-                <User className="h-3 w-3 mr-2" /> Libro Mayor (Terceros)
+              <TabsTrigger value="mayor" className="flex-1 lg:flex-none rounded-lg px-6 font-black uppercase text-[9px] sm:text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:text-orange-600 shadow-none">
+                <User className="h-3 w-3 mr-2" /> Libro Mayor
+              </TabsTrigger>
+              <TabsTrigger value="estados" className="flex-1 lg:flex-none rounded-lg px-6 font-black uppercase text-[9px] sm:text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:text-orange-600 shadow-none">
+                <BarChart3 className="h-3 w-3 mr-2" /> Estados
               </TabsTrigger>
             </TabsList>
           </Tabs>
 
-          <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input 
-              placeholder={activeTab === 'diario' ? "Buscar concepto o cuenta..." : "Buscar por tercero o cuenta..."}
-              className="bg-slate-50 border-slate-200 text-slate-900 pl-9 h-11 rounded-xl focus:ring-orange-500"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
-          </div>
+          {activeTab !== 'estados' && (
+            <div className="relative w-full lg:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input 
+                placeholder={activeTab === 'diario' ? "Buscar concepto o cuenta..." : "Buscar por tercero o cuenta..."}
+                className="bg-slate-50 border-slate-200 text-slate-900 pl-9 h-11 rounded-xl focus:ring-orange-500"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+          )}
         </div>
 
         <Card className="rounded-3xl shadow-sm border border-slate-100 overflow-hidden bg-white">
@@ -376,6 +380,71 @@ export default function ContabilidadPage() {
                 </Table>
               </div>
             </TabsContent>
+
+            <TabsContent value="estados" className="m-0 border-none p-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                {/* Balance General */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 border-b pb-4">
+                    <Scale className="h-5 w-5 text-orange-500" />
+                    <h2 className="text-xl font-black uppercase tracking-tight text-slate-800">Balance General</h2>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl">
+                      <span className="text-xs font-black uppercase text-slate-500">Activos (1)</span>
+                      <span className="text-sm font-black text-slate-900">{currencyFormatter.format(reports.balance.activos)}</span>
+                    </div>
+                    <div className="flex justify-between items-center p-3">
+                      <span className="text-xs font-black uppercase text-slate-400">Pasivos (2)</span>
+                      <span className="text-sm font-black text-rose-600">{currencyFormatter.format(reports.balance.pasivos)}</span>
+                    </div>
+                    <div className="flex justify-between items-center p-3">
+                      <span className="text-xs font-black uppercase text-slate-400">Patrimonio Neto (3)</span>
+                      <span className="text-sm font-black text-slate-700">{currencyFormatter.format(reports.balance.patrimonioBase)}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-orange-50 p-3 rounded-xl border border-orange-100">
+                      <span className="text-xs font-black uppercase text-orange-600 italic">Utilidad del Ejercicio (Incluida)</span>
+                      <span className="text-sm font-black text-orange-600">{currencyFormatter.format(reports.balance.utilidadNeta)}</span>
+                    </div>
+                    <div className="pt-6 border-t-2 border-slate-100 flex justify-between items-center">
+                      <span className="text-sm font-black uppercase text-slate-900">Total Pasivo + Patrimonio</span>
+                      <span className="text-lg font-black text-slate-900 border-b-4 border-orange-500 pb-1">{currencyFormatter.format(reports.balance.patrimonioTotal + reports.balance.pasivos)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Estado de Resultados */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 border-b pb-4">
+                    <BarChart3 className="h-5 w-5 text-orange-500" />
+                    <h2 className="text-xl font-black uppercase tracking-tight text-slate-800">Estado de Resultados (P&G)</h2>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center p-3 border-b border-slate-50">
+                      <span className="text-xs font-black uppercase text-slate-500">Ingresos Operacionales (4)</span>
+                      <span className="text-sm font-black text-emerald-600">{currencyFormatter.format(reports.estadoResultados.ingresos)}</span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 border-b border-slate-50">
+                      <span className="text-xs font-black uppercase text-slate-400">(-) Costos de Operación (6)</span>
+                      <span className="text-sm font-bold text-slate-600">{currencyFormatter.format(reports.estadoResultados.costos)}</span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 border-b border-slate-50">
+                      <span className="text-xs font-black uppercase text-slate-400">(-) Gastos Administrativos (5)</span>
+                      <span className="text-sm font-bold text-slate-600">{currencyFormatter.format(reports.estadoResultados.gastos)}</span>
+                    </div>
+                    <div className="pt-6 mt-4 flex justify-between items-center bg-slate-900 p-6 rounded-[2rem] text-white shadow-xl shadow-slate-200">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400">Utilidad Neta Real</span>
+                        <span className="text-lg font-black tracking-tight">Resultado del Ejercicio</span>
+                      </div>
+                      <span className="text-2xl font-black text-orange-500">{currencyFormatter.format(reports.estadoResultados.utilidadNeta)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
           </Tabs>
         </Card>
       </div>
@@ -383,7 +452,7 @@ export default function ContabilidadPage() {
       <footer className="text-center pt-8">
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-full">
           <FileText className="h-3 w-3 text-slate-400" />
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Protocolo Contable J&J — Libro Mayor v2.1</p>
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Protocolo Contable J&J — Consolidación Estándar v3.0</p>
         </div>
       </footer>
     </div>
