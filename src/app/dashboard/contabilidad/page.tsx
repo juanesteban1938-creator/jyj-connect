@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, getDocs, where, Timestamp, limit } from 'firebase/firestore';
+import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { 
   Card, 
   CardContent, 
@@ -31,27 +31,23 @@ import {
 import { 
   Search, 
   DollarSign,
-  PieChart,
-  CreditCard,
   Loader2,
-  RefreshCcw,
-  History,
   FileText,
   User,
-  ArrowUpRight,
   TrendingDown,
   Scale,
   BarChart3,
   Lock,
-  Calendar,
   AlertCircle,
-  Filter
+  Filter,
+  History,
+  ArrowUpRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { registrarAsiento, realizarCierreContable } from '@/lib/accounting-engine';
+import { realizarCierreContable } from '@/lib/accounting-engine';
 import type { AsientoContable, CierreFiscal } from '@/lib/types';
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', {
@@ -159,7 +155,10 @@ export default function ContabilidadPage() {
         unique.set(m.terceroId, m.terceroNombre);
       }
     });
-    return Array.from(unique.entries()).map(([id, nombre]) => ({ id, nombre }));
+    return Array.from(unique.entries()).map(([id, nombre]) => ({ 
+      id: id || 'unknown', 
+      nombre: nombre || 'Tercero Desconocido' 
+    }));
   }, [mayorData]);
 
   // 2. Lógica de Estados Financieros
@@ -259,7 +258,7 @@ export default function ContabilidadPage() {
                 <SelectContent>
                   <SelectItem value="live" className="text-xs font-black text-orange-600">PERIODO ACTUAL (EN VIVO)</SelectItem>
                   {cierres.map(c => (
-                    <SelectItem key={c.id} value={c.id || ''} className="text-xs font-bold uppercase">
+                    <SelectItem key={c.id || `cierre-${c.mes}-${c.anio}`} value={c.id || ''} className="text-xs font-bold uppercase">
                       CIERRE: {MESES[c.mes]} {c.anio}
                     </SelectItem>
                   ))}
@@ -293,7 +292,7 @@ export default function ContabilidadPage() {
           <div className="p-6 bg-orange-500 text-white h-full flex flex-col justify-between">
             <div className="flex items-center justify-between mb-4">
               <span className="text-[10px] font-black uppercase opacity-90 tracking-widest">Utilidad Neta</span>
-              <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md"><CreditCard className="h-5 w-5 text-white" /></div>
+              <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md"><Scale className="h-5 w-5 text-white" /></div>
             </div>
             <p className="text-2xl lg:text-3xl font-black tracking-tight">{currencyFormatter.format(reports.estadoResultados.utilidadNeta)}</p>
           </div>
@@ -366,19 +365,23 @@ export default function ContabilidadPage() {
                   <TableBody>
                     {filteredDiario.length === 0 ? (
                       <TableRow><TableCell colSpan={6} className="p-20 text-center text-slate-400 font-bold uppercase text-xs opacity-40">No hay movimientos en este periodo</TableCell></TableRow>
-                    ) : filteredDiario.map((asiento) => asiento.movimientos?.map((mov, idx) => {
-                      const dateObj = asiento.fecha instanceof Timestamp ? asiento.fecha.toDate() : new Date(asiento.fecha);
-                      return (
-                        <TableRow key={`${asiento.id}-${idx}`} className={cn("border-b border-slate-50", idx === 0 && "bg-slate-50/30")}>
-                          <TableCell className="p-5">{idx === 0 ? <span className="text-xs font-black text-slate-700">{format(dateObj, 'dd MMM yy', { locale: es }).toUpperCase()}</span> : null}</TableCell>
-                          <TableCell className="p-5">{idx === 0 ? <span className="text-xs font-bold text-slate-800 uppercase truncate block max-w-[200px]">{asiento.concepto}</span> : null}</TableCell>
-                          <TableCell className="p-5"><div className="flex flex-col"><span className="text-xs font-black text-orange-600">{mov.cuentaCodigo}</span><span className="text-[10px] font-bold text-slate-500 uppercase truncate max-w-[150px]">{mov.cuentaNombre}</span></div></TableCell>
-                          <TableCell className="p-5"><div className="flex flex-col"><span className="text-xs font-bold text-slate-800 uppercase">{mov.terceroNombre}</span><span className="text-[9px] font-black text-slate-400">{mov.terceroId}</span></div></TableCell>
-                          <TableCell className="p-5 text-center"><Badge className={cn("text-[9px] font-black uppercase px-2 py-0.5", mov.tipo === 'debito' ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600")}>{mov.tipo}</Badge></TableCell>
-                          <TableCell className="p-5 text-right font-black text-slate-900">{currencyFormatter.format(mov.valor)}</TableCell>
-                        </TableRow>
-                      );
-                    }))}
+                    ) : filteredDiario.map((asiento) => (
+                      <React.Fragment key={asiento.id || `asiento-${asiento.fecha}-${asiento.sourceId}`}>
+                        {asiento.movimientos?.map((mov, idx) => {
+                          const dateObj = asiento.fecha instanceof Timestamp ? asiento.fecha.toDate() : new Date(asiento.fecha);
+                          return (
+                            <TableRow key={`${asiento.id}-${idx}`} className={cn("border-b border-slate-50", idx === 0 && "bg-slate-50/30")}>
+                              <TableCell className="p-5">{idx === 0 ? <span className="text-xs font-black text-slate-700">{format(dateObj, 'dd MMM yy', { locale: es }).toUpperCase()}</span> : null}</TableCell>
+                              <TableCell className="p-5">{idx === 0 ? <span className="text-xs font-bold text-slate-800 uppercase truncate block max-w-[200px]">{asiento.concepto}</span> : null}</TableCell>
+                              <TableCell className="p-5"><div className="flex flex-col"><span className="text-xs font-black text-orange-600">{mov.cuentaCodigo}</span><span className="text-[10px] font-bold text-slate-500 uppercase truncate max-w-[150px]">{mov.cuentaNombre}</span></div></TableCell>
+                              <TableCell className="p-5"><div className="flex flex-col"><span className="text-xs font-bold text-slate-800 uppercase">{mov.terceroNombre}</span><span className="text-[9px] font-black text-slate-400">{mov.terceroId}</span></div></TableCell>
+                              <TableCell className="p-5 text-center"><Badge className={cn("text-[9px] font-black uppercase px-2 py-0.5", mov.tipo === 'debito' ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600")}>{mov.tipo}</Badge></TableCell>
+                              <TableCell className="p-5 text-right font-black text-slate-900">{currencyFormatter.format(mov.valor)}</TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </React.Fragment>
+                    ))}
                   </TableBody>
                 </Table>
               </div>
@@ -400,7 +403,7 @@ export default function ContabilidadPage() {
                     {filteredMayor.length === 0 ? (
                       <TableRow><TableCell colSpan={5} className="p-20 text-center text-slate-400 font-bold uppercase text-xs opacity-40">No se encontraron saldos por tercero</TableCell></TableRow>
                     ) : filteredMayor.map((item, idx) => (
-                      <TableRow key={idx} className="hover:bg-slate-50/30 border-b border-slate-50">
+                      <TableRow key={`${item.cuentaCodigo}-${item.terceroId}-${idx}`} className="hover:bg-slate-50/30 border-b border-slate-50">
                         <TableCell className="p-5">
                           <div className="flex flex-col"><span className="text-xs font-black text-slate-900">{item.cuentaCodigo}</span><span className="text-[10px] font-bold text-slate-400 uppercase">{item.cuentaNombre}</span></div>
                         </TableCell>
@@ -468,7 +471,7 @@ export default function ContabilidadPage() {
                                 <SelectValue placeholder="Mes" />
                               </SelectTrigger>
                               <SelectContent>
-                                {MESES.map((m, i) => <SelectItem key={i} value={i.toString()} className="text-[10px] font-bold uppercase">{m}</SelectItem>)}
+                                {MESES.map((m, i) => <SelectItem key={`mes-${i}`} value={i.toString()} className="text-[10px] font-bold uppercase">{m}</SelectItem>)}
                               </SelectContent>
                            </Select>
                            <Select value={cierreAnio} onValueChange={setCierreAnio}>
@@ -476,7 +479,7 @@ export default function ContabilidadPage() {
                                 <SelectValue placeholder="Año" />
                               </SelectTrigger>
                               <SelectContent>
-                                {ANIOS.map(a => <SelectItem key={a} value={a} className="text-[10px] font-bold uppercase">{a}</SelectItem>)}
+                                {ANIOS.map(a => <SelectItem key={`anio-${a}`} value={a} className="text-[10px] font-bold uppercase">{a}</SelectItem>)}
                               </SelectContent>
                            </Select>
                         </div>
