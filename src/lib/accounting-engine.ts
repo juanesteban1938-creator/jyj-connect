@@ -27,7 +27,6 @@ export const CUENTAS = {
 
 /**
  * Valida que un asiento cumpla con el principio de partida doble.
- * Aplicamos redondeo estricto antes de comparar para evitar errores de coma flotante de JS.
  */
 function validarPartidaDoble(movimientos: MovimientoContable[]): boolean {
   const debito = movimientos
@@ -53,10 +52,18 @@ export async function registrarAsiento(db: Firestore, asiento: Omit<AsientoConta
     .filter(m => m.tipo === 'credito')
     .reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0));
 
+  // VALIDACIÓN DE PARTIDA DOBLE
   if (!validarPartidaDoble(asiento.movimientos)) {
-    console.error('Inconsistencia Detectada en Asiento:', JSON.stringify(asiento.movimientos, null, 2));
+    console.error('Inconsistencia en Asiento:', JSON.stringify(asiento.movimientos, null, 2));
     throw new Error(`Inconsistencia Contable: Débitos (${totalDebito}) no coinciden con Créditos (${totalCredito})`);
   }
+
+  // VALIDACIÓN OBLIGATORIA DE TERCEROS
+  asiento.movimientos.forEach((mov, idx) => {
+    if (!mov.terceroId || !mov.terceroNombre) {
+      throw new Error(`Error en línea ${idx + 1}: El tercero (ID y Nombre) es obligatorio para el cumplimiento contable.`);
+    }
+  });
 
   const payload: AsientoContable = {
     ...asiento,
@@ -78,6 +85,11 @@ export async function generarAsientoServicio(db: Firestore, servicio: Servicio) 
     const costoOperacion = Math.round(Number(servicio.costoOperacion) || 0);
     
     if (valorBase <= 0) return;
+
+    const idCliente = servicio.nitCliente || 'NIT-PENDIENTE';
+    const nombreCliente = servicio.clienteNombre || servicio.cliente || 'CLIENTE-PENDIENTE';
+    const idConductor = servicio.conductorId || 'CC-PENDIENTE';
+    const nombreConductor = servicio.conductor || 'CONDUCTOR-PENDIENTE';
 
     const movimientos: MovimientoContable[] = [];
     const impuestos = [];
@@ -102,8 +114,8 @@ export async function generarAsientoServicio(db: Firestore, servicio: Servicio) 
       cuentaNombre: CUENTAS.INGRESOS_TRANSPORTE.nombre,
       tipo: 'credito',
       valor: valorBase,
-      terceroNombre: servicio.clienteNombre || servicio.cliente,
-      terceroNit: servicio.nitCliente
+      terceroId: idCliente,
+      terceroNombre: nombreCliente
     });
 
     // 2. CAUSACIÓN DEL ACTIVO (DÉBITO)
@@ -112,15 +124,15 @@ export async function generarAsientoServicio(db: Firestore, servicio: Servicio) 
       const valorReteICA = Math.round(valorBase * TASA_RETEICA);
       const saldoNeto = valorBase - valorRetefuente - valorReteICA;
 
-      movimientos.push({ cuentaCodigo: CUENTAS.RETEFUENTE_FAVOR.codigo, cuentaNombre: CUENTAS.RETEFUENTE_FAVOR.nombre, tipo: 'debito', valor: valorRetefuente });
-      movimientos.push({ cuentaCodigo: CUENTAS.RETEICA_FAVOR.codigo, cuentaNombre: CUENTAS.RETEICA_FAVOR.nombre, tipo: 'debito', valor: valorReteICA });
+      movimientos.push({ cuentaCodigo: CUENTAS.RETEFUENTE_FAVOR.codigo, cuentaNombre: CUENTAS.RETEFUENTE_FAVOR.nombre, tipo: 'debito', valor: valorRetefuente, terceroId: idCliente, terceroNombre: nombreCliente });
+      movimientos.push({ cuentaCodigo: CUENTAS.RETEICA_FAVOR.codigo, cuentaNombre: CUENTAS.RETEICA_FAVOR.nombre, tipo: 'debito', valor: valorReteICA, terceroId: idCliente, terceroNombre: nombreCliente });
       movimientos.push({ 
         cuentaCodigo: CUENTAS.CLIENTES.codigo, 
         cuentaNombre: CUENTAS.CLIENTES.nombre, 
         tipo: 'debito', 
         valor: saldoNeto, 
-        terceroNombre: servicio.clienteNombre || servicio.cliente, 
-        terceroNit: servicio.nitCliente 
+        terceroId: idCliente, 
+        terceroNombre: nombreCliente 
       });
 
       impuestos.push({ tipo: 'retefuente' as any, valor: valorRetefuente, base: valorBase });
@@ -131,13 +143,13 @@ export async function generarAsientoServicio(db: Firestore, servicio: Servicio) 
         cuentaNombre: CUENTAS.CLIENTES.nombre, 
         tipo: 'debito', 
         valor: valorBase, 
-        terceroNombre: servicio.clienteNombre || servicio.cliente, 
-        terceroNit: servicio.nitCliente 
+        terceroId: idCliente, 
+        terceroNombre: nombreCliente 
       });
     }
 
     await registrarAsiento(db, {
-      concepto: `Causación Ingreso: Servicio ${servicio.consecutivo} - ${servicio.cliente}`,
+      concepto: `Causación Ingreso: Servicio ${servicio.consecutivo} - ${nombreCliente}`,
       sourceId: servicio.id,
       sourceModule: 'services',
       movimientos,
@@ -147,12 +159,12 @@ export async function generarAsientoServicio(db: Firestore, servicio: Servicio) 
     // 3. CAUSACIÓN DEL COSTO (Si hay costo definido)
     if (costoOperacion > 0) {
         const movsCosto: MovimientoContable[] = [
-            { cuentaCodigo: CUENTAS.COSTO_VENTA.codigo, cuentaNombre: CUENTAS.COSTO_VENTA.nombre, tipo: 'debito', valor: costoOperacion },
-            { cuentaCodigo: CUENTAS.OPERADORES.codigo, cuentaNombre: CUENTAS.OPERADORES.nombre, tipo: 'credito', valor: costoOperacion, terceroNombre: servicio.conductor }
+            { cuentaCodigo: CUENTAS.COSTO_VENTA.codigo, cuentaNombre: CUENTAS.COSTO_VENTA.nombre, tipo: 'debito', valor: costoOperacion, terceroId: idConductor, terceroNombre: nombreConductor },
+            { cuentaCodigo: CUENTAS.OPERADORES.codigo, cuentaNombre: CUENTAS.OPERADORES.nombre, tipo: 'credito', valor: costoOperacion, terceroId: idConductor, terceroNombre: nombreConductor }
         ];
 
         await registrarAsiento(db, {
-            concepto: `Causación Costo: Servicio ${servicio.consecutivo} - Conductor: ${servicio.conductor}`,
+            concepto: `Causación Costo: Servicio ${servicio.consecutivo} - Conductor: ${nombreConductor}`,
             sourceId: servicio.id,
             sourceModule: 'services',
             movimientos: movsCosto
@@ -168,20 +180,25 @@ export async function generarAsientoRecaudo(db: Firestore, servicio: Servicio, v
     const monto = Math.round(Number(valorPago) || 0);
     if (monto <= 0) return;
 
+    const idCliente = servicio.nitCliente || 'NIT-PENDIENTE';
+    const nombreCliente = servicio.clienteNombre || servicio.cliente || 'CLIENTE-PENDIENTE';
+
     const movimientos: MovimientoContable[] = [
       { 
         cuentaCodigo: metodo === 'Efectivo' ? CUENTAS.CAJA.codigo : CUENTAS.BANCOS.codigo, 
         cuentaNombre: metodo === 'Efectivo' ? CUENTAS.CAJA.nombre : CUENTAS.BANCOS.nombre, 
         tipo: 'debito', 
-        valor: monto 
+        valor: monto,
+        terceroId: idCliente,
+        terceroNombre: nombreCliente
       },
       { 
         cuentaCodigo: CUENTAS.CLIENTES.codigo, 
         cuentaNombre: CUENTAS.CLIENTES.nombre, 
         tipo: 'credito', 
         valor: monto, 
-        terceroNombre: servicio.clienteNombre || servicio.cliente, 
-        terceroNit: servicio.nitCliente 
+        terceroId: idCliente,
+        terceroNombre: nombreCliente 
       }
     ];
 
@@ -201,9 +218,12 @@ export async function generarAsientoGasto(db: Firestore, transaccion: Transaccio
     const valor = Math.round(Number(transaccion.valor) || 0);
     if (valor <= 0) return;
 
+    const idTercero = transaccion.terceroId || 'NIT-901456789-1'; // NIT Empresa por defecto para gastos generales
+    const nombreTercero = transaccion.terceroNombre || 'Transportes Especiales J&J';
+
     const movimientos: MovimientoContable[] = [
-      { cuentaCodigo: CUENTAS.GASTOS_OPERATIVOS.codigo, cuentaNombre: `Gasto: ${transaccion.descripcion}`, tipo: 'debito', valor },
-      { cuentaCodigo: CUENTAS.BANCOS.codigo, cuentaNombre: CUENTAS.BANCOS.nombre, tipo: 'credito', valor }
+      { cuentaCodigo: CUENTAS.GASTOS_OPERATIVOS.codigo, cuentaNombre: `Gasto: ${transaccion.descripcion}`, tipo: 'debito', valor, terceroId: idTercero, terceroNombre: nombreTercero },
+      { cuentaCodigo: CUENTAS.BANCOS.codigo, cuentaNombre: CUENTAS.BANCOS.nombre, tipo: 'credito', valor, terceroId: idTercero, terceroNombre: nombreTercero }
     ];
 
     await registrarAsiento(db, {
@@ -221,8 +241,8 @@ export async function generarAsientoGasto(db: Firestore, transaccion: Transaccio
         sourceId: transaccion.id,
         sourceModule: 'rentabilidad',
         movimientos: [
-          { cuentaCodigo: CUENTAS.GASTO_GMF.codigo, cuentaNombre: CUENTAS.GASTO_GMF.nombre, tipo: 'debito', valor: valorGMF },
-          { cuentaCodigo: CUENTAS.BANCOS.codigo, cuentaNombre: CUENTAS.BANCOS.nombre, tipo: 'credito', valor: valorGMF }
+          { cuentaCodigo: CUENTAS.GASTO_GMF.codigo, cuentaNombre: CUENTAS.GASTO_GMF.nombre, tipo: 'debito', valor: valorGMF, terceroId: idTercero, terceroNombre: nombreTercero },
+          { cuentaCodigo: CUENTAS.BANCOS.codigo, cuentaNombre: CUENTAS.BANCOS.nombre, tipo: 'credito', valor: valorGMF, terceroId: idTercero, terceroNombre: nombreTercero }
         ]
       });
     }

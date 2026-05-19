@@ -12,6 +12,7 @@ export type Servicio = {
   clienteNombre?: string;
   emailCliente?: string;
   conductor: string;
+  conductorId?: string; // Identificación (Cédula) del conductor
   conductorTelefono?: string;
   vehiculo: string;
   vehiculoPlaca?: string;
@@ -21,7 +22,7 @@ export type Servicio = {
   saldo: number;
   metodoPago: 'Efectivo' | 'Transferencia' | 'Facturacion';
   costoOperacion: number;
-  estadoPago: 'Pendiente' | 'Anticipo' | 'Pagado' | 'Anulado';
+  estadoPago: 'Pending' | 'Pagado' | 'Pendiente' | 'Anticipo' | 'Anulado';
   paradasAdicionales?: string[];
   puntosRecogida?: string[];
   puntosDestino?: string[];
@@ -80,6 +81,8 @@ export type Transaccion = {
   descripcion: string;
   valor: number;
   vehiculoPlaca?: string;
+  terceroId?: string; // Identificación del beneficiario o proveedor del gasto
+  terceroNombre?: string; // Nombre del tercero
 };
 
 /** accounting entry system */
@@ -89,8 +92,8 @@ export interface MovimientoContable {
   cuentaNombre: string;
   tipo: 'debito' | 'credito';
   valor: number;
-  terceroNombre?: string;
-  terceroNit?: string;
+  terceroId: string; // CC, NIT o Pasaporte
+  terceroNombre: string; // Nombre o Razón Social
 }
 
 export interface AsientoContable {
