@@ -121,10 +121,10 @@ export default function ContabilidadPage() {
         const key = `${mov.cuentaCodigo}-${mov.terceroId}`;
         if (!map[key]) {
           map[key] = {
-            cuentaCodigo: mov.cuentaCodigo,
-            cuentaNombre: mov.cuentaNombre,
-            terceroId: mov.terceroId,
-            terceroNombre: mov.terceroNombre,
+            cuentaCodigo: mov.cuentaCodigo || '?',
+            cuentaNombre: mov.cuentaNombre || 'Sin Nombre',
+            terceroId: mov.terceroId || 'CC-000',
+            terceroNombre: mov.terceroNombre || 'Tercero Desconocido',
             debitos: 0,
             creditos: 0
           };
@@ -149,7 +149,7 @@ export default function ContabilidadPage() {
   const listaTerceros = useMemo(() => {
     const unique = new Map();
     mayorData.forEach(m => {
-      if (!unique.has(m.terceroId)) {
+      if (m.terceroId && !unique.has(m.terceroId)) {
         unique.set(m.terceroId, m.terceroNombre);
       }
     });
@@ -278,7 +278,7 @@ export default function ContabilidadPage() {
                     <SelectContent>
                       <SelectItem value="live" className="text-xs font-black text-orange-600">EN VIVO</SelectItem>
                       {cierres.map(c => (
-                        <SelectItem key={c.id} value={c.id || ''} className="text-xs font-bold uppercase">
+                        <SelectItem key={c.id || `cierre-${c.mes}-${c.anio}`} value={c.id || ''} className="text-xs font-bold uppercase">
                           {MESES[c.mes]} {c.anio}
                         </SelectItem>
                       ))}
@@ -343,8 +343,8 @@ export default function ContabilidadPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="todos" className="text-xs font-black">TODOS</SelectItem>
-                      {listaTerceros.map(t => (
-                        <SelectItem key={t.id} value={t.id} className="text-xs font-bold uppercase">{t.nombre}</SelectItem>
+                      {listaTerceros.map((t, idx) => (
+                        <SelectItem key={`tercero-${t.id}-${idx}`} value={t.id} className="text-xs font-bold uppercase">{t.nombre}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -375,14 +375,14 @@ export default function ContabilidadPage() {
                 <TableBody>
                   {filteredDiario.length === 0 ? (
                     <TableRow><TableCell colSpan={6} className="p-20 text-center text-slate-400 font-bold uppercase text-xs opacity-40">No hay movimientos</TableCell></TableRow>
-                  ) : filteredDiario.map((asiento) => (
-                    <React.Fragment key={asiento.id || `asiento-${asiento.fecha}-${asiento.sourceId}`}>
-                      {asiento.movimientos?.map((mov, idx) => {
+                  ) : filteredDiario.map((asiento, aIdx) => (
+                    <React.Fragment key={asiento.id || `asiento-${aIdx}-${asiento.sourceId}`}>
+                      {asiento.movimientos?.map((mov, mIdx) => {
                         const dateObj = asiento.fecha instanceof Timestamp ? asiento.fecha.toDate() : new Date(asiento.fecha);
                         return (
-                          <TableRow key={`${asiento.id}-${idx}`} className={cn("border-b border-slate-50", idx === 0 && "bg-slate-50/30")}>
-                            <TableCell className="p-5">{idx === 0 ? <span className="text-xs font-black text-slate-700">{format(dateObj, 'dd MMM yy', { locale: es }).toUpperCase()}</span> : null}</TableCell>
-                            <TableCell className="p-5">{idx === 0 ? <span className="text-xs font-bold text-slate-800 uppercase truncate block max-w-[200px]">{asiento.concepto}</span> : null}</TableCell>
+                          <TableRow key={`row-${asiento.id || aIdx}-${mIdx}`} className={cn("border-b border-slate-50", mIdx === 0 && "bg-slate-50/30")}>
+                            <TableCell className="p-5">{mIdx === 0 ? <span className="text-xs font-black text-slate-700">{format(dateObj, 'dd MMM yy', { locale: es }).toUpperCase()}</span> : null}</TableCell>
+                            <TableCell className="p-5">{mIdx === 0 ? <span className="text-xs font-bold text-slate-800 uppercase truncate block max-w-[200px]">{asiento.concepto}</span> : null}</TableCell>
                             <TableCell className="p-5"><div className="flex flex-col"><span className="text-xs font-black text-orange-600">{mov.cuentaCodigo}</span><span className="text-[10px] font-bold text-slate-500 uppercase truncate max-w-[150px]">{mov.cuentaNombre}</span></div></TableCell>
                             <TableCell className="p-5"><div className="flex flex-col"><span className="text-xs font-bold text-slate-800 uppercase">{mov.terceroNombre}</span><span className="text-[9px] font-black text-slate-400">{mov.terceroId}</span></div></TableCell>
                             <TableCell className="p-5 text-center"><Badge className={cn("text-[9px] font-black uppercase px-2 py-0.5", mov.tipo === 'debito' ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600")}>{mov.tipo}</Badge></TableCell>
@@ -411,7 +411,7 @@ export default function ContabilidadPage() {
                   {filteredMayor.length === 0 ? (
                     <TableRow><TableCell colSpan={5} className="p-20 text-center text-slate-400 font-bold uppercase text-xs opacity-40">Sin registros</TableCell></TableRow>
                   ) : filteredMayor.map((item, idx) => (
-                    <TableRow key={`${item.cuentaCodigo}-${item.terceroId}-${idx}`} className="hover:bg-slate-50/30 border-b border-slate-50">
+                    <TableRow key={`mayor-${item.cuentaCodigo}-${item.terceroId}-${idx}`} className="hover:bg-slate-50/30 border-b border-slate-50">
                       <TableCell className="p-5"><div className="flex flex-col"><span className="text-xs font-black text-slate-900">{item.cuentaCodigo}</span><span className="text-[10px] font-bold text-slate-400 uppercase">{item.cuentaNombre}</span></div></TableCell>
                       <TableCell className="p-5"><div className="flex flex-col"><span className="text-xs font-black text-slate-800 uppercase">{item.terceroNombre}</span><span className="text-[10px] font-bold text-slate-400">{item.terceroId}</span></div></TableCell>
                       <TableCell className="p-5 text-right text-xs font-bold text-slate-600">{currencyFormatter.format(item.debitos)}</TableCell>
@@ -482,8 +482,8 @@ export default function ContabilidadPage() {
                     <p className="text-[10px] text-slate-400 leading-relaxed mb-6 font-bold uppercase tracking-tight">Clausura irreversible de periodo.</p>
                     <div className="flex flex-col gap-4">
                         <div className="flex gap-2">
-                           <Select value={cierreMes} onValueChange={setCierreMes}><SelectTrigger className="flex-1 h-10 bg-white border-slate-200 font-bold text-[10px] uppercase"><SelectValue placeholder="Mes" /></SelectTrigger><SelectContent>{MESES.map((m, i) => <SelectItem key={`mes-${i}`} value={i.toString()} className="text-[10px] font-bold uppercase">{m}</SelectItem>)}</SelectContent></Select>
-                           <Select value={cierreAnio} onValueChange={setCierreAnio}><SelectTrigger className="flex-1 h-10 bg-white border-slate-200 font-bold text-[10px] uppercase"><SelectValue placeholder="Año" /></SelectTrigger><SelectContent>{ANIOS.map(a => <SelectItem key={`anio-${a}`} value={a} className="text-[10px] font-bold uppercase">{a}</SelectItem>)}</SelectContent></Select>
+                           <Select value={cierreMes} onValueChange={setCierreMes}><SelectTrigger className="flex-1 h-10 bg-white border-slate-200 font-bold text-[10px] uppercase"><SelectValue placeholder="Mes" /></SelectTrigger><SelectContent>{MESES.map((m, i) => <SelectItem key={`mes-sel-${i}`} value={i.toString()} className="text-[10px] font-bold uppercase">{m}</SelectItem>)}</SelectContent></Select>
+                           <Select value={cierreAnio} onValueChange={setCierreAnio}><SelectTrigger className="flex-1 h-10 bg-white border-slate-200 font-bold text-[10px] uppercase"><SelectValue placeholder="Año" /></SelectTrigger><SelectContent>{ANIOS.map(a => <SelectItem key={`anio-sel-${a}`} value={a} className="text-[10px] font-bold uppercase">{a}</SelectItem>)}</SelectContent></Select>
                         </div>
                         <Button onClick={handleCierre} disabled={isClosing || consultedPeriod !== 'live'} className="bg-slate-900 hover:bg-black text-white font-black text-[10px] uppercase h-11 px-6 rounded-xl w-full shadow-lg shadow-slate-200 transition-all">{isClosing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-3.5 w-3.5" />}{consultedPeriod !== 'live' ? 'VISTA HISTÓRICA' : 'Ejecutar Cierre Fiscal'}</Button>
                     </div>
