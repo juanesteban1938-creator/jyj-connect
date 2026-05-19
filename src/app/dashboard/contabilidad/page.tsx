@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -320,21 +319,19 @@ export default function ContabilidadPage() {
         </Card>
       </div>
 
-      <div className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <div className="flex flex-col lg:flex-row items-center justify-between gap-4 bg-white p-4 rounded-3xl shadow-sm border">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full lg:w-auto">
-            <TabsList className="bg-slate-100 p-1 rounded-xl h-11 w-full lg:w-auto">
-              <TabsTrigger value="diario" className="flex-1 lg:flex-none rounded-lg px-6 font-black uppercase text-[9px] sm:text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:text-orange-600 shadow-none">
-                <FileText className="h-3 w-3 mr-2" /> Diario
-              </TabsTrigger>
-              <TabsTrigger value="mayor" className="flex-1 lg:flex-none rounded-lg px-6 font-black uppercase text-[9px] sm:text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:text-orange-600 shadow-none">
-                <User className="h-3 w-3 mr-2" /> Libro Mayor
-              </TabsTrigger>
-              <TabsTrigger value="estados" className="flex-1 lg:flex-none rounded-lg px-6 font-black uppercase text-[9px] sm:text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:text-orange-600 shadow-none">
-                <BarChart3 className="h-3 w-3 mr-2" /> Estados
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <TabsList className="bg-slate-100 p-1 rounded-xl h-11 w-full lg:w-auto">
+            <TabsTrigger value="diario" className="flex-1 lg:flex-none rounded-lg px-6 font-black uppercase text-[9px] sm:text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:text-orange-600 shadow-none">
+              <FileText className="h-3 w-3 mr-2" /> Diario
+            </TabsTrigger>
+            <TabsTrigger value="mayor" className="flex-1 lg:flex-none rounded-lg px-6 font-black uppercase text-[9px] sm:text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:text-orange-600 shadow-none">
+              <User className="h-3 w-3 mr-2" /> Libro Mayor
+            </TabsTrigger>
+            <TabsTrigger value="estados" className="flex-1 lg:flex-none rounded-lg px-6 font-black uppercase text-[9px] sm:text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:text-orange-600 shadow-none">
+              <BarChart3 className="h-3 w-3 mr-2" /> Estados
+            </TabsTrigger>
+          </TabsList>
 
           <div className="flex items-center gap-3 w-full lg:w-auto">
               {activeTab === 'mayor' && (
@@ -509,7 +506,7 @@ export default function ContabilidadPage() {
               </div>
             </TabsContent>
         </Card>
-      </div>
+      </Tabs>
 
       <Dialog open={isGastoOpen} onOpenChange={setIsGastoOpen}>
         <DialogContent className="sm:max-w-[450px] rounded-3xl border-none shadow-2xl p-0 overflow-hidden">
