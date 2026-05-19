@@ -4,7 +4,7 @@ import type { AsientoContable, MovimientoContable, Servicio, Cliente, Transaccio
 /**
  * CONSTANTES DE TASAS IMPOSITIVAS (COLOMBIA 2026)
  */
-const TASA_RETEFUENTE = 0.035; // 3.5% para servicios de transporte (Phase 2 update)
+const TASA_RETEFUENTE = 0.035; // 3.5% para servicios de transporte
 const TASA_RETEICA = 0.00966; // 9.66 por mil
 const TASA_GMF = 0.004; // 4x1000
 
@@ -27,17 +27,18 @@ export const CUENTAS = {
 
 /**
  * Valida que un asiento cumpla con el principio de partida doble.
+ * Aplicamos redondeo estricto antes de comparar para evitar errores de coma flotante de JS.
  */
 function validarPartidaDoble(movimientos: MovimientoContable[]): boolean {
   const debito = movimientos
     .filter(m => m.tipo === 'debito')
-    .reduce((acc, curr) => acc + curr.valor, 0);
+    .reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0);
   
   const credito = movimientos
     .filter(m => m.tipo === 'credito')
-    .reduce((acc, curr) => acc + curr.valor, 0);
+    .reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0);
 
-  return Math.abs(debito - credito) < 1; // Tolerancia de 1 peso por redondeo
+  return Math.round(debito) === Math.round(credito);
 }
 
 /**
@@ -46,14 +47,14 @@ function validarPartidaDoble(movimientos: MovimientoContable[]): boolean {
 export async function registrarAsiento(db: Firestore, asiento: Omit<AsientoContable, 'id' | 'fecha' | 'totalDebito' | 'totalCredito'>) {
   const totalDebito = Math.round(asiento.movimientos
     .filter(m => m.tipo === 'debito')
-    .reduce((acc, curr) => acc + curr.valor, 0));
+    .reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0));
   
   const totalCredito = Math.round(asiento.movimientos
     .filter(m => m.tipo === 'credito')
-    .reduce((acc, curr) => acc + curr.valor, 0));
+    .reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0));
 
   if (!validarPartidaDoble(asiento.movimientos)) {
-    console.error('Inconsistencia detectada:', { deb: totalDebito, cre: totalCredito });
+    console.error('Inconsistencia Detectada en Asiento:', JSON.stringify(asiento.movimientos, null, 2));
     throw new Error(`Inconsistencia Contable: Débitos (${totalDebito}) no coinciden con Créditos (${totalCredito})`);
   }
 
@@ -73,22 +74,29 @@ export async function registrarAsiento(db: Firestore, asiento: Omit<AsientoConta
 
 export async function generarAsientoServicio(db: Firestore, servicio: Servicio) {
   try {
-    const valorBase = Number(servicio.valorServicio);
-    const costoOperacion = Number(servicio.costoOperacion) || 0;
+    const valorBase = Math.round(Number(servicio.valorServicio) || 0);
+    const costoOperacion = Math.round(Number(servicio.costoOperacion) || 0);
+    
+    if (valorBase <= 0) return;
+
     const movimientos: MovimientoContable[] = [];
     const impuestos = [];
 
     // Obtener tipo de cliente (Jurídico/Natural)
     let esJuridico = false;
     if (servicio.nitCliente) {
-        const clienteDoc = await getDoc(doc(db, 'clientes', servicio.nitCliente));
-        if (clienteDoc.exists()) {
-            const cData = clienteDoc.data();
-            esJuridico = cData.tipo !== 'Particular';
+        try {
+            const clienteDoc = await getDoc(doc(db, 'clientes', servicio.nitCliente));
+            if (clienteDoc.exists()) {
+                const cData = clienteDoc.data();
+                esJuridico = cData.tipo !== 'Particular' && cData.tipo !== undefined;
+            }
+        } catch (e) {
+            console.warn('[Engine] No se pudo verificar tipo de cliente, asumiendo Natural.');
         }
     }
 
-    // 1. CAUSACIÓN DEL INGRESO
+    // 1. CAUSACIÓN DEL INGRESO (CRÉDITO)
     movimientos.push({
       cuentaCodigo: CUENTAS.INGRESOS_TRANSPORTE.codigo,
       cuentaNombre: CUENTAS.INGRESOS_TRANSPORTE.nombre,
@@ -98,6 +106,7 @@ export async function generarAsientoServicio(db: Firestore, servicio: Servicio) 
       terceroNit: servicio.nitCliente
     });
 
+    // 2. CAUSACIÓN DEL ACTIVO (DÉBITO)
     if (esJuridico) {
       const valorRetefuente = Math.round(valorBase * TASA_RETEFUENTE);
       const valorReteICA = Math.round(valorBase * TASA_RETEICA);
@@ -105,12 +114,26 @@ export async function generarAsientoServicio(db: Firestore, servicio: Servicio) 
 
       movimientos.push({ cuentaCodigo: CUENTAS.RETEFUENTE_FAVOR.codigo, cuentaNombre: CUENTAS.RETEFUENTE_FAVOR.nombre, tipo: 'debito', valor: valorRetefuente });
       movimientos.push({ cuentaCodigo: CUENTAS.RETEICA_FAVOR.codigo, cuentaNombre: CUENTAS.RETEICA_FAVOR.nombre, tipo: 'debito', valor: valorReteICA });
-      movimientos.push({ cuentaCodigo: CUENTAS.CLIENTES.codigo, cuentaNombre: CUENTAS.CLIENTES.nombre, tipo: 'debito', valor: saldoNeto, terceroNombre: servicio.cliente, terceroNit: servicio.nitCliente });
+      movimientos.push({ 
+        cuentaCodigo: CUENTAS.CLIENTES.codigo, 
+        cuentaNombre: CUENTAS.CLIENTES.nombre, 
+        tipo: 'debito', 
+        valor: saldoNeto, 
+        terceroNombre: servicio.clienteNombre || servicio.cliente, 
+        terceroNit: servicio.nitCliente 
+      });
 
       impuestos.push({ tipo: 'retefuente' as any, valor: valorRetefuente, base: valorBase });
       impuestos.push({ tipo: 'reteica' as any, valor: valorReteICA, base: valorBase });
     } else {
-      movimientos.push({ cuentaCodigo: CUENTAS.CLIENTES.codigo, cuentaNombre: CUENTAS.CLIENTES.nombre, tipo: 'debito', valor: valorBase, terceroNombre: servicio.cliente, terceroNit: servicio.nitCliente });
+      movimientos.push({ 
+        cuentaCodigo: CUENTAS.CLIENTES.codigo, 
+        cuentaNombre: CUENTAS.CLIENTES.nombre, 
+        tipo: 'debito', 
+        valor: valorBase, 
+        terceroNombre: servicio.clienteNombre || servicio.cliente, 
+        terceroNit: servicio.nitCliente 
+      });
     }
 
     await registrarAsiento(db, {
@@ -121,7 +144,7 @@ export async function generarAsientoServicio(db: Firestore, servicio: Servicio) 
       impuestosAsociados: impuestos
     });
 
-    // 2. CAUSACIÓN DEL COSTO (Si hay costo definido)
+    // 3. CAUSACIÓN DEL COSTO (Si hay costo definido)
     if (costoOperacion > 0) {
         const movsCosto: MovimientoContable[] = [
             { cuentaCodigo: CUENTAS.COSTO_VENTA.codigo, cuentaNombre: CUENTAS.COSTO_VENTA.nombre, tipo: 'debito', valor: costoOperacion },
@@ -135,26 +158,29 @@ export async function generarAsientoServicio(db: Firestore, servicio: Servicio) 
             movimientos: movsCosto
         });
     }
-  } catch (e) {
-    console.error('[Engine] Fallo en causación:', e);
+  } catch (e: any) {
+    console.error('[Engine] Fallo en causación:', e.message);
   }
 }
 
 export async function generarAsientoRecaudo(db: Firestore, servicio: Servicio, valorPago: number, metodo: string) {
   try {
+    const monto = Math.round(Number(valorPago) || 0);
+    if (monto <= 0) return;
+
     const movimientos: MovimientoContable[] = [
       { 
         cuentaCodigo: metodo === 'Efectivo' ? CUENTAS.CAJA.codigo : CUENTAS.BANCOS.codigo, 
         cuentaNombre: metodo === 'Efectivo' ? CUENTAS.CAJA.nombre : CUENTAS.BANCOS.nombre, 
         tipo: 'debito', 
-        valor: valorPago 
+        valor: monto 
       },
       { 
         cuentaCodigo: CUENTAS.CLIENTES.codigo, 
         cuentaNombre: CUENTAS.CLIENTES.nombre, 
         tipo: 'credito', 
-        valor: valorPago, 
-        terceroNombre: servicio.cliente, 
+        valor: monto, 
+        terceroNombre: servicio.clienteNombre || servicio.cliente, 
         terceroNit: servicio.nitCliente 
       }
     ];
@@ -165,16 +191,16 @@ export async function generarAsientoRecaudo(db: Firestore, servicio: Servicio, v
       sourceModule: 'pagos',
       movimientos
     });
-  } catch (e) {
-    console.error('[Engine] Fallo en recaudo:', e);
+  } catch (e: any) {
+    console.error('[Engine] Fallo en recaudo:', e.message);
   }
 }
 
 export async function generarAsientoGasto(db: Firestore, transaccion: Transaccion) {
   try {
-    const valor = Number(transaccion.valor);
-    const esBanco = true; // Por defecto asumimos bancos para disparar GMF si aplica
-    
+    const valor = Math.round(Number(transaccion.valor) || 0);
+    if (valor <= 0) return;
+
     const movimientos: MovimientoContable[] = [
       { cuentaCodigo: CUENTAS.GASTOS_OPERATIVOS.codigo, cuentaNombre: `Gasto: ${transaccion.descripcion}`, tipo: 'debito', valor },
       { cuentaCodigo: CUENTAS.BANCOS.codigo, cuentaNombre: CUENTAS.BANCOS.nombre, tipo: 'credito', valor }
@@ -200,7 +226,7 @@ export async function generarAsientoGasto(db: Firestore, transaccion: Transaccio
         ]
       });
     }
-  } catch (e) {
-    console.error('[Engine] Fallo en gasto:', e);
+  } catch (e: any) {
+    console.error('[Engine] Fallo en gasto:', e.message);
   }
 }
