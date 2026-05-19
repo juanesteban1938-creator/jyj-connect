@@ -148,6 +148,7 @@ export default function ContabilidadPage() {
 
   const listaTerceros = useMemo(() => {
     const unique = new Map();
+    // Extraemos de mayorData para asegurar que cubrimos todos los que tienen saldo
     mayorData.forEach(m => {
       if (m.terceroId && !unique.has(m.terceroId)) {
         unique.set(m.terceroId, m.terceroNombre);
