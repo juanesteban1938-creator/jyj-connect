@@ -22,6 +22,13 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
+import { 
   Search, 
   DollarSign,
   PieChart,
@@ -37,13 +44,14 @@ import {
   BarChart3,
   Lock,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  Filter
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { generarAsientoServicio, generarAsientoRecaudo, realizarCierreContable } from '@/lib/accounting-engine';
+import { registrarAsiento, realizarCierreContable } from '@/lib/accounting-engine';
 import type { AsientoContable, CierreFiscal } from '@/lib/types';
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', {
@@ -53,13 +61,19 @@ const currencyFormatter = new Intl.NumberFormat('es-CO', {
 });
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const ANIOS = ["2025", "2026", "2027", "2028"];
 
 export default function ContabilidadPage() {
   const [activeTab, setActiveTab] = useState('diario');
   const [searchTerm, setSearchTerm] = useState('');
-  const [isMigrating, setIsMigrating] = useState(false);
+  const [selectedTercero, setSelectedTercero] = useState('todos');
+  const [consultedPeriod, setConsultedPeriod] = useState('live');
   const [isClosing, setIsClosing] = useState(false);
   
+  // Estados para el formulario de cierre
+  const [cierreMes, setCierreMes] = useState(new Date().getMonth().toString());
+  const [cierreAnio, setCierreAnio] = useState(new Date().getFullYear().toString());
+
   const db = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
@@ -72,14 +86,29 @@ export default function ContabilidadPage() {
 
   const cierresQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'cierres_fiscales'), orderBy('fechaCierre', 'desc'), limit(1));
+    return query(collection(db, 'cierres_fiscales'), orderBy('fechaCierre', 'desc'));
   }, [db, user]);
 
   const { data: asientosRaw, isLoading } = useCollection<AsientoContable>(asientosQuery);
   const { data: cierresRaw } = useCollection<CierreFiscal>(cierresQuery);
   
   const asientos = asientosRaw || [];
-  const ultimoCierre = cierresRaw?.[0] || null;
+  const cierres = cierresRaw || [];
+
+  // Lógica de filtrado por periodo de consulta (Live vs Histórico)
+  const asientosFiltradosPorPeriodo = useMemo(() => {
+    if (consultedPeriod === 'live') return asientos;
+    
+    const closure = cierres.find(c => c.id === consultedPeriod);
+    if (!closure) return asientos;
+
+    const limitDate = closure.fechaCierre instanceof Timestamp ? closure.fechaCierre.toDate() : new Date(closure.fechaCierre);
+    
+    return asientos.filter(a => {
+      const entryDate = a.fecha instanceof Timestamp ? a.fecha.toDate() : new Date(a.fecha);
+      return entryDate <= limitDate;
+    });
+  }, [asientos, consultedPeriod, cierres]);
 
   // 1. Lógica del Libro Mayor
   const mayorData = useMemo(() => {
@@ -92,7 +121,7 @@ export default function ContabilidadPage() {
       creditos: number;
     }> = {};
 
-    asientos.forEach(asiento => {
+    asientosFiltradosPorPeriodo.forEach(asiento => {
       asiento.movimientos?.forEach(mov => {
         const key = `${mov.cuentaCodigo}-${mov.terceroId}`;
         if (!map[key]) {
@@ -120,7 +149,18 @@ export default function ContabilidadPage() {
       }
       return { ...item, saldo };
     }).sort((a, b) => a.cuentaCodigo.localeCompare(b.cuentaCodigo));
-  }, [asientos]);
+  }, [asientosFiltradosPorPeriodo]);
+
+  // Lista de terceros únicos para el filtro
+  const listaTerceros = useMemo(() => {
+    const unique = new Map();
+    mayorData.forEach(m => {
+      if (!unique.has(m.terceroId)) {
+        unique.set(m.terceroId, m.terceroNombre);
+      }
+    });
+    return Array.from(unique.entries()).map(([id, nombre]) => ({ id, nombre }));
+  }, [mayorData]);
 
   // 2. Lógica de Estados Financieros
   const reports = useMemo(() => {
@@ -131,7 +171,7 @@ export default function ContabilidadPage() {
     let costos = 0;
     let gastos = 0;
 
-    asientos.forEach(asiento => {
+    asientosFiltradosPorPeriodo.forEach(asiento => {
       asiento.movimientos?.forEach(mov => {
         const codigo = mov.cuentaCodigo || '';
         const valor = Number(mov.valor) || 0;
@@ -153,64 +193,34 @@ export default function ContabilidadPage() {
       balance: { activos, pasivos, patrimonioBase, utilidadNeta, patrimonioTotal },
       estadoResultados: { ingresos, costos, gastos, utilidadNeta }
     };
-  }, [asientos]);
+  }, [asientosFiltradosPorPeriodo]);
 
-  // Filtrado
+  // Filtrado de tablas
   const filteredDiario = useMemo(() => {
-    return asientos.filter(a => 
+    return asientosFiltradosPorPeriodo.filter(a => 
       (a.concepto || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       a.movimientos?.some(m => (m.terceroNombre || '').toLowerCase().includes(searchTerm.toLowerCase()) || (m.cuentaCodigo || '').includes(searchTerm))
     );
-  }, [asientos, searchTerm]);
+  }, [asientosFiltradosPorPeriodo, searchTerm]);
 
   const filteredMayor = useMemo(() => {
-    return mayorData.filter(m => 
-      (m.terceroNombre || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (m.terceroId || '').includes(searchTerm) ||
-      (m.cuentaCodigo || '').includes(searchTerm)
-    );
-  }, [mayorData, searchTerm]);
-
-  const handleMigrate = async () => {
-    if (!confirm('¿Deseas sincronizar los servicios históricos con la contabilidad?')) return;
-    setIsMigrating(true);
-    let generados = 0;
-    try {
-      const servicesSnap = await getDocs(collection(db, 'services'));
-      for (const serviceDoc of servicesSnap.docs) {
-        const serviceData = { id: serviceDoc.id, ...serviceDoc.data() } as any;
-        const checkQuery = query(collection(db, 'asientos_contables'), where('sourceId', '==', serviceData.id), where('sourceModule', '==', 'services'));
-        const checkSnap = await getDocs(checkQuery);
-        if (checkSnap.empty) {
-          await generarAsientoServicio(db, serviceData);
-          const saldo = Number(serviceData.saldo);
-          if (serviceData.estadoPago === 'Pagado' || (serviceData.saldo !== undefined && saldo <= 0)) {
-            const valorRecaudo = Number(serviceData.valorServicio) || 0;
-            const metodo = serviceData.metodoPago || 'Transferencia';
-            await generarAsientoRecaudo(db, serviceData, valorRecaudo, metodo);
-          }
-          generados++;
-        }
-      }
-      toast({ title: "Migración Exitosa", description: `Se han sincronizado ${generados} servicios.` });
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Error en Migración", description: error.message });
-    } finally {
-      setIsMigrating(false);
-    }
-  };
+    return mayorData.filter(m => {
+      const matchesSearch = (m.terceroNombre || '').toLowerCase().includes(searchTerm.toLowerCase()) || (m.cuentaCodigo || '').includes(searchTerm);
+      const matchesTercero = selectedTercero === 'todos' || m.terceroId === selectedTercero;
+      return matchesSearch && matchesTercero;
+    });
+  }, [mayorData, searchTerm, selectedTercero]);
 
   const handleCierre = async () => {
-    const ahora = new Date();
-    const mesActual = ahora.getMonth();
-    const anioActual = ahora.getFullYear();
+    const mesNum = parseInt(cierreMes);
+    const anioNum = parseInt(cierreAnio);
     
-    if (!confirm(`¿Deseas ejecutar el CIERRE FISCAL del periodo ${MESES[mesActual]} ${anioActual}? Esta acción bloqueará cualquier alteración de datos de este mes en adelante para garantizar la integridad contable.`)) return;
+    if (!confirm(`¿Deseas ejecutar el CIERRE FISCAL del periodo ${MESES[mesNum]} ${anioNum}? Esta acción bloqueará cualquier alteración de datos de este mes en adelante.`)) return;
     
     setIsClosing(true);
     try {
-      await realizarCierreContable(db, mesActual, anioActual, user?.email || 'admin');
-      toast({ title: "Cierre Fiscal Exitoso", description: `El periodo ${MESES[mesActual]} ha sido clausurado.` });
+      await realizarCierreContable(db, mesNum, anioNum, user?.email || 'admin');
+      toast({ title: "Cierre Fiscal Exitoso", description: `El periodo ${MESES[mesNum]} ${anioNum} ha sido clausurado.` });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Error al cerrar", description: e.message });
     } finally {
@@ -238,26 +248,25 @@ export default function ContabilidadPage() {
           </div>
           <p className="text-slate-500 text-sm font-medium mt-1">Gestión de partida doble y estados financieros consolidados.</p>
         </div>
-        
-        <div className="flex items-center gap-3">
-            <Button 
-                onClick={handleMigrate} 
-                disabled={isMigrating}
-                variant="outline"
-                className="border-orange-200 text-orange-600 hover:bg-orange-50 font-black text-[10px] uppercase tracking-wider px-6 h-12 rounded-xl transition-all"
-            >
-                {isMigrating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <History className="mr-2 h-4 w-4" />}
-                Migración
-            </Button>
-            <Button 
-                onClick={handleCierre} 
-                disabled={isClosing}
-                className="bg-slate-900 hover:bg-black text-white font-black text-[10px] uppercase tracking-wider px-6 h-12 rounded-xl shadow-lg shadow-slate-200 transition-all"
-            >
-                {isClosing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-4 w-4" />}
-                Realizar Cierre
-            </Button>
-        </div>
+
+        {activeTab === 'estados' && (
+          <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border shadow-sm">
+             <span className="text-[10px] font-black uppercase text-slate-400 px-2">Consultar:</span>
+             <Select value={consultedPeriod} onValueChange={setConsultedPeriod}>
+                <SelectTrigger className="w-[200px] h-9 border-none font-bold text-xs uppercase focus:ring-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="live" className="text-xs font-black text-orange-600">PERIODO ACTUAL (EN VIVO)</SelectItem>
+                  {cierres.map(c => (
+                    <SelectItem key={c.id} value={c.id || ''} className="text-xs font-bold uppercase">
+                      CIERRE: {MESES[c.mes]} {c.anio}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+             </Select>
+          </div>
+        )}
       </header>
 
       {/* KPI Cards */}
@@ -307,24 +316,36 @@ export default function ContabilidadPage() {
             </TabsList>
           </Tabs>
 
-          {activeTab !== 'estados' ? (
-            <div className="relative w-full lg:w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input 
-                placeholder="Buscar por tercero o concepto..."
-                className="bg-slate-50 border-slate-200 text-slate-900 pl-9 h-11 rounded-xl focus:ring-orange-500"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-              />
-            </div>
-          ) : ultimoCierre && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-2xl shadow-sm">
-                <Lock className="h-3.5 w-3.5 text-orange-500" />
-                <span className="text-[10px] font-black uppercase tracking-widest">
-                    Cierre: {MESES[ultimoCierre.mes]} {ultimoCierre.anio}
-                </span>
-            </div>
-          )}
+          <div className="flex items-center gap-3 w-full lg:w-auto">
+              {activeTab === 'mayor' && (
+                <div className="flex items-center gap-2 bg-slate-50 px-3 rounded-xl border border-slate-200 h-11">
+                  <Filter className="h-3.5 w-3.5 text-slate-400" />
+                  <Select value={selectedTercero} onValueChange={setSelectedTercero}>
+                    <SelectTrigger className="w-[180px] border-none bg-transparent font-bold text-xs uppercase focus:ring-0">
+                      <SelectValue placeholder="Filtrar Tercero" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos" className="text-xs font-black">TODOS LOS TERCEROS</SelectItem>
+                      {listaTerceros.map(t => (
+                        <SelectItem key={t.id} value={t.id} className="text-xs font-bold uppercase">{t.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              
+              {activeTab !== 'estados' && (
+                <div className="relative w-full lg:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input 
+                    placeholder="Buscar..."
+                    className="bg-slate-50 border-slate-200 text-slate-900 pl-9 h-11 rounded-xl focus:ring-orange-500"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                  />
+                </div>
+              )}
+          </div>
         </div>
 
         <Card className="rounded-3xl shadow-sm border border-slate-100 overflow-hidden bg-white">
@@ -343,7 +364,9 @@ export default function ContabilidadPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredDiario.map((asiento) => asiento.movimientos?.map((mov, idx) => {
+                    {filteredDiario.length === 0 ? (
+                      <TableRow><TableCell colSpan={6} className="p-20 text-center text-slate-400 font-bold uppercase text-xs opacity-40">No hay movimientos en este periodo</TableCell></TableRow>
+                    ) : filteredDiario.map((asiento) => asiento.movimientos?.map((mov, idx) => {
                       const dateObj = asiento.fecha instanceof Timestamp ? asiento.fecha.toDate() : new Date(asiento.fecha);
                       return (
                         <TableRow key={`${asiento.id}-${idx}`} className={cn("border-b border-slate-50", idx === 0 && "bg-slate-50/30")}>
@@ -374,7 +397,9 @@ export default function ContabilidadPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredMayor.map((item, idx) => (
+                    {filteredMayor.length === 0 ? (
+                      <TableRow><TableCell colSpan={5} className="p-20 text-center text-slate-400 font-bold uppercase text-xs opacity-40">No se encontraron saldos por tercero</TableCell></TableRow>
+                    ) : filteredMayor.map((item, idx) => (
                       <TableRow key={idx} className="hover:bg-slate-50/30 border-b border-slate-50">
                         <TableCell className="p-5">
                           <div className="flex flex-col"><span className="text-xs font-black text-slate-900">{item.cuentaCodigo}</span><span className="text-[10px] font-bold text-slate-400 uppercase">{item.cuentaNombre}</span></div>
@@ -427,28 +452,42 @@ export default function ContabilidadPage() {
                     </div>
                   </div>
                   
-                  {/* Gestión de Cierre (Mini Card) */}
+                  {/* Gestión de Cierre */}
                   <div className="mt-12 bg-slate-50 rounded-3xl p-6 border border-dashed border-slate-200">
                     <div className="flex items-center gap-3 mb-4">
                         <AlertCircle className="h-5 w-5 text-slate-400" />
-                        <h4 className="text-xs font-black uppercase text-slate-500">Gestión de Periodos</h4>
+                        <h4 className="text-xs font-black uppercase text-slate-500">Ejecutar Cierre Fiscal</h4>
                     </div>
-                    <p className="text-xs text-slate-400 leading-relaxed mb-6 font-medium">
-                        El cierre fiscal bloquea la edición de movimientos anteriores a la fecha seleccionada, garantizando que los estados financieros aquí mostrados sean definitivos.
+                    <p className="text-[10px] text-slate-400 leading-relaxed mb-6 font-bold uppercase tracking-tight">
+                        Seleccione el periodo que desea clausurar. Esta acción es irreversible y garantiza la inmutabilidad de los datos.
                     </p>
-                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                    <div className="flex flex-col gap-4">
+                        <div className="flex gap-2">
+                           <Select value={cierreMes} onValueChange={setCierreMes}>
+                              <SelectTrigger className="flex-1 h-10 bg-white border-slate-200 font-bold text-[10px] uppercase">
+                                <SelectValue placeholder="Mes" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {MESES.map((m, i) => <SelectItem key={i} value={i.toString()} className="text-[10px] font-bold uppercase">{m}</SelectItem>)}
+                              </SelectContent>
+                           </Select>
+                           <Select value={cierreAnio} onValueChange={setCierreAnio}>
+                              <SelectTrigger className="flex-1 h-10 bg-white border-slate-200 font-bold text-[10px] uppercase">
+                                <SelectValue placeholder="Año" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {ANIOS.map(a => <SelectItem key={a} value={a} className="text-[10px] font-bold uppercase">{a}</SelectItem>)}
+                              </SelectContent>
+                           </Select>
+                        </div>
                         <Button 
                             onClick={handleCierre} 
-                            disabled={isClosing}
-                            className="bg-slate-900 hover:bg-black text-white font-black text-[10px] uppercase h-10 px-6 rounded-xl w-full sm:w-auto"
+                            disabled={isClosing || consultedPeriod !== 'live'}
+                            className="bg-slate-900 hover:bg-black text-white font-black text-[10px] uppercase h-11 px-6 rounded-xl w-full shadow-lg shadow-slate-200 transition-all"
                         >
                             {isClosing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-3.5 w-3.5" />}
-                            Cerrar Mes Actual
+                            {consultedPeriod !== 'live' ? 'VISTA HISTÓRICA (BLOQUEADO)' : 'Ejecutar Cierre Fiscal'}
                         </Button>
-                        <div className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-400 bg-white px-4 h-10 rounded-xl border">
-                            <Calendar className="h-3.5 w-3.5" />
-                            {ultimoCierre ? `${MESES[ultimoCierre.mes]} ${ultimoCierre.anio}` : 'Sin cierres'}
-                        </div>
                     </div>
                   </div>
                 </div>
@@ -480,6 +519,18 @@ export default function ContabilidadPage() {
                       <span className="text-2xl font-black text-orange-500">{currencyFormatter.format(reports.estadoResultados.utilidadNeta)}</span>
                     </div>
                   </div>
+
+                  <div className="mt-8 p-6 bg-slate-50 rounded-[2rem] border">
+                    <div className="flex items-center gap-2 mb-2">
+                        <History className="h-4 w-4 text-slate-400" />
+                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Información de Auditoría</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 font-medium leading-relaxed italic">
+                      {consultedPeriod === 'live' 
+                        ? 'Estás consultando el periodo en vivo. Los datos pueden variar hasta que se ejecute el cierre oficial.' 
+                        : `Estás visualizando un periodo histórico cerrado. Los datos son inmutables y corresponden al balance oficial de la fecha.`}
+                    </p>
+                  </div>
                 </div>
               </div>
             </TabsContent>
@@ -488,7 +539,7 @@ export default function ContabilidadPage() {
       </div>
 
       <footer className="text-center pt-8">
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Protocolo Contable J&J — Cierres Inmutables v3.2</p>
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Protocolo Contable J&J — Cierres Inmutables v3.5</p>
       </footer>
     </div>
   );
