@@ -53,6 +53,7 @@ import {
 import { format, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
+import { generarAsientoRecaudo } from '@/lib/accounting-engine';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
@@ -185,15 +186,9 @@ export default function PagosAuditPage() {
         if (sSnap.exists()) {
           const sData = sSnap.data();
           const valorServicio = Number(sData.valorServicio) || 0;
-          
-          // Cálculo estricto del nuevo saldo
           const nuevoSaldo = valorServicio - totalPagadoReal;
-          
-          // Definir estado basado en el saldo real acumulado
-          // Si el saldo es <= 0, el servicio está pagado al 100% o sobrepagado
           const nuevoEstadoPago = nuevoSaldo <= 0 ? 'Pagado' : 'Anticipo';
           
-          // Solo actualizar si hay discrepancia entre la data del servicio y la suma de pagos
           if (sData.saldo !== nuevoSaldo || sData.anticipo !== totalPagadoReal || sData.estadoPago !== nuevoEstadoPago) {
             await updateDoc(sRef, {
               anticipo: totalPagadoReal,

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -15,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { useFirestore, useUser, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, orderBy, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { generarAsientoGasto } from '@/lib/accounting-engine';
 import type { Transaccion } from '@/lib/types';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -85,6 +85,11 @@ export default function RentabilidadPage() {
     const colRef = collection(db, 'transacciones');
     
     addDoc(colRef, transaccionData)
+      .then((docRef) => {
+          // DISPARADOR CONTABLE: Registro de Gasto/Ingreso
+          generarAsientoGasto(db, { id: docRef.id, ...transaccionData }).catch(e => console.error('Error contable:', e));
+          toast({ title: "Transacción Registrada" });
+      })
       .catch((e) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: colRef.path,
@@ -92,10 +97,10 @@ export default function RentabilidadPage() {
           requestResourceData: transaccionData
         }));
         toast({ variant: "destructive", title: "Error al registrar transacción" });
+      })
+      .finally(() => {
+          setIsSaving(false);
       });
-    
-    toast({ title: "Transacción Registrada" });
-    setIsSaving(false);
   };
 
   const handleDelete = (id: string) => {

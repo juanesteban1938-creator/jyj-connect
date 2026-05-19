@@ -34,6 +34,7 @@ import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-serv
 import { useFirestore, useUser, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, updateDoc, collection, query } from 'firebase/firestore';
 import { enviarNotificacionServicio } from '@/lib/whatsapp';
+import { generarAsientoServicio } from '@/lib/accounting-engine';
 import { cn } from '@/lib/utils';
 import type { Servicio } from '@/lib/types';
 
@@ -229,7 +230,7 @@ export default function ServiciosPage() {
 
     const docRef = doc(db, 'services', servicioId);
     setDoc(docRef, payload, { merge: true })
-      .then(() => {
+      .then(async () => {
         if (formData.nitCliente) {
           const clienteRef = doc(db, 'clientes', formData.nitCliente);
           setDoc(clienteRef, {
@@ -243,6 +244,11 @@ export default function ServiciosPage() {
           }, { merge: true });
         }
         
+        // DISPARADOR CONTABLE: Causación del servicio
+        if (esNuevo) {
+            generarAsientoServicio(db, payload).catch(e => console.error('Error contable:', e));
+        }
+
         toast({ title: esNuevo ? "Servicio Programado" : "Servicio Actualizado" });
         
         setTimeout(() => {

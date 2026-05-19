@@ -1,7 +1,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 2.2.4 (Filtro de notificaciones y enriquecimiento de data)
+ * Versión: 2.3.0 (Integración de Motor Contable Central)
  */
 
 const express = require('express');
@@ -43,10 +43,23 @@ const client = new Client({
     }
 });
 
-function resolveWAId(number) {
-    let clean = number.toString().replace(/\D/g, '');
-    if (!clean.startsWith('57')) clean = '57' + clean;
-    return `${clean}@c.us`;
+/** 
+ * MOTOR CONTABLE SIMPLIFICADO (SERVER-SIDE) 
+ */
+async function registrarAsientoContable(asiento) {
+    try {
+        const totalDebito = asiento.movimientos.filter(m => m.tipo === 'debito').reduce((a, b) => a + b.valor, 0);
+        const totalCredito = asiento.movimientos.filter(m => m.tipo === 'credito').reduce((a, b) => a + b.valor, 0);
+        
+        await db.collection('asientos_contables').add({
+            ...asiento,
+            fecha: admin.firestore.FieldValue.serverTimestamp(),
+            totalDebito,
+            totalCredito
+        });
+    } catch (e) {
+        console.error('[Nova Contabilidad] Error:', e.message);
+    }
 }
 
 client.on('message', async (msg) => {
@@ -63,6 +76,7 @@ client.on('message', async (msg) => {
         fecha: admin.firestore.FieldValue.serverTimestamp()
     });
 
+    // Lógica de detección de pagos con IA
     if (msg.hasMedia && (body.toLowerCase().includes('pago') || body.toLowerCase().includes('soporte') || body.toLowerCase().includes('transferencia') || body.toLowerCase().includes('comprobante'))) {
         try {
             const transaccionId = 'WA-' + msg.id.id;
@@ -87,6 +101,7 @@ client.on('message', async (msg) => {
                 const anticipoActual = Number(targetService.anticipo) || 0;
                 const saldoPendiente = Math.max(0, valorTotal - anticipoActual);
                 
+                // 1. Actualizar Servicio
                 await db.collection('services').doc(targetService.id).update({
                     estadoPago: 'Pagado',
                     anticipo: valorTotal,
@@ -94,6 +109,7 @@ client.on('message', async (msg) => {
                     metodoPago: 'Transferencia'
                 });
 
+                // 2. Registrar Auditoría de Pago
                 await db.collection('pagos_aplicados').add({
                     servicioId: targetService.id,
                     consecutivo: targetService.consecutivo,
@@ -109,7 +125,18 @@ client.on('message', async (msg) => {
                     fecha: admin.firestore.FieldValue.serverTimestamp()
                 });
 
-                // Solo agregar a pendientes de correo si el pago es TOTAL
+                // 3. DISPARADOR CONTABLE: Asiento de Recaudo
+                await registrarAsientoContable({
+                    concepto: `Recaudo Automático Nova (WhatsApp): Servicio ${targetService.consecutivo}`,
+                    sourceId: targetService.id,
+                    sourceModule: 'pagos',
+                    movimientos: [
+                        { cuentaCodigo: '1110', cuentaNombre: 'Bancos', tipo: 'debito', valor: saldoPendiente },
+                        { cuentaCodigo: '1305', cuentaNombre: 'Cuentas por Cobrar Clientes', tipo: 'credito', valor: saldoPendiente, terceroNombre: targetService.cliente, terceroNit: targetService.nitCliente }
+                    ]
+                });
+
+                // 4. Notificar confirmación de correo pendiente
                 if (targetService.emailCliente) {
                     await db.collection('pagos_pendientes_correo').add({
                         servicioId: targetService.id,
