@@ -81,3 +81,30 @@ export type Transaccion = {
   valor: number;
   vehiculoPlaca?: string;
 };
+
+/** accounting entry system */
+
+export interface MovimientoContable {
+  cuentaCodigo: string;
+  cuentaNombre: string;
+  tipo: 'debito' | 'credito';
+  valor: number;
+  terceroNombre?: string;
+  terceroNit?: string;
+}
+
+export interface AsientoContable {
+  id?: string;
+  fecha: any; // Firestore serverTimestamp
+  concepto: string;
+  sourceId: string;
+  sourceModule: 'services' | 'rentabilidad' | 'pagos';
+  movimientos: MovimientoContable[];
+  totalDebito: number;
+  totalCredito: number;
+  impuestosAsociados?: {
+    tipo: 'retefuente' | 'reteica' | 'gmf_4x1000';
+    valor: number;
+    base: number;
+  }[];
+}

@@ -3,13 +3,9 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * Transportes Especiales J&J - Reglas de Seguridad V2.6
-     * 
-     * Core Philosophy: Control de acceso basado en roles administrativos y 
-     * acceso público limitado para funciones de rastreo y servicios externos.
+     * Transportes Especiales J&J - Reglas de Seguridad V3.0
+     * Implementación de Inmutabilidad Contable.
      */
-
-    // --- Helper Functions ---
 
     function isSignedIn() {
       return request.auth != null;
@@ -22,58 +18,38 @@ service cloud.firestore {
       );
     }
 
-    // --- Collection Rules ---
+    /** @description Libro Diario: Solo creación, nunca edición ni borrado. */
+    match /asientos_contables/{id} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false; 
+    }
 
-    /** @description Identificación de administradores. */
     match /adminUsers/{userId} {
       allow get: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
       allow list, create, update, delete: if isAdmin();
     }
 
-    /** @description Gestión de conductores y personal. */
     match /conductores/{id} { allow read, write: if isAdmin(); }
-    match /drivers/{id} { allow read, write: if isAdmin(); }
-
-    /** @description Gestión de flota de vehículos. */
     match /vehiculos/{id} { allow read, write: if isAdmin(); }
-    match /vehicles/{id} { allow read, write: if isAdmin(); }
-
-    /** @description Base de datos de clientes. */
     match /clientes/{id} { allow read, write: if isAdmin(); }
-    match /customers/{id} { allow read, write: if isAdmin(); }
-
-    /** @description Programación de servicios y logística. */
+    
     match /services/{serviceId} {
       allow read, write: if isAdmin();
-      allow get: if true; // Necesario para que la página de GPS pública vea el destino/conductor
+      allow get: if true; 
     }
 
-    /** @description Solicitudes Nova y Cotizaciones. */
     match /cotizaciones/{id} { allow read, write: if isAdmin(); }
     match /solicitudes_asesor/{id} { allow read, write: if isAdmin(); }
-
-    /** @description Auditoría financiera y recaudos. */
     match /pagos_aplicados/{id} { allow read, write: if isAdmin(); }
     match /pagos_pendientes_correo/{id} { allow read, write: if isAdmin(); }
     match /transacciones/{id} { allow read, write: if isAdmin(); }
-    match /invoices/{id} { allow read, write: if isAdmin(); }
-    match /expenses/{id} { allow read, write: if isAdmin(); }
 
-    /** @description Monitoreo GPS en tiempo real. */
     match /ubicaciones_gps/{serviceId} {
       allow get, list: if isAdmin();
-      allow write: if true; // Permite a conductores externos transmitir sin auth
+      allow write: if true; 
     }
 
-    /** @description Mensajería y Automatización Nova. */
     match /conversaciones/{id} { allow read, write: if isAdmin(); }
-    match /sesiones_nova/{id} { allow read, write: if isAdmin(); }
-    match /notificaciones_whatsapp/{id} { allow read, write: if isAdmin(); }
-
-    /** @description Seguimiento público denormalizado. */
-    match /publicServiceTracking/{serviceId} {
-      allow get: if (resource != null && resource.data.isPubliclyTrackable == true) || isAdmin();
-      allow list, write: if isAdmin();
-    }
   }
 }

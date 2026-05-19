@@ -39,6 +39,20 @@
         "valorServicio": { "type": "number" },
         "saldo": { "type": "number" }
       }
+    },
+    "AsientoContable": {
+      "title": "Asiento Contable",
+      "type": "object",
+      "description": "Registro de partida doble para trazabilidad financiera inmutable.",
+      "properties": {
+        "fecha": { "type": "string", "format": "date-time" },
+        "concepto": { "type": "string" },
+        "sourceId": { "type": "string" },
+        "sourceModule": { "type": "string", "enum": ["services", "rentabilidad", "pagos"] },
+        "totalDebito": { "type": "number" },
+        "totalCredito": { "type": "number" },
+        "movimientos": { "type": "array" }
+      }
     }
   },
   "auth": {
@@ -65,13 +79,13 @@
       "schema": "Service",
       "description": "Registro principal de operaciones de transporte."
     },
+    "/asientos_contables/{id}": {
+      "schema": "AsientoContable",
+      "description": "Libro mayor inmutable de la empresa."
+    },
     "/ubicaciones_gps/{serviceId}": {
       "schema": "VehicleLocation",
       "description": "Señal GPS en tiempo real transmitida por conductores."
-    },
-    "/pagos_aplicados/{id}": {
-      "schema": "PaymentRecord",
-      "description": "Auditoría de recaudos y conciliaciones de Nova."
     }
   }
 }
