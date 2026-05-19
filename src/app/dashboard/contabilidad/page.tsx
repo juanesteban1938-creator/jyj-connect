@@ -20,14 +20,10 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { 
-  FileText, 
   Search, 
-  Wallet, 
-  ArrowUpRight, 
-  ArrowDownRight, 
-  TrendingUp, 
-  ShieldCheck,
-  Building,
+  DollarSign,
+  PieChart,
+  CreditCard,
   Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -101,82 +97,75 @@ export default function ContabilidadPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-[80vh] flex-col items-center justify-center gap-4 bg-slate-950 rounded-3xl">
+      <div className="flex h-[80vh] flex-col items-center justify-center gap-4 bg-white rounded-3xl">
         <Loader2 className="h-12 w-12 animate-spin text-orange-500" />
-        <p className="text-xs font-black uppercase text-slate-500 tracking-[0.3em]">Sincronizando Libro Diario...</p>
+        <p className="text-xs font-black uppercase text-slate-400 tracking-[0.3em]">Sincronizando Libro Diario...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4 sm:p-8 space-y-8 rounded-3xl overflow-hidden border border-slate-900 shadow-2xl">
+    <div className="space-y-8 pb-12">
       {/* Header Corporativo */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-xl bg-orange-500 text-slate-950 shadow-lg shadow-orange-500/20">
-              <FileText className="h-6 w-6" />
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight uppercase">Contabilidad Central</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight uppercase">Contabilidad Central</h1>
           </div>
-          <p className="text-slate-500 text-sm font-medium">Libro diario inmutable y balance de saldos bajo norma local.</p>
-        </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-slate-900/50 rounded-2xl border border-slate-800 backdrop-blur-md">
-          <ShieldCheck className="h-4 w-4 text-emerald-500" />
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Protocolo de Partida Doble Activo</span>
+          <p className="text-slate-500 text-sm font-medium mt-1">Libro diario inmutable y balance de saldos bajo norma local.</p>
         </div>
       </header>
 
-      {/* Tarjetas de Resumen (Premium Dark) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="bg-slate-900 border-slate-800 shadow-xl overflow-hidden relative group hover:border-orange-500/30 transition-all">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <Building className="h-12 w-12 text-white" />
+      {/* Tarjetas de Resumen (Estilo Colorido) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+        <Card className="rounded-2xl shadow-lg border-none overflow-hidden transition-all hover:scale-[1.02]">
+          <div className="p-5 sm:p-6 bg-emerald-500 text-white h-full flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[10px] sm:text-xs font-bold uppercase opacity-80 tracking-widest">Activos Totales</span>
+              <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
+                <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+              </div>
+            </div>
+            <p className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight">{metrics.activos}</p>
           </div>
-          <CardContent className="p-6">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Activos Totales (Caja/Bancos/Cxc)</p>
-            <div className="flex items-baseline gap-2">
-              <h3 className="text-2xl font-black text-white">{metrics.activos}</h3>
-              <ArrowUpRight className="h-4 w-4 text-emerald-500" />
-            </div>
-          </CardContent>
         </Card>
 
-        <Card className="bg-slate-900 border-slate-800 shadow-xl overflow-hidden relative group hover:border-orange-500/30 transition-all">
-          <CardContent className="p-6">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Pasivos (Cuentas por Pagar)</p>
-            <div className="flex items-baseline gap-2">
-              <h3 className="text-2xl font-black text-white">{metrics.pasivos}</h3>
-              <ArrowDownRight className="h-4 w-4 text-rose-500" />
+        <Card className="rounded-2xl shadow-lg border-none overflow-hidden transition-all hover:scale-[1.02]">
+          <div className="p-5 sm:p-6 bg-rose-500 text-white h-full flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[10px] sm:text-xs font-bold uppercase opacity-80 tracking-widest">Pasivos Totales</span>
+              <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
+                <PieChart className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+              </div>
             </div>
-          </CardContent>
+            <p className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight">{metrics.pasivos}</p>
+          </div>
         </Card>
 
-        <Card className="bg-slate-900 border-orange-500/20 border shadow-2xl shadow-orange-500/5 overflow-hidden relative group hover:border-orange-500/50 transition-all">
-          <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-transparent pointer-events-none" />
-          <CardContent className="p-6">
-            <p className="text-[10px] font-black text-orange-500/70 uppercase tracking-[0.2em] mb-2">Utilidad Neta del Ejercicio</p>
-            <div className="flex items-baseline gap-2">
-              <h3 className={cn("text-2xl font-black", metrics.isPositive ? "text-emerald-400" : "text-rose-400")}>
-                {metrics.utilidad}
-              </h3>
-              <TrendingUp className="h-4 w-4 text-orange-500" />
+        <Card className="rounded-2xl shadow-lg border-none overflow-hidden transition-all hover:scale-[1.02]">
+          <div className="p-5 sm:p-6 bg-orange-500 text-white h-full flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[10px] sm:text-xs font-bold uppercase opacity-80 tracking-widest">Utilidad Neta</span>
+              <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
+                <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+              </div>
             </div>
-          </CardContent>
+            <p className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight">{metrics.utilidad}</p>
+          </div>
         </Card>
       </div>
 
       {/* Sección Libro Diario */}
-      <Card className="bg-slate-900 border-slate-800 shadow-2xl overflow-hidden rounded-2xl">
-        <CardHeader className="border-b border-slate-800 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <CardTitle className="text-lg font-black text-white uppercase tracking-tight flex items-center gap-2">
+      <Card className="rounded-3xl shadow-sm border border-slate-100 overflow-hidden bg-white">
+        <CardHeader className="bg-slate-50/50 p-6 sm:p-8 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <CardTitle className="text-lg font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" /> Movimientos del Libro Diario
           </CardTitle>
           <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input 
               placeholder="Buscar por concepto o cuenta..." 
-              className="bg-slate-950 border-slate-800 text-white pl-9 h-10 rounded-xl focus:ring-orange-500 placeholder:text-slate-600"
+              className="bg-white border-slate-200 text-slate-900 pl-9 h-11 rounded-xl focus:ring-orange-500"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
             />
@@ -184,19 +173,19 @@ export default function ContabilidadPage() {
         </CardHeader>
         <div className="overflow-x-auto w-full">
           <Table>
-            <TableHeader className="bg-slate-950/50">
-              <TableRow className="border-b border-slate-800">
-                <TableHead className="p-4 font-black text-[10px] text-slate-500 uppercase tracking-widest">Fecha</TableHead>
-                <TableHead className="p-4 font-black text-[10px] text-slate-500 uppercase tracking-widest">Concepto / Descripción</TableHead>
-                <TableHead className="p-4 font-black text-[10px] text-slate-500 uppercase tracking-widest">Cuenta</TableHead>
-                <TableHead className="p-4 font-black text-[10px] text-slate-500 uppercase tracking-widest text-center">Tipo</TableHead>
-                <TableHead className="p-4 font-black text-[10px] text-slate-500 uppercase tracking-widest text-right">Valor</TableHead>
+            <TableHeader className="bg-slate-50/30">
+              <TableRow className="border-b border-slate-100">
+                <TableHead className="p-5 font-black text-[10px] text-slate-400 uppercase tracking-widest">Fecha</TableHead>
+                <TableHead className="p-5 font-black text-[10px] text-slate-400 uppercase tracking-widest">Concepto / Descripción</TableHead>
+                <TableHead className="p-5 font-black text-[10px] text-slate-400 uppercase tracking-widest">Cuenta</TableHead>
+                <TableHead className="p-5 font-black text-[10px] text-slate-400 uppercase tracking-widest text-center">Tipo</TableHead>
+                <TableHead className="p-5 font-black text-[10px] text-slate-400 uppercase tracking-widest text-right">Valor</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredAsientos.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="p-20 text-center text-slate-600 font-bold uppercase text-xs">
+                  <TableCell colSpan={5} className="p-20 text-center text-slate-400 font-bold uppercase text-xs">
                     No se han registrado asientos contables aún.
                   </TableCell>
                 </TableRow>
@@ -205,47 +194,47 @@ export default function ContabilidadPage() {
                   <TableRow 
                     key={`${asiento.id}-${idx}`} 
                     className={cn(
-                      "border-b border-slate-800/50 transition-colors hover:bg-slate-800/20",
-                      idx === 0 && "border-t-2 border-t-slate-800"
+                      "border-b border-slate-50 transition-colors hover:bg-slate-50/50",
+                      idx === 0 && "border-t-2 border-t-slate-100"
                     )}
                   >
-                    <TableCell className="p-4">
+                    <TableCell className="p-5">
                       {idx === 0 ? (
                         <div className="flex flex-col">
-                          <span className="text-xs font-black text-slate-300">
+                          <span className="text-xs font-black text-slate-700">
                             {asiento.fecha ? format(asiento.fecha.toDate ? asiento.fecha.toDate() : new Date(asiento.fecha), 'dd MMM yy', { locale: es }).toUpperCase() : 'N/A'}
                           </span>
                         </div>
                       ) : null}
                     </TableCell>
-                    <TableCell className="p-4">
+                    <TableCell className="p-5">
                       {idx === 0 ? (
                         <div className="flex flex-col max-w-[300px]">
-                          <span className="text-xs font-bold text-white uppercase truncate">{asiento.concepto}</span>
-                          <span className="text-[9px] font-black text-slate-600 uppercase tracking-tighter mt-0.5">ID: {asiento.sourceId?.substring(0, 8)}...</span>
+                          <span className="text-xs font-bold text-slate-800 uppercase truncate">{asiento.concepto}</span>
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mt-0.5">ID: {asiento.sourceId?.substring(0, 8)}...</span>
                         </div>
                       ) : null}
                     </TableCell>
-                    <TableCell className="p-4">
+                    <TableCell className="p-5">
                       <div className="flex flex-col">
-                        <span className="text-xs font-black text-orange-400/80 tracking-widest">{mov.cuentaCodigo}</span>
+                        <span className="text-xs font-black text-orange-600 tracking-widest">{mov.cuentaCodigo}</span>
                         <span className="text-[10px] font-bold text-slate-500 uppercase truncate max-w-[200px]">{mov.cuentaNombre}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="p-4 text-center">
+                    <TableCell className="p-5 text-center">
                       <Badge className={cn(
-                        "text-[9px] font-black uppercase px-2 py-0.5 rounded-md",
+                        "text-[9px] font-black uppercase px-2 py-0.5 rounded-md border",
                         mov.tipo === 'debito' 
-                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
-                          : "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                          ? "bg-emerald-50 text-emerald-600 border-emerald-100" 
+                          : "bg-blue-50 text-blue-600 border-blue-100"
                       )}>
                         {mov.tipo}
                       </Badge>
                     </TableCell>
-                    <TableCell className="p-4 text-right">
+                    <TableCell className="p-5 text-right">
                       <span className={cn(
                         "text-sm font-black",
-                        mov.tipo === 'debito' ? "text-white" : "text-slate-400"
+                        mov.tipo === 'debito' ? "text-slate-900" : "text-slate-500"
                       )}>
                         {currencyFormatter.format(Number(mov.valor) || 0)}
                       </span>
@@ -258,9 +247,8 @@ export default function ContabilidadPage() {
         </div>
       </Card>
       
-      {/* Footer Footer Info */}
       <footer className="text-center pt-8">
-        <p className="text-[9px] font-black text-slate-700 uppercase tracking-[0.5em]">J&J Accounting Ledger Protocol — Verified for FY2026</p>
+        <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">J&J Accounting Ledger Protocol — Verified for FY2026</p>
       </footer>
     </div>
   );
