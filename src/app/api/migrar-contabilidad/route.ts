@@ -7,7 +7,7 @@ import { generarAsientoServicio, generarAsientoRecaudo } from '@/lib/accounting-
 export const dynamic = 'force-dynamic';
 
 /**
- * @fileOverview Script de Migración Única
+ * @fileOverview Script de Migración Única (Ajustado para acceso vía Navegador)
  * Propósito: Sincronizar servicios históricos con el nuevo Motor Contable.
  * Ejecución: Acceder vía GET a /api/migrar-contabilidad
  */
@@ -32,6 +32,7 @@ export async function GET() {
         const serviceData = { id: serviceDoc.id, ...serviceDoc.data() } as any;
 
         // 2. Control de duplicados: Verificar si ya existe un asiento de causación para este serviceId
+        // Esto evita generar asientos dobles si recargas la página
         const checkQuery = query(
           collection(db, 'asientos_contables'), 
           where('sourceId', '==', serviceData.id),
@@ -45,7 +46,7 @@ export async function GET() {
 
           // 4. Si el servicio ya figura como Pagado, disparar el asiento de Recaudo (Bancos vs CxC)
           const saldo = Number(serviceData.saldo);
-          if (serviceData.estadoPago === 'Pagado' || saldo <= 0) {
+          if (serviceData.estadoPago === 'Pagado' || (serviceData.saldo !== undefined && saldo <= 0)) {
             const valorRecaudo = Number(serviceData.valorServicio) || 0;
             const metodo = serviceData.metodoPago || 'Transferencia';
             
