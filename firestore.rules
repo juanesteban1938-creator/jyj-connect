@@ -3,8 +3,8 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * Transportes Especiales J&J - Reglas de Seguridad V3.1
-     * Implementación de Inmutabilidad Contable y Cierres Fiscales.
+     * Transportes Especiales J&J - Reglas de Seguridad V3.2
+     * Implementación de Inmutabilidad Contable y Gestión de Notificaciones.
      */
 
     function isSignedIn() {
@@ -56,5 +56,10 @@ service cloud.firestore {
     }
 
     match /conversaciones/{id} { allow read, write: if isAdmin(); }
+    
+    /** @description Historial de notificaciones enviadas por Nova */
+    match /notificaciones_whatsapp/{id} { 
+      allow read, write: if isAdmin(); 
+    }
   }
 }
