@@ -17,7 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Search, MoreHorizontal, PlusCircle, Edit, Trash2, Truck, Loader2, Users, CalendarDays, Tag } from 'lucide-react';
+import { Search, MoreHorizontal, PlusCircle, Edit, Trash2, Truck, Loader2, Users, CalendarDays, Tag, FileSpreadsheet } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { VehiculoForm } from '@/components/dashboard/vehiculos/vehiculos-form';
 import { Card } from '@/components/ui/card';
@@ -26,7 +26,9 @@ import { useFirestore, useUser, useCollection, useMemoFirebase, errorEmitter, Fi
 import { collection, query, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import type { Vehiculo } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import * as XLSX from 'xlsx';
 
 const ITEMS_PER_PAGE = 8;
 
@@ -87,6 +89,28 @@ export default function VehiculosPage() {
       });
   };
 
+  const exportToExcel = () => {
+    const dataToExport = vehiculos.map(v => ({
+      Placa: v.placa.toUpperCase(),
+      Marca: v.marca,
+      Línea: v.linea,
+      Modelo: v.modelo,
+      Tipo: v.tipoVehiculo,
+      Capacidad: v.capacidad,
+      'SOAT Vencimiento': v.vencimientoSoat ? format(new Date(v.vencimientoSoat), 'dd/MM/yyyy') : 'N/A',
+      'Tecnomecánica Venc.': v.vencimientoTecnomecanica ? format(new Date(v.vencimientoTecnomecanica), 'dd/MM/yyyy') : 'N/A',
+      'Tarjeta Operación Venc.': v.vencimientoTarjetaOperacion ? format(new Date(v.vencimientoTarjetaOperacion), 'dd/MM/yyyy') : 'N/A',
+      'Póliza RCC Venc.': v.vencimientoRcc ? format(new Date(v.vencimientoRcc), 'dd/MM/yyyy') : 'N/A',
+      'Póliza RCE Venc.': v.vencimientoRce ? format(new Date(v.vencimientoRce), 'dd/MM/yyyy') : 'N/A'
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Flota Vehicular");
+    XLSX.writeFile(workbook, `Reporte_Vehiculos_JJ_${format(new Date(), 'dd-MM-yyyy')}.xlsx`);
+    toast({ title: "Excel Generado", description: "El reporte de flota ha sido descargado." });
+  };
+
   const filtered = vehiculos.filter(v => 
     v.placa.toLowerCase().includes(searchTerm.toLowerCase()) ||
     v.marca.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -103,27 +127,36 @@ export default function VehiculosPage() {
           <h1 className="text-xl sm:text-3xl font-black text-gray-900 tracking-tight">Flota de Vehículos</h1>
           <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">Supervisión técnica y documental de las unidades.</p>
         </div>
-        <Dialog open={isFormOpen} onOpenChange={(o) => { if(!isSaving) { setIsFormOpen(o); if(!o) setSelected(null); } }}>
-          <DialogTrigger asChild>
-            <Button className="btn-action w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-lg shadow-orange-200 h-11 sm:h-12 px-8">
-              <PlusCircle className="mr-2 h-5 w-5" /> Nuevo Vehículo
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl lg:max-w-4xl mx-auto rounded-3xl p-0 overflow-hidden border-none shadow-2xl flex flex-col max-h-[90vh]" aria-describedby={undefined}>
-            <DialogDescription className="sr-only">Gestión técnica de vehículos.</DialogDescription>
-            <div className="p-6 sm:p-8 border-b bg-slate-50/50">
-              <DialogTitle className="text-lg sm:text-xl font-black">Ficha Técnica del Vehículo</DialogTitle>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 sm:p-8">
-              <VehiculoForm vehiculo={selected} onSave={handleSave} onCancel={() => setIsFormOpen(false)} />
-            </div>
-            {isSaving && (
-              <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] flex items-center justify-center rounded-lg z-50">
-                <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            onClick={exportToExcel} 
+            className="font-black text-[10px] uppercase border-slate-200 hover:bg-emerald-50 h-11"
+          >
+            <FileSpreadsheet className="h-4 w-4 mr-2 text-emerald-600" /> Exportar Excel
+          </Button>
+          <Dialog open={isFormOpen} onOpenChange={(o) => { if(!isSaving) { setIsFormOpen(o); if(!o) setSelected(null); } }}>
+            <DialogTrigger asChild>
+              <Button className="btn-action w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-lg shadow-orange-200 h-11 px-8">
+                <PlusCircle className="mr-2 h-5 w-5" /> Nuevo Vehículo
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl lg:max-w-4xl mx-auto rounded-3xl p-0 overflow-hidden border-none shadow-2xl flex flex-col max-h-[90vh]" aria-describedby={undefined}>
+              <DialogDescription className="sr-only">Gestión técnica de vehículos.</DialogDescription>
+              <div className="p-6 sm:p-8 border-b bg-slate-50/50">
+                <DialogTitle className="text-lg sm:text-xl font-black">Ficha Técnica del Vehículo</DialogTitle>
               </div>
-            )}
-          </DialogContent>
-        </Dialog>
+              <div className="flex-1 overflow-y-auto p-4 sm:p-8">
+                <VehiculoForm vehiculo={selected} onSave={handleSave} onCancel={() => setIsFormOpen(false)} />
+              </div>
+              {isSaving && (
+                <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] flex items-center justify-center rounded-lg z-50">
+                  <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+        </div>
       </header>
 
       <div className="mb-6">

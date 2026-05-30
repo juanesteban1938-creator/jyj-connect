@@ -28,6 +28,7 @@ import {
   Loader2,
   Phone,
   IdCard,
+  FileSpreadsheet,
 } from 'lucide-react';
 import {
   Dialog,
@@ -48,6 +49,7 @@ import { useFirestore, useUser, useCollection, useMemoFirebase, errorEmitter, Fi
 import { collection, query, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import type { Conductor } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import * as XLSX from 'xlsx';
 
 const ITEMS_PER_PAGE = 8;
 
@@ -108,6 +110,25 @@ export default function ConductoresPage() {
       });
   };
 
+  const exportToExcel = () => {
+    const dataToExport = conductores.map(c => ({
+      Nombres: c.nombres,
+      Apellidos: c.apellidos,
+      Cédula: c.cedula,
+      Teléfono: c.telefono,
+      Dirección: c.direccion,
+      Barrio: c.barrio,
+      'Categoría Licencia': c.categoriaLicencia,
+      'Vencimiento Licencia': format(new Date(c.vencimientoLicencia), 'dd/MM/yyyy')
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Conductores");
+    XLSX.writeFile(workbook, `Reporte_Conductores_JJ_${format(new Date(), 'dd-MM-yyyy')}.xlsx`);
+    toast({ title: "Excel Generado", description: "La base de datos de conductores ha sido exportada." });
+  };
+
   const filtered = conductores.filter(c => 
     `${c.nombres} ${c.apellidos}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.cedula.includes(searchTerm)
@@ -131,27 +152,36 @@ export default function ConductoresPage() {
           <h1 className="text-xl sm:text-3xl font-black text-gray-900 tracking-tight">Personal Operativo</h1>
           <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">Gestión de conductores y cumplimiento de licencias.</p>
         </div>
-        <Dialog open={isFormOpen} onOpenChange={(open) => { if(!isSaving) { setIsFormOpen(open); if(!open) setSelectedConductor(null); } }}>
-          <DialogTrigger asChild>
-            <Button className="btn-action w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-lg shadow-orange-200">
-              <PlusCircle className="mr-2 h-5 w-5" /> Nuevo Conductor
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="w-full max-w-[95vw] sm:max-w-2xl mx-auto rounded-3xl p-0 overflow-hidden border-none shadow-2xl flex flex-col max-h-[90vh]" aria-describedby={undefined}>
-            <DialogDescription className="sr-only">Formulario para la gestión de conductores.</DialogDescription>
-            <div className="p-6 sm:p-8 border-b bg-slate-50/50">
-              <DialogTitle className="text-lg sm:text-xl font-black">Información del Conductor</DialogTitle>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 sm:p-8">
-              <ConductorForm conductor={selectedConductor} onSave={handleSave} />
-            </div>
-            {isSaving && (
-              <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] flex items-center justify-center rounded-lg z-50">
-                <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            onClick={exportToExcel} 
+            className="font-black text-[10px] uppercase border-slate-200 hover:bg-emerald-50 h-11"
+          >
+            <FileSpreadsheet className="h-4 w-4 mr-2 text-emerald-600" /> Exportar Excel
+          </Button>
+          <Dialog open={isFormOpen} onOpenChange={(open) => { if(!isSaving) { setIsFormOpen(open); if(!open) setSelectedConductor(null); } }}>
+            <DialogTrigger asChild>
+              <Button className="btn-action w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-lg shadow-orange-200 h-11">
+                <PlusCircle className="mr-2 h-5 w-5" /> Nuevo Conductor
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="w-full max-w-[95vw] sm:max-w-2xl mx-auto rounded-3xl p-0 overflow-hidden border-none shadow-2xl flex flex-col max-h-[90vh]" aria-describedby={undefined}>
+              <DialogDescription className="sr-only">Formulario para la gestión de conductores.</DialogDescription>
+              <div className="p-6 sm:p-8 border-b bg-slate-50/50">
+                <DialogTitle className="text-lg sm:text-xl font-black">Información del Conductor</DialogTitle>
               </div>
-            )}
-          </DialogContent>
-        </Dialog>
+              <div className="flex-1 overflow-y-auto p-4 sm:p-8">
+                <ConductorForm conductor={selectedConductor} onSave={handleSave} />
+              </div>
+              {isSaving && (
+                <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] flex items-center justify-center rounded-lg z-50">
+                  <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+        </div>
       </header>
 
       <div className="mb-6">
