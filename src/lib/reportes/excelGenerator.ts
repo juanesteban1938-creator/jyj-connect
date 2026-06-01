@@ -1,0 +1,337 @@
+// lib/reportes/excelGenerator.ts
+import * as XLSX from "xlsx";
+
+export interface Conductor {
+  id: string;
+  nombres: string;
+  apellidos: string;
+  cedula: string;
+  telefono: string;
+  direccion: string;
+  barrio: string;
+  categoriaLicencia: string;
+  vencimientoLicencia: string;
+}
+
+export interface Vehiculo {
+  id: string;
+  placa: string;
+  marca: string;
+  linea: string;
+  modelo: string;
+  tipo: string;
+  capacidad: number;
+  soatVencimiento: string;
+  tecnomecanicaVencimiento: string;
+  tarjetaOperacionVencimiento: string;
+  polizaRccVencimiento: string;
+  polizaRceVencimiento: string;
+}
+
+export interface AsignacionConductorVehiculo {
+  conductorId: string;
+  vehiculoId: string;
+}
+
+export interface CamposSeleccionados {
+  nombres: boolean;
+  apellidos: boolean;
+  cedula: boolean;
+  telefono: boolean;
+  direccion: boolean;
+  barrio: boolean;
+  categoriaLicencia: boolean;
+  vencimientoLicencia: boolean;
+  placa: boolean;
+  marca: boolean;
+  linea: boolean;
+  modelo: boolean;
+  tipo: boolean;
+  capacidad: boolean;
+  soatVencimiento: boolean;
+  tecnomecanicaVencimiento: boolean;
+  tarjetaOperacionVencimiento: boolean;
+  polizaRccVencimiento: boolean;
+  polizaRceVencimiento: boolean;
+}
+
+export type TipoReporte = "conductores" | "vehiculos" | "combinado";
+
+const C = {
+  AZUL_OSCURO:  "1A2B4A",
+  AZUL_MEDIO:   "2E5FA3",
+  AZUL_CLARO:   "C6D9F0",
+  DORADO:       "C8972B",
+  BLANCO:       "FFFFFF",
+  GRIS_CLARO:   "F5F7FA",
+  GRIS_TEXTO:   "4A4A4A",
+  ROJO_SUAVE:   "FADBD8",
+  AMARILLO_SUV: "FEF9E7",
+};
+
+function cellStyle(opts: {
+  bold?: boolean;
+  color?: string;
+  bgColor?: string;
+  fontSize?: number;
+  hAlign?: "left" | "center" | "right";
+  vAlign?: "top" | "center" | "bottom";
+  wrapText?: boolean;
+  border?: boolean;
+  italic?: boolean;
+}): any {
+  const style: any = {
+    font: {
+      name: "Arial",
+      sz: opts.fontSize ?? 9,
+      bold: opts.bold ?? false,
+      italic: opts.italic ?? false,
+      color: { rgb: opts.color ?? C.GRIS_TEXTO },
+    },
+    alignment: {
+      horizontal: opts.hAlign ?? "center",
+      vertical: opts.vAlign ?? "center",
+      wrapText: opts.wrapText ?? false,
+    },
+  };
+  if (opts.bgColor) {
+    style.fill = { fgColor: { rgb: opts.bgColor }, patternType: "solid" };
+  }
+  if (opts.border) {
+    const b = { style: "thin", color: { rgb: "D0D7E3" } };
+    style.border = { top: b, bottom: b, left: b, right: b };
+  }
+  return style;
+}
+
+function headerStyle(): any {
+  return {
+    font: { name: "Arial", sz: 9, bold: true, color: { rgb: C.BLANCO } },
+    fill: { fgColor: { rgb: C.AZUL_OSCURO }, patternType: "solid" },
+    alignment: { horizontal: "center", vertical: "center", wrapText: true },
+    border: {
+      bottom: { style: "medium", color: { rgb: C.DORADO } },
+      left:   { style: "thin",   color: { rgb: C.BLANCO } },
+      right:  { style: "thin",   color: { rgb: C.BLANCO } },
+      top:    { style: "thin",   color: { rgb: C.BLANCO } },
+    },
+  };
+}
+
+function evaluarVigencia(fechaStr: string): "vencido" | "proximo" | "vigente" {
+  if (!fechaStr) return "vigente";
+  const partes = fechaStr.split("/");
+  if (partes.length !== 3) return "vigente";
+  const fecha = new Date(`${partes[2]}-${partes[1]}-${partes[0]}`);
+  const hoy   = new Date();
+  const diff  = Math.floor((fecha.getTime() - hoy.getTime()) / 86400000);
+  if (diff < 0)   return "vencido";
+  if (diff <= 90) return "proximo";
+  return "vigente";
+}
+
+function bgVigencia(fechaStr: string, baseEven: boolean): string {
+  const v = evaluarVigencia(fechaStr);
+  if (v === "vencido") return C.ROJO_SUAVE;
+  if (v === "proximo") return C.AMARILLO_SUV;
+  return baseEven ? C.AZUL_CLARO : C.BLANCO;
+}
+
+export function generarReporteExcel(
+  conductores: Conductor[],
+  vehiculos: Vehiculo[],
+  asignaciones: AsignacionConductorVehiculo[],
+  campos: CamposSeleccionados,
+  tipoReporte: TipoReporte
+): void {
+  const wb = XLSX.utils.book_new();
+  const condMap = new Map(conductores.map((c) => [c.id, c]));
+  const vehMap  = new Map(vehiculos.map((v) => [v.id, v]));
+  const hoy = new Date();
+  const fechaStr = hoy.toLocaleDateString("es-CO", { day: "2-digit", month: "long", year: "numeric" });
+
+  // ── PORTADA ──────────────────────────────────────────────────────────────
+  const wsPortada = XLSX.utils.aoa_to_sheet([[]]);
+  const subtitulos: Record<TipoReporte, string> = {
+    conductores: "REPORTE DE CONDUCTORES",
+    vehiculos:   "REPORTE DE VEHÍCULOS",
+    combinado:   "REPORTE DE CONDUCTORES Y VEHÍCULOS",
+  };
+
+  wsPortada["A1"] = { v: "", s: cellStyle({ bgColor: C.AZUL_OSCURO }) };
+  wsPortada["A2"] = { v: "TRANSPORTES ESPECIALES J&J", s: cellStyle({ bold: true, color: C.BLANCO, bgColor: C.AZUL_OSCURO, fontSize: 20 }) };
+  wsPortada["A3"] = { v: "", s: cellStyle({ bgColor: C.DORADO }) };
+  wsPortada["A4"] = { v: subtitulos[tipoReporte], s: cellStyle({ bold: true, color: C.AZUL_OSCURO, bgColor: C.GRIS_CLARO, fontSize: 14 }) };
+  wsPortada["A5"] = { v: "", s: cellStyle({ bgColor: C.DORADO }) };
+  wsPortada["A6"] = { v: `Fecha de Generación: ${fechaStr}`, s: cellStyle({ color: C.GRIS_TEXTO, fontSize: 10 }) };
+  wsPortada["A7"] = { v: `Total registros: ${asignaciones.length}`, s: cellStyle({ color: C.GRIS_TEXTO, fontSize: 10, italic: true }) };
+  wsPortada["A38"] = { v: "Transportes Especiales J&J  |  Documento Confidencial  |  Bogotá D.C., Colombia", s: cellStyle({ color: C.BLANCO, bgColor: C.AZUL_OSCURO, fontSize: 8, italic: true }) };
+
+  wsPortada["!merges"] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } },
+    { s: { r: 2, c: 0 }, e: { r: 2, c: 10 } },
+    { s: { r: 3, c: 0 }, e: { r: 3, c: 10 } },
+    { s: { r: 4, c: 0 }, e: { r: 4, c: 10 } },
+    { s: { r: 5, c: 0 }, e: { r: 5, c: 10 } },
+    { s: { r: 6, c: 0 }, e: { r: 6, c: 10 } },
+    { s: { r: 37, c: 0 }, e: { r: 37, c: 10 } },
+  ];
+  wsPortada["!rows"] = [{ hpt: 8 }, { hpt: 50 }, { hpt: 8 }, { hpt: 36 }, { hpt: 8 }, { hpt: 22 }, { hpt: 22 }];
+  XLSX.utils.book_append_sheet(wb, wsPortada, "Portada");
+
+  // ── HOJA DE DATOS ─────────────────────────────────────────────────────────
+  interface ColDef {
+    label: string; key: string;
+    fuente: "conductor" | "vehiculo";
+    esFecha: boolean; width: number;
+  }
+
+  const COLS_CONDUCTOR: ColDef[] = [
+    { label: "Nombres",           key: "nombres",             fuente: "conductor", esFecha: false, width: 18 },
+    { label: "Apellidos",         key: "apellidos",           fuente: "conductor", esFecha: false, width: 20 },
+    { label: "Cédula",            key: "cedula",              fuente: "conductor", esFecha: false, width: 13 },
+    { label: "Teléfono",          key: "telefono",            fuente: "conductor", esFecha: false, width: 14 },
+    { label: "Dirección",         key: "direccion",           fuente: "conductor", esFecha: false, width: 28 },
+    { label: "Barrio",            key: "barrio",              fuente: "conductor", esFecha: false, width: 18 },
+    { label: "Cat.\nLicencia",    key: "categoriaLicencia",   fuente: "conductor", esFecha: false, width: 10 },
+    { label: "Venc.\nLicencia",   key: "vencimientoLicencia", fuente: "conductor", esFecha: true,  width: 16 },
+  ];
+
+  const COLS_VEHICULO: ColDef[] = [
+    { label: "Placa",                   key: "placa",                       fuente: "vehiculo", esFecha: false, width: 10 },
+    { label: "Marca",                   key: "marca",                       fuente: "vehiculo", esFecha: false, width: 12 },
+    { label: "Línea",                   key: "linea",                       fuente: "vehiculo", esFecha: false, width: 14 },
+    { label: "Modelo",                  key: "modelo",                      fuente: "vehiculo", esFecha: false, width: 8  },
+    { label: "Tipo",                    key: "tipo",                        fuente: "vehiculo", esFecha: false, width: 12 },
+    { label: "Capacidad\n(Pasajeros)",  key: "capacidad",                   fuente: "vehiculo", esFecha: false, width: 10 },
+    { label: "SOAT\nVencimiento",       key: "soatVencimiento",             fuente: "vehiculo", esFecha: true,  width: 16 },
+    { label: "Tecnomecánica\nVenc.",    key: "tecnomecanicaVencimiento",    fuente: "vehiculo", esFecha: true,  width: 16 },
+    { label: "T. Operación\nVenc.",     key: "tarjetaOperacionVencimiento", fuente: "vehiculo", esFecha: true,  width: 18 },
+    { label: "Póliza RCC\nVenc.",       key: "polizaRccVencimiento",        fuente: "vehiculo", esFecha: true,  width: 14 },
+    { label: "Póliza RCE\nVenc.",       key: "polizaRceVencimiento",        fuente: "vehiculo", esFecha: true,  width: 14 },
+  ];
+
+  const colsActivas: ColDef[] = [];
+  if (tipoReporte !== "vehiculos") {
+    COLS_CONDUCTOR.forEach((c) => { if (campos[c.key as keyof CamposSeleccionados]) colsActivas.push(c); });
+  }
+  if (tipoReporte !== "conductores") {
+    COLS_VEHICULO.forEach((c) => { if (campos[c.key as keyof CamposSeleccionados]) colsActivas.push(c); });
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet([[]]);
+  const merges: any[] = [];
+  const totalCols = colsActivas.length;
+
+  // Barra azul oscuro fila 0
+  for (let c = 0; c < totalCols; c++) {
+    const cellAddr = XLSX.utils.encode_cell({ r: 0, c });
+    ws[cellAddr] = { v: "", s: cellStyle({ bgColor: C.AZUL_OSCURO }) };
+  }
+  merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } });
+
+  // Título fila 1
+  ws[XLSX.utils.encode_cell({ r: 1, c: 0 })] = {
+    v: subtitulos[tipoReporte] + "  —  TRANSPORTES ESPECIALES J&J",
+    s: cellStyle({ bold: true, color: C.BLANCO, bgColor: C.AZUL_OSCURO, fontSize: 12 }),
+  };
+  merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: totalCols - 1 } });
+
+  // Grupos fila 2
+  const nCond = tipoReporte !== "vehiculos" ? COLS_CONDUCTOR.filter(c => campos[c.key as keyof CamposSeleccionados]).length : 0;
+  if (tipoReporte === "combinado" && nCond > 0) {
+    for (let c = 0; c < nCond; c++) {
+      ws[XLSX.utils.encode_cell({ r: 2, c })] = { v: c === 0 ? "INFORMACIÓN DEL CONDUCTOR" : "", s: cellStyle({ bold: true, color: C.BLANCO, bgColor: C.AZUL_MEDIO, fontSize: 9 }) };
+    }
+    for (let c = nCond; c < totalCols; c++) {
+      ws[XLSX.utils.encode_cell({ r: 2, c })] = { v: c === nCond ? "DATOS DEL VEHÍCULO Y DOCUMENTACIÓN" : "", s: cellStyle({ bold: true, color: C.BLANCO, bgColor: C.AZUL_MEDIO, fontSize: 9 }) };
+    }
+    merges.push({ s: { r: 2, c: 0 }, e: { r: 2, c: nCond - 1 } });
+    merges.push({ s: { r: 2, c: nCond }, e: { r: 2, c: totalCols - 1 } });
+  } else {
+    ws[XLSX.utils.encode_cell({ r: 2, c: 0 })] = {
+      v: tipoReporte === "conductores" ? "INFORMACIÓN DEL CONDUCTOR" : "DATOS DEL VEHÍCULO",
+      s: cellStyle({ bold: true, color: C.BLANCO, bgColor: C.AZUL_MEDIO, fontSize: 9 }),
+    };
+    merges.push({ s: { r: 2, c: 0 }, e: { r: 2, c: totalCols - 1 } });
+  }
+
+  // Encabezados fila 3
+  colsActivas.forEach((col, ci) => {
+    ws[XLSX.utils.encode_cell({ r: 3, c: ci })] = { v: col.label, s: headerStyle() };
+  });
+
+  // Filas de datos
+  asignaciones.forEach((asig, rowIdx) => {
+    const conductor = condMap.get(asig.conductorId);
+    const vehiculo  = vehMap.get(asig.vehiculoId);
+    const isEven    = rowIdx % 2 === 0;
+    const baseColor = isEven ? C.AZUL_CLARO : C.BLANCO;
+
+    colsActivas.forEach((col, ci) => {
+      const r = rowIdx + 4;
+      const fuente = col.fuente === "conductor" ? conductor : vehiculo;
+      const val = fuente ? (fuente as any)[col.key] ?? "" : "";
+      const addr = XLSX.utils.encode_cell({ r, c: ci });
+      let bgColor = baseColor;
+      if (col.esFecha) bgColor = bgVigencia(String(val), isEven);
+      const isPlaca = col.key === "placa";
+      ws[addr] = {
+        v: val,
+        s: {
+          font: { name: "Arial", sz: 9, bold: isPlaca, color: { rgb: isPlaca ? C.AZUL_OSCURO : C.GRIS_TEXTO } },
+          fill: { fgColor: { rgb: bgColor }, patternType: "solid" },
+          alignment: { horizontal: "center", vertical: "center" },
+          border: {
+            top:    { style: "thin", color: { rgb: "D0D7E3" } },
+            bottom: { style: "thin", color: { rgb: "D0D7E3" } },
+            left:   { style: "thin", color: { rgb: "D0D7E3" } },
+            right:  { style: "thin", color: { rgb: "D0D7E3" } },
+          },
+        },
+      };
+    });
+  });
+
+  // Fila total
+  const totalRow = asignaciones.length + 4;
+  ws[XLSX.utils.encode_cell({ r: totalRow, c: 0 })] = {
+    v: `Total registros: ${asignaciones.length}  |  Generado: ${hoy.toLocaleDateString("es-CO")}`,
+    s: cellStyle({ bold: true, color: C.BLANCO, bgColor: C.AZUL_OSCURO, hAlign: "left", fontSize: 9 }),
+  };
+  merges.push({ s: { r: totalRow, c: 0 }, e: { r: totalRow, c: totalCols - 1 } });
+
+  // Leyenda
+  const leyRow = totalRow + 2;
+  ws[XLSX.utils.encode_cell({ r: leyRow, c: 0 })] = { v: "LEYENDA:", s: cellStyle({ bold: true, color: C.AZUL_OSCURO, hAlign: "left", fontSize: 9 }) };
+  [
+    { color: C.BLANCO,       label: "Vigente (más de 90 días)" },
+    { color: C.AMARILLO_SUV, label: "Próximo a vencer (menos de 90 días)" },
+    { color: C.ROJO_SUAVE,   label: "Vencido" },
+  ].forEach((item, i) => {
+    const r = leyRow + 1 + i;
+    ws[XLSX.utils.encode_cell({ r, c: 0 })] = {
+      v: "",
+      s: { fill: { fgColor: { rgb: item.color }, patternType: "solid" }, border: { top: { style: "thin", color: { rgb: "D0D7E3" } }, bottom: { style: "thin", color: { rgb: "D0D7E3" } }, left: { style: "thin", color: { rgb: "D0D7E3" } }, right: { style: "thin", color: { rgb: "D0D7E3" } } } },
+    };
+    ws[XLSX.utils.encode_cell({ r, c: 1 })] = { v: item.label, s: cellStyle({ color: C.GRIS_TEXTO, hAlign: "left", fontSize: 9 }) };
+    merges.push({ s: { r, c: 1 }, e: { r, c: Math.min(4, totalCols - 1) } });
+  });
+
+  // Pie de página
+  const pieRow = leyRow + 6;
+  ws[XLSX.utils.encode_cell({ r: pieRow, c: 0 })] = {
+    v: "Transportes Especiales J&J  |  Documento Confidencial  |  Bogotá D.C., Colombia",
+    s: cellStyle({ color: C.BLANCO, bgColor: C.AZUL_OSCURO, italic: true, fontSize: 8 }),
+  };
+  merges.push({ s: { r: pieRow, c: 0 }, e: { r: pieRow, c: totalCols - 1 } });
+
+  ws["!cols"]   = colsActivas.map((c) => ({ wch: c.width }));
+  ws["!merges"] = merges;
+  ws["!rows"]   = [{ hpt: 8 }, { hpt: 32 }, { hpt: 18 }, { hpt: 36 }, ...asignaciones.map(() => ({ hpt: 22 }))];
+  XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+
+  // Descargar
+  XLSX.writeFile(wb, `Reporte_JJ_${tipoReporte}_${hoy.toISOString().slice(0, 10)}.xlsx`);
+}
