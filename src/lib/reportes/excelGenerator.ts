@@ -120,17 +120,37 @@ function headerStyle(): any {
 
 function evaluarVigencia(fechaStr: string): "vencido" | "proximo" | "vigente" {
   if (!fechaStr) return "vigente";
-  try {
-    const fecha = new Date(fechaStr);
-    if (isNaN(fecha.getTime())) return "vigente";
-    const hoy   = new Date();
-    const diff  = Math.floor((fecha.getTime() - hoy.getTime()) / 86400000);
-    if (diff < 0)   return "vencido";
-    if (diff <= 90) return "proximo";
-  } catch (e) {
-    return "vigente";
+  let fecha: Date;
+  
+  if (fechaStr.includes("T") || fechaStr.includes("-")) {
+    fecha = new Date(fechaStr);
+  } else {
+    const partes = fechaStr.split("/");
+    if (partes.length !== 3) return "vigente";
+    fecha = new Date(`${partes[2]}-${partes[1]}-${partes[0]}`);
   }
+
+  if (isNaN(fecha.getTime())) return "vigente";
+  const hoy = new Date();
+  const diff = Math.floor((fecha.getTime() - hoy.getTime()) / 86400000);
+  if (diff < 0) return "vencido";
+  if (diff <= 90) return "proximo";
   return "vigente";
+}
+
+function formatearFecha(fechaStr: string): string {
+  if (!fechaStr) return "";
+  let fecha: Date;
+  if (fechaStr.includes("T") || fechaStr.includes("-")) {
+    fecha = new Date(fechaStr);
+  } else {
+    return fechaStr;
+  }
+  if (isNaN(fecha.getTime())) return fechaStr;
+  const d = String(fecha.getDate()).padStart(2, "0");
+  const m = String(fecha.getMonth() + 1).padStart(2, "0");
+  const y = fecha.getFullYear();
+  return `${d}/${m}/${y}`;
 }
 
 function bgVigencia(fechaStr: string, baseEven: boolean): string {
@@ -147,12 +167,6 @@ export function generarReporteExcel(
   campos: CamposSeleccionados,
   tipoReporte: TipoReporte
 ): void {
-  console.log("=== EXCEL GENERATOR ===");
-  console.log("Conductores recibidos:", conductores.length);
-  console.log("Vehículos recibidos:", vehiculos.length);  
-  console.log("Asignaciones recibidas:", asignaciones.length);
-  if (asignaciones.length > 0) console.log("Primera asignación:", JSON.stringify(asignaciones[0]));
-
   const wb = XLSX.utils.book_new();
   const condMap = new Map(conductores.map((c) => [c.id, c]));
   const vehMap  = new Map(vehiculos.map((v) => [v.id, v]));
@@ -262,11 +276,18 @@ export function generarReporteExcel(
       const fuente = col.fuente === "conductor" ? conductor : vehiculo;
       const val = fuente ? (fuente as any)[col.key] ?? "" : "";
       const addr = XLSX.utils.encode_cell({ r, c: ci });
+      
+      let displayValue = String(val);
       let bgColor = baseColor;
-      if (col.esFecha) bgColor = bgVigencia(String(val), isEven);
+      
+      if (col.esFecha) {
+        bgColor = bgVigencia(String(val), isEven);
+        displayValue = formatearFecha(String(val));
+      }
+      
       const isPlaca = col.key === "placa";
       ws[addr] = {
-        v: val,
+        v: displayValue,
         s: {
           font: { name: "Arial", sz: 9, bold: isPlaca, color: { rgb: isPlaca ? C.AZUL_OSCURO : C.GRIS_TEXTO } },
           fill: { fgColor: { rgb: bgColor }, patternType: "solid" },

@@ -94,21 +94,13 @@ export default function ReportesPage() {
   const handleGenerarExcel = async () => {
     if (asignaciones.length === 0 && tipoReporte === "combinado") return;
     
-    // Si es solo conductores o solo vehículos, generamos asignaciones automáticas para el reporte
+    // Generación de data para reporte
     let dataAsignaciones = [...asignaciones];
     if (tipoReporte === "conductores") {
         dataAsignaciones = conductores.map(c => ({ conductorId: c.id, vehiculoId: "" }));
     } else if (tipoReporte === "vehiculos") {
         dataAsignaciones = vehiculos.map(v => ({ conductorId: "", vehiculoId: v.id }));
     }
-
-    console.log("=== DIAGNÓSTICO REPORTE ===");
-    console.log("Tipo:", tipoReporte);
-    console.log("Asignaciones Generadas:", JSON.stringify(dataAsignaciones));
-    console.log("Total conductores cargados:", conductores.length);
-    console.log("Total vehículos cargados:", vehiculos.length);
-    if (conductores.length > 0) console.log("Ejemplo conductor:", JSON.stringify(conductores[0]));
-    if (vehiculos.length > 0) console.log("Ejemplo vehículo:", JSON.stringify(vehiculos[0]));
 
     setGenerando(true);
     try {
