@@ -1,5 +1,6 @@
+
 // lib/reportes/excelGenerator.ts
-import * as XLSX from "xlsx";
+import XLSX from "xlsx-js-style";
 
 export interface Conductor {
   id: string;
@@ -19,13 +20,13 @@ export interface Vehiculo {
   marca: string;
   linea: string;
   modelo: string;
-  tipo: string;
+  tipoVehiculo: string;
   capacidad: number;
-  soatVencimiento: string;
-  tecnomecanicaVencimiento: string;
-  tarjetaOperacionVencimiento: string;
-  polizaRccVencimiento: string;
-  polizaRceVencimiento: string;
+  vencimientoSoat: string;
+  vencimientoTecnomecanica: string;
+  vencimientoTarjetaOperacion: string;
+  vencimientoRcc: string;
+  vencimientoRce: string;
 }
 
 export interface AsignacionConductorVehiculo {
@@ -46,13 +47,13 @@ export interface CamposSeleccionados {
   marca: boolean;
   linea: boolean;
   modelo: boolean;
-  tipo: boolean;
+  tipoVehiculo: boolean;
   capacidad: boolean;
-  soatVencimiento: boolean;
-  tecnomecanicaVencimiento: boolean;
-  tarjetaOperacionVencimiento: boolean;
-  polizaRccVencimiento: boolean;
-  polizaRceVencimiento: boolean;
+  vencimientoSoat: boolean;
+  vencimientoTecnomecanica: boolean;
+  vencimientoTarjetaOperacion: boolean;
+  vencimientoRcc: boolean;
+  vencimientoRce: boolean;
 }
 
 export type TipoReporte = "conductores" | "vehiculos" | "combinado";
@@ -205,13 +206,13 @@ export function generarReporteExcel(
     { label: "Marca",                   key: "marca",                       fuente: "vehiculo", esFecha: false, width: 12 },
     { label: "Línea",                   key: "linea",                       fuente: "vehiculo", esFecha: false, width: 14 },
     { label: "Modelo",                  key: "modelo",                      fuente: "vehiculo", esFecha: false, width: 8  },
-    { label: "Tipo",                    key: "tipo",                        fuente: "vehiculo", esFecha: false, width: 12 },
+    { label: "Tipo",                    key: "tipoVehiculo",                fuente: "vehiculo", esFecha: false, width: 12 },
     { label: "Capacidad (Pasajeros)",   key: "capacidad",                   fuente: "vehiculo", esFecha: false, width: 10 },
-    { label: "SOAT Vencimiento",        key: "soatVencimiento",             fuente: "vehiculo", esFecha: true,  width: 16 },
-    { label: "Tecnomecánica Venc.",     key: "tecnomecanicaVencimiento",    fuente: "vehiculo", esFecha: true,  width: 16 },
-    { label: "T. Operación Venc.",      key: "tarjetaOperacionVencimiento", fuente: "vehiculo", esFecha: true,  width: 18 },
-    { label: "Póliza RCC Venc.",        key: "polizaRccVencimiento",        fuente: "vehiculo", esFecha: true,  width: 14 },
-    { label: "Póliza RCE Venc.",        key: "polizaRceVencimiento",        fuente: "vehiculo", esFecha: true,  width: 14 },
+    { label: "SOAT Vencimiento",        key: "vencimientoSoat",             fuente: "vehiculo", esFecha: true,  width: 16 },
+    { label: "Tecnomecánica Venc.",     key: "vencimientoTecnomecanica",    fuente: "vehiculo", esFecha: true,  width: 16 },
+    { label: "T. Operación Venc.",      key: "vencimientoTarjetaOperacion", fuente: "vehiculo", esFecha: true,  width: 18 },
+    { label: "Póliza RCC Venc.",        key: "vencimientoRcc",              fuente: "vehiculo", esFecha: true,  width: 14 },
+    { label: "Póliza RCE Venc.",        key: "vencimientoRce",              fuente: "vehiculo", esFecha: true,  width: 14 },
   ];
 
   const colsActivas: ColDef[] = [];

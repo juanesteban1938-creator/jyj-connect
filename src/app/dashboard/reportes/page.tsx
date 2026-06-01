@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -25,21 +26,21 @@ const CAMPOS_VEHICULO = [
   { key: "marca",                       label: "Marca" },
   { key: "linea",                       label: "Línea" },
   { key: "modelo",                      label: "Modelo" },
-  { key: "tipo",                        label: "Tipo" },
+  { key: "tipoVehiculo",                label: "Tipo" },
   { key: "capacidad",                   label: "Capacidad" },
-  { key: "soatVencimiento",             label: "SOAT Vencimiento" },
-  { key: "tecnomecanicaVencimiento",    label: "Tecnomecánica Venc." },
-  { key: "tarjetaOperacionVencimiento", label: "T. Operación Venc." },
-  { key: "polizaRccVencimiento",        label: "Póliza RCC Venc." },
-  { key: "polizaRceVencimiento",        label: "Póliza RCE Venc." },
+  { key: "vencimientoSoat",             label: "SOAT Vencimiento" },
+  { key: "vencimientoTecnomecanica",    label: "Tecnomecánica Venc." },
+  { key: "vencimientoTarjetaOperacion", label: "T. Operación Venc." },
+  { key: "vencimientoRcc",              label: "Póliza RCC Venc." },
+  { key: "vencimientoRce",              label: "Póliza RCE Venc." },
 ] as const;
 
 const CAMPOS_DEFAULT: CamposSeleccionados = {
   nombres: true, apellidos: true, cedula: true, telefono: true,
   direccion: true, barrio: true, categoriaLicencia: true, vencimientoLicencia: true,
-  placa: true, marca: true, linea: true, modelo: true, tipo: true, capacidad: true,
-  soatVencimiento: true, tecnomecanicaVencimiento: true,
-  tarjetaOperacionVencimiento: true, polizaRccVencimiento: true, polizaRceVencimiento: true,
+  placa: true, marca: true, linea: true, modelo: true, tipoVehiculo: true, capacidad: true,
+  vencimientoSoat: true, vencimientoTecnomecanica: true,
+  vencimientoTarjetaOperacion: true, vencimientoRcc: true, vencimientoRce: true,
 };
 
 export default function ReportesPage() {
@@ -94,7 +95,7 @@ export default function ReportesPage() {
   const handleGenerarExcel = async () => {
     if (asignaciones.length === 0 && tipoReporte === "combinado") return;
     
-    // Si es solo conductores o solo vehículos, generamos asignaciones automáticas ficticias para el reporte
+    // Si es solo conductores o solo vehículos, generamos asignaciones automáticas para el reporte
     let dataAsignaciones = [...asignaciones];
     if (tipoReporte === "conductores") {
         dataAsignaciones = conductores.map(c => ({ conductorId: c.id, vehiculoId: "" }));
