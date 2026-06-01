@@ -120,13 +120,16 @@ function headerStyle(): any {
 
 function evaluarVigencia(fechaStr: string): "vencido" | "proximo" | "vigente" {
   if (!fechaStr) return "vigente";
-  const partes = fechaStr.split("/");
-  if (partes.length !== 3) return "vigente";
-  const fecha = new Date(`${partes[2]}-${partes[1]}-${partes[0]}`);
-  const hoy   = new Date();
-  const diff  = Math.floor((fecha.getTime() - hoy.getTime()) / 86400000);
-  if (diff < 0)   return "vencido";
-  if (diff <= 90) return "proximo";
+  try {
+    const fecha = new Date(fechaStr);
+    if (isNaN(fecha.getTime())) return "vigente";
+    const hoy   = new Date();
+    const diff  = Math.floor((fecha.getTime() - hoy.getTime()) / 86400000);
+    if (diff < 0)   return "vencido";
+    if (diff <= 90) return "proximo";
+  } catch (e) {
+    return "vigente";
+  }
   return "vigente";
 }
 
@@ -177,7 +180,6 @@ export function generarReporteExcel(
     { s: { r: 6, c: 0 }, e: { r: 6, c: 10 } },
     { s: { r: 37, c: 0 }, e: { r: 37, c: 10 } },
   ];
-  wsPortada["!rows"] = [{ hpt: 8 }, { hpt: 50 }, { hpt: 8 }, { hpt: 36 }, { hpt: 8 }, { hpt: 22 }, { hpt: 22 }];
   XLSX.utils.book_append_sheet(wb, wsPortada, "Portada");
 
   // ── HOJA DE DATOS ─────────────────────────────────────────────────────────
@@ -194,8 +196,8 @@ export function generarReporteExcel(
     { label: "Teléfono",          key: "telefono",            fuente: "conductor", esFecha: false, width: 14 },
     { label: "Dirección",         key: "direccion",           fuente: "conductor", esFecha: false, width: 28 },
     { label: "Barrio",            key: "barrio",              fuente: "conductor", esFecha: false, width: 18 },
-    { label: "Cat.\nLicencia",    key: "categoriaLicencia",   fuente: "conductor", esFecha: false, width: 10 },
-    { label: "Venc.\nLicencia",   key: "vencimientoLicencia", fuente: "conductor", esFecha: true,  width: 16 },
+    { label: "Cat. Licencia",     key: "categoriaLicencia",   fuente: "conductor", esFecha: false, width: 10 },
+    { label: "Venc. Licencia",    key: "vencimientoLicencia", fuente: "conductor", esFecha: true,  width: 16 },
   ];
 
   const COLS_VEHICULO: ColDef[] = [
@@ -204,12 +206,12 @@ export function generarReporteExcel(
     { label: "Línea",                   key: "linea",                       fuente: "vehiculo", esFecha: false, width: 14 },
     { label: "Modelo",                  key: "modelo",                      fuente: "vehiculo", esFecha: false, width: 8  },
     { label: "Tipo",                    key: "tipo",                        fuente: "vehiculo", esFecha: false, width: 12 },
-    { label: "Capacidad\n(Pasajeros)",  key: "capacidad",                   fuente: "vehiculo", esFecha: false, width: 10 },
-    { label: "SOAT\nVencimiento",       key: "soatVencimiento",             fuente: "vehiculo", esFecha: true,  width: 16 },
-    { label: "Tecnomecánica\nVenc.",    key: "tecnomecanicaVencimiento",    fuente: "vehiculo", esFecha: true,  width: 16 },
-    { label: "T. Operación\nVenc.",     key: "tarjetaOperacionVencimiento", fuente: "vehiculo", esFecha: true,  width: 18 },
-    { label: "Póliza RCC\nVenc.",       key: "polizaRccVencimiento",        fuente: "vehiculo", esFecha: true,  width: 14 },
-    { label: "Póliza RCE\nVenc.",       key: "polizaRceVencimiento",        fuente: "vehiculo", esFecha: true,  width: 14 },
+    { label: "Capacidad (Pasajeros)",   key: "capacidad",                   fuente: "vehiculo", esFecha: false, width: 10 },
+    { label: "SOAT Vencimiento",        key: "soatVencimiento",             fuente: "vehiculo", esFecha: true,  width: 16 },
+    { label: "Tecnomecánica Venc.",     key: "tecnomecanicaVencimiento",    fuente: "vehiculo", esFecha: true,  width: 16 },
+    { label: "T. Operación Venc.",      key: "tarjetaOperacionVencimiento", fuente: "vehiculo", esFecha: true,  width: 18 },
+    { label: "Póliza RCC Venc.",        key: "polizaRccVencimiento",        fuente: "vehiculo", esFecha: true,  width: 14 },
+    { label: "Póliza RCE Venc.",        key: "polizaRceVencimiento",        fuente: "vehiculo", esFecha: true,  width: 14 },
   ];
 
   const colsActivas: ColDef[] = [];
@@ -221,13 +223,12 @@ export function generarReporteExcel(
   }
 
   const ws = XLSX.utils.aoa_to_sheet([[]]);
-  const merges: any[] = [];
+  const merges: XLSX.Range[] = [];
   const totalCols = colsActivas.length;
 
   // Barra azul oscuro fila 0
   for (let c = 0; c < totalCols; c++) {
-    const cellAddr = XLSX.utils.encode_cell({ r: 0, c });
-    ws[cellAddr] = { v: "", s: cellStyle({ bgColor: C.AZUL_OSCURO }) };
+    ws[XLSX.utils.encode_cell({ r: 0, c })] = { v: "", s: cellStyle({ bgColor: C.AZUL_OSCURO }) };
   }
   merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } });
 
@@ -237,25 +238,6 @@ export function generarReporteExcel(
     s: cellStyle({ bold: true, color: C.BLANCO, bgColor: C.AZUL_OSCURO, fontSize: 12 }),
   };
   merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: totalCols - 1 } });
-
-  // Grupos fila 2
-  const nCond = tipoReporte !== "vehiculos" ? COLS_CONDUCTOR.filter(c => campos[c.key as keyof CamposSeleccionados]).length : 0;
-  if (tipoReporte === "combinado" && nCond > 0) {
-    for (let c = 0; c < nCond; c++) {
-      ws[XLSX.utils.encode_cell({ r: 2, c })] = { v: c === 0 ? "INFORMACIÓN DEL CONDUCTOR" : "", s: cellStyle({ bold: true, color: C.BLANCO, bgColor: C.AZUL_MEDIO, fontSize: 9 }) };
-    }
-    for (let c = nCond; c < totalCols; c++) {
-      ws[XLSX.utils.encode_cell({ r: 2, c })] = { v: c === nCond ? "DATOS DEL VEHÍCULO Y DOCUMENTACIÓN" : "", s: cellStyle({ bold: true, color: C.BLANCO, bgColor: C.AZUL_MEDIO, fontSize: 9 }) };
-    }
-    merges.push({ s: { r: 2, c: 0 }, e: { r: 2, c: nCond - 1 } });
-    merges.push({ s: { r: 2, c: nCond }, e: { r: 2, c: totalCols - 1 } });
-  } else {
-    ws[XLSX.utils.encode_cell({ r: 2, c: 0 })] = {
-      v: tipoReporte === "conductores" ? "INFORMACIÓN DEL CONDUCTOR" : "DATOS DEL VEHÍCULO",
-      s: cellStyle({ bold: true, color: C.BLANCO, bgColor: C.AZUL_MEDIO, fontSize: 9 }),
-    };
-    merges.push({ s: { r: 2, c: 0 }, e: { r: 2, c: totalCols - 1 } });
-  }
 
   // Encabezados fila 3
   colsActivas.forEach((col, ci) => {
@@ -294,42 +276,8 @@ export function generarReporteExcel(
     });
   });
 
-  // Fila total
-  const totalRow = asignaciones.length + 4;
-  ws[XLSX.utils.encode_cell({ r: totalRow, c: 0 })] = {
-    v: `Total registros: ${asignaciones.length}  |  Generado: ${hoy.toLocaleDateString("es-CO")}`,
-    s: cellStyle({ bold: true, color: C.BLANCO, bgColor: C.AZUL_OSCURO, hAlign: "left", fontSize: 9 }),
-  };
-  merges.push({ s: { r: totalRow, c: 0 }, e: { r: totalRow, c: totalCols - 1 } });
-
-  // Leyenda
-  const leyRow = totalRow + 2;
-  ws[XLSX.utils.encode_cell({ r: leyRow, c: 0 })] = { v: "LEYENDA:", s: cellStyle({ bold: true, color: C.AZUL_OSCURO, hAlign: "left", fontSize: 9 }) };
-  [
-    { color: C.BLANCO,       label: "Vigente (más de 90 días)" },
-    { color: C.AMARILLO_SUV, label: "Próximo a vencer (menos de 90 días)" },
-    { color: C.ROJO_SUAVE,   label: "Vencido" },
-  ].forEach((item, i) => {
-    const r = leyRow + 1 + i;
-    ws[XLSX.utils.encode_cell({ r, c: 0 })] = {
-      v: "",
-      s: { fill: { fgColor: { rgb: item.color }, patternType: "solid" }, border: { top: { style: "thin", color: { rgb: "D0D7E3" } }, bottom: { style: "thin", color: { rgb: "D0D7E3" } }, left: { style: "thin", color: { rgb: "D0D7E3" } }, right: { style: "thin", color: { rgb: "D0D7E3" } } } },
-    };
-    ws[XLSX.utils.encode_cell({ r, c: 1 })] = { v: item.label, s: cellStyle({ color: C.GRIS_TEXTO, hAlign: "left", fontSize: 9 }) };
-    merges.push({ s: { r, c: 1 }, e: { r, c: Math.min(4, totalCols - 1) } });
-  });
-
-  // Pie de página
-  const pieRow = leyRow + 6;
-  ws[XLSX.utils.encode_cell({ r: pieRow, c: 0 })] = {
-    v: "Transportes Especiales J&J  |  Documento Confidencial  |  Bogotá D.C., Colombia",
-    s: cellStyle({ color: C.BLANCO, bgColor: C.AZUL_OSCURO, italic: true, fontSize: 8 }),
-  };
-  merges.push({ s: { r: pieRow, c: 0 }, e: { r: pieRow, c: totalCols - 1 } });
-
   ws["!cols"]   = colsActivas.map((c) => ({ wch: c.width }));
   ws["!merges"] = merges;
-  ws["!rows"]   = [{ hpt: 8 }, { hpt: 32 }, { hpt: 18 }, { hpt: 36 }, ...asignaciones.map(() => ({ hpt: 22 }))];
   XLSX.utils.book_append_sheet(wb, ws, "Reporte");
 
   // Descargar
