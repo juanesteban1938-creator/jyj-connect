@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -103,6 +102,14 @@ export default function ReportesPage() {
         dataAsignaciones = vehiculos.map(v => ({ conductorId: "", vehiculoId: v.id }));
     }
 
+    console.log("=== DIAGNÓSTICO REPORTE ===");
+    console.log("Tipo:", tipoReporte);
+    console.log("Asignaciones Generadas:", JSON.stringify(dataAsignaciones));
+    console.log("Total conductores cargados:", conductores.length);
+    console.log("Total vehículos cargados:", vehiculos.length);
+    if (conductores.length > 0) console.log("Ejemplo conductor:", JSON.stringify(conductores[0]));
+    if (vehiculos.length > 0) console.log("Ejemplo vehículo:", JSON.stringify(vehiculos[0]));
+
     setGenerando(true);
     try {
       await new Promise((r) => setTimeout(r, 100));
@@ -204,7 +211,7 @@ export default function ReportesPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {CAMPOS_CONDUCTOR.map((campo) => (
                     <label key={campo.key} className="flex items-center gap-2 p-2 rounded-lg border border-gray-100 hover:bg-gray-50 cursor-pointer">
-                      <input type="checkbox" checked={campos[campo.key]} onChange={() => toggleCampo(campo.key)} className="accent-[#2E5FA3]" />
+                      <input type="checkbox" checked={campos[campo.key as keyof CamposSeleccionados]} onChange={() => toggleCampo(campo.key as keyof CamposSeleccionados)} className="accent-[#2E5FA3]" />
                       <span className="text-xs text-gray-700">{campo.label}</span>
                     </label>
                   ))}
@@ -220,7 +227,7 @@ export default function ReportesPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {CAMPOS_VEHICULO.map((campo) => (
                     <label key={campo.key} className="flex items-center gap-2 p-2 rounded-lg border border-gray-100 hover:bg-gray-50 cursor-pointer">
-                      <input type="checkbox" checked={campos[campo.key]} onChange={() => toggleCampo(campo.key)} className="accent-[#C8972B]" />
+                      <input type="checkbox" checked={campos[campo.key as keyof CamposSeleccionados]} onChange={() => toggleCampo(campo.key as keyof CamposSeleccionados)} className="accent-[#C8972B]" />
                       <span className="text-xs text-gray-700">{campo.label}</span>
                     </label>
                   ))}

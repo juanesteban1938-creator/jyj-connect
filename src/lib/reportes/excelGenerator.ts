@@ -1,4 +1,3 @@
-
 // lib/reportes/excelGenerator.ts
 import XLSX from "xlsx-js-style";
 
@@ -148,6 +147,12 @@ export function generarReporteExcel(
   campos: CamposSeleccionados,
   tipoReporte: TipoReporte
 ): void {
+  console.log("=== EXCEL GENERATOR ===");
+  console.log("Conductores recibidos:", conductores.length);
+  console.log("Vehículos recibidos:", vehiculos.length);  
+  console.log("Asignaciones recibidas:", asignaciones.length);
+  if (asignaciones.length > 0) console.log("Primera asignación:", JSON.stringify(asignaciones[0]));
+
   const wb = XLSX.utils.book_new();
   const condMap = new Map(conductores.map((c) => [c.id, c]));
   const vehMap  = new Map(vehiculos.map((v) => [v.id, v]));
