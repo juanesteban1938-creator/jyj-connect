@@ -38,6 +38,7 @@ const menuItems = [
   { href: '/dashboard/servicios', label: 'Servicios', icon: Briefcase },
   { href: '/dashboard/conductores', label: 'Conductores', icon: Users },
   { href: '/dashboard/vehiculos', label: 'Vehículos', icon: Truck },
+  { href: '/dashboard/reportes', label: 'Reportes', icon: FileText },
   { href: '/dashboard/clientes', label: 'Clientes', icon: Users2 },
 ];
 
