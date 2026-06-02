@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -92,15 +93,16 @@ export default function ReportesPage() {
     setCampos((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const handleGenerarExcel = async () => {
-    if (asignaciones.length === 0 && tipoReporte === "combinado") return;
-    
-    // Generación de data para reporte
+    // Si es combinado, necesita al menos una asignación. 
+    // Si es solo conductores o solo vehículos, generamos con todos los datos.
     let dataAsignaciones = [...asignaciones];
     if (tipoReporte === "conductores") {
         dataAsignaciones = conductores.map(c => ({ conductorId: c.id, vehiculoId: "" }));
     } else if (tipoReporte === "vehiculos") {
         dataAsignaciones = vehiculos.map(v => ({ conductorId: "", vehiculoId: v.id }));
     }
+
+    if (dataAsignaciones.length === 0) return;
 
     setGenerando(true);
     try {
@@ -112,10 +114,10 @@ export default function ReportesPage() {
   };
 
   const conductoresFiltrados = conductores.filter((c) =>
-    `${c.nombres} ${c.apellidos} ${c.cedula}`.toLowerCase().includes(busquedaCond.toLowerCase())
+    `${String(c.nombres)} ${String(c.apellidos)} ${String(c.cedula)}`.toLowerCase().includes(busquedaCond.toLowerCase())
   );
   const vehiculosFiltrados = vehiculos.filter((v) =>
-    `${v.placa} ${v.marca} ${v.linea}`.toLowerCase().includes(busquedaVeh.toLowerCase())
+    `${String(v.placa)} ${String(v.marca)} ${String(v.linea)}`.toLowerCase().includes(busquedaVeh.toLowerCase())
   );
 
   if (cargando) {
@@ -228,7 +230,7 @@ export default function ReportesPage() {
             )}
           </div>
           <div className="flex justify-end">
-            <button onClick={() => setPaso(tipoReporte === "conductores" ? 3 : (tipoReporte === "vehiculos" ? 3 : 2))}
+            <button onClick={() => setPaso(tipoReporte === "combinado" ? 2 : 3)}
               className="bg-[#2E5FA3] hover:bg-[#1A2B4A] text-white px-6 py-2.5 rounded-lg text-sm font-semibold transition-colors">
               Siguiente →
             </button>
@@ -258,7 +260,7 @@ export default function ReportesPage() {
                   <div key={conductor.id} className={`rounded-xl border p-4 transition-all ${vehAsignadoId ? "border-[#2E5FA3] bg-[#EEF4FB]" : "border-gray-200 bg-white"}`}>
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-full bg-[#1A2B4A] text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
-                        {conductor.nombres?.[0]}{conductor.apellidos?.[0]}
+                        {String(conductor.nombres)?.[0]}{String(conductor.apellidos)?.[0]}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm text-[#1A2B4A] truncate">{conductor.nombres} {conductor.apellidos}</p>
@@ -315,7 +317,11 @@ export default function ReportesPage() {
             <h2 className="text-base font-semibold text-[#1A2B4A] mb-5">Resumen del reporte</h2>
             <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="bg-[#EEF4FB] rounded-xl p-4 text-center">
-                <p className="text-3xl font-bold text-[#1A2B4A]">{tipoReporte === "conductores" ? conductores.length : (tipoReporte === "vehiculos" ? vehiculos.length : asignaciones.length)}</p>
+                <p className="text-3xl font-bold text-[#1A2B4A]">
+                    {tipoReporte === "conductores" ? conductores.length : 
+                     tipoReporte === "vehiculos" ? vehiculos.length : 
+                     asignaciones.length}
+                </p>
                 <p className="text-xs text-gray-500 mt-1">Registros incluidos</p>
               </div>
               <div className="bg-[#EEF4FB] rounded-xl p-4 text-center">
@@ -332,38 +338,38 @@ export default function ReportesPage() {
             
             {tipoReporte === "combinado" && (
                 <div className="overflow-x-auto rounded-lg border border-gray-100">
-                <table className="w-full text-xs">
-                    <thead>
-                    <tr className="bg-[#1A2B4A] text-white">
-                        <th className="px-3 py-2 text-left">Conductor</th>
-                        <th className="px-3 py-2 text-left">Vehículo</th>
-                        <th className="px-3 py-2 text-left">Placa</th>
-                        <th className="px-3 py-2 text-left">Tipo</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {asignaciones.map((asig, i) => {
-                        const c = conductores.find((x) => x.id === asig.conductorId);
-                        const v = vehiculos.find((x) => x.id === asig.vehiculoId);
-                        return (
-                        <tr key={i} className={i % 2 === 0 ? "bg-[#C6D9F0]/30" : "bg-white"}>
-                            <td className="px-3 py-2 font-medium text-[#1A2B4A]">{c?.nombres} {c?.apellidos}</td>
-                            <td className="px-3 py-2 text-gray-600">{v?.marca} {v?.linea} {v?.modelo}</td>
-                            <td className="px-3 py-2"><span className="bg-[#1A2B4A] text-white px-2 py-0.5 rounded font-bold">{v?.placa}</span></td>
-                            <td className="px-3 py-2 text-gray-500">{v?.tipoVehiculo}</td>
+                    <table className="w-full text-xs">
+                        <thead>
+                        <tr className="bg-[#1A2B4A] text-white">
+                            <th className="px-3 py-2 text-left">Conductor</th>
+                            <th className="px-3 py-2 text-left">Vehículo</th>
+                            <th className="px-3 py-2 text-left">Placa</th>
                         </tr>
-                        );
-                    })}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                        {asignaciones.map((asig, i) => {
+                            const c = conductores.find((x) => x.id === asig.conductorId);
+                            const v = vehiculos.find((x) => x.id === asig.vehiculoId);
+                            return (
+                            <tr key={i} className={i % 2 === 0 ? "bg-[#C6D9F0]/30" : "bg-white"}>
+                                <td className="px-3 py-2 font-medium text-[#1A2B4A]">{c?.nombres} {c?.apellidos}</td>
+                                <td className="px-3 py-2 text-gray-600">{v?.marca} {v?.linea}</td>
+                                <td className="px-3 py-2"><span className="bg-[#1A2B4A] text-white px-2 py-0.5 rounded font-bold">{v?.placa}</span></td>
+                            </tr>
+                            );
+                        })}
+                        </tbody>
+                    </table>
                 </div>
             )}
 
             <div className="mt-4 pt-4 border-t border-gray-100">
               <p className="text-xs text-gray-400 mb-2 font-medium">Campos incluidos:</p>
               <div className="flex flex-wrap gap-1.5">
-                {[...CAMPOS_CONDUCTOR, ...CAMPOS_VEHICULO].filter((c) => campos[c.key as keyof CamposSeleccionados]).map((c) => (
-                  <span key={c.key} className="bg-[#EEF4FB] text-[#2E5FA3] text-xs px-2 py-0.5 rounded-full">{c.label}</span>
+                {[...CAMPOS_CONDUCTOR, ...CAMPOS_VEHICULO]
+                  .filter((c) => campos[c.key as keyof CamposSeleccionados])
+                  .map((c) => (
+                    <span key={c.key} className="bg-[#EEF4FB] text-[#2E5FA3] text-xs px-2 py-0.5 rounded-full">{c.label}</span>
                 ))}
               </div>
             </div>
@@ -373,7 +379,7 @@ export default function ReportesPage() {
               className="border border-gray-200 text-gray-600 px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-colors">
               ← Atrás
             </button>
-            <button onClick={handleGenerarExcel} disabled={generando || (tipoReporte === "combinado" && asignaciones.length === 0)}
+            <button onClick={handleGenerarExcel} disabled={generando}
               className="flex items-center gap-2 bg-[#C8972B] hover:bg-[#a87820] disabled:opacity-40 disabled:cursor-not-allowed text-white px-8 py-3 rounded-xl text-sm font-bold transition-colors shadow-lg">
               {generando ? (
                 <><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />Generando Excel...</>
