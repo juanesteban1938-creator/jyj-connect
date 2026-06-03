@@ -17,6 +17,7 @@ import {
   MapPin,
   CreditCard,
   FileText,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -169,7 +170,7 @@ export function MainNav() {
                           {item.href === '/dashboard/gps' && (activeGPS?.length || 0) > 0 && (
                             <span className="absolute -top-1 -right-1 flex h-2 w-2">
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                              <span className="relative inline-full rounded-full h-2 w-2 bg-emerald-500"></span>
                             </span>
                           )}
                         </div>
@@ -180,13 +181,31 @@ export function MainNav() {
                 ))}
             </SidebarMenu>
         </SidebarGroup>
+
+        <SidebarGroup className="mt-auto">
+            <SidebarGroupLabel>CONFIGURACIÓN</SidebarGroupLabel>
+            <SidebarMenu>
+                <SidebarMenuItem>
+                  <Link href="/dashboard/seguridad">
+                    <SidebarMenuButton
+                      isActive={pathname === '/dashboard/seguridad'}
+                      tooltip="Seguridad"
+                      className="justify-start"
+                    >
+                      <ShieldCheck />
+                      <span>Seguridad</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+            </SidebarMenu>
+        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={logout} tooltip="Cerrar Sesión" className="justify-start">
+            <SidebarMenuButton onClick={logout} tooltip="Cerrar Sesión" className="justify-start text-red-600 hover:text-red-700 hover:bg-red-50">
               <LogOut />
-              <span>Cerrar sesión</span>
+              <span className="font-bold">Cerrar sesión</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
