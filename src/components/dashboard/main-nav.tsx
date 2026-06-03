@@ -1,6 +1,7 @@
+
 'use client';
 
-import Link from 'next/link';
+import Link from 'link';
 import { usePathname } from 'next/navigation';
 import {
   Home,
@@ -9,7 +10,6 @@ import {
   Briefcase,
   PieChart,
   BookText,
-  LogOut,
   Users2,
   MessageSquare,
   ClipboardList,
@@ -25,11 +25,9 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
 } from '@/components/ui/sidebar';
-import { useAuth } from '@/context/auth-context';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 
@@ -58,7 +56,6 @@ const sistemaItems = [
 
 export function MainNav() {
   const pathname = usePathname();
-  const { logout } = useAuth();
   const db = useFirestore();
   const { user } = useUser();
 
@@ -181,16 +178,6 @@ export function MainNav() {
             </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={logout} tooltip="Cerrar Sesión" className="justify-start text-red-600 hover:text-red-700 hover:bg-red-50">
-              <LogOut />
-              <span className="font-bold">Cerrar sesión</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
     </Sidebar>
   );
 }

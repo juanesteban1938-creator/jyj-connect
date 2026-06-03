@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -18,7 +19,8 @@ import {
   Lock, 
   Loader2, 
   ArrowRight,
-  ShieldAlert
+  ShieldAlert,
+  Info
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -29,21 +31,27 @@ export default function SeguridadPage() {
   const [isSending, setIsSending] = useState(false);
 
   const handleResetPassword = async () => {
-    if (!user?.email) return;
+    if (!user?.email) {
+      console.error('Seguridad: No se encontró correo de usuario.');
+      return;
+    }
 
     setIsSending(true);
+    console.log(`Seguridad: Solicitando cambio para ${user.email}...`);
+    
     try {
       await sendPasswordResetEmail(auth, user.email);
+      console.log('Seguridad: Solicitud aceptada por Firebase.');
       toast({
         title: "Enlace Enviado",
         description: "Se ha enviado un enlace de seguridad a tu correo electrónico. Por favor, revisa tu bandeja de entrada.",
       });
     } catch (error: any) {
-      console.error('Error al enviar correo de restablecimiento:', error);
+      console.error('Seguridad: Error de Firebase Auth:', error.code, error.message);
       toast({
         variant: "destructive",
         title: "Error de comunicación",
-        description: "No se pudo enviar el correo de seguridad. Intente de nuevo más tarde.",
+        description: "No se pudo enviar el correo de seguridad. Verifique su conexión o intente más tarde.",
       });
     } finally {
       setIsSending(false);
@@ -73,9 +81,14 @@ export default function SeguridadPage() {
             </p>
           </div>
           
-          <div className="flex items-center gap-3 px-6 py-4 bg-emerald-50 text-emerald-700 rounded-2xl border border-emerald-100">
-            <ShieldCheck className="h-5 w-5 shrink-0" />
-            <span className="text-[10px] font-black uppercase tracking-tight leading-tight">Sesión Protegida por Auth v4.0</span>
+          <div className="bg-blue-50/50 p-6 rounded-[2rem] border border-blue-100 text-blue-700">
+            <div className="flex items-center gap-2 mb-2">
+                <Info className="h-4 w-4" />
+                <span className="text-[10px] font-black uppercase">Importante</span>
+            </div>
+            <p className="text-[10px] leading-relaxed font-medium">
+                Si el correo no llega en 2 minutos, revisa tu carpeta de **Spam** o **Correo no deseado**.
+            </p>
           </div>
         </div>
 
