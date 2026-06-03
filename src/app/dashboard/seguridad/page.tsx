@@ -20,7 +20,8 @@ import {
   Loader2, 
   ArrowRight,
   ShieldAlert,
-  Info
+  Info,
+  ExternalLink
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -33,25 +34,44 @@ export default function SeguridadPage() {
   const handleResetPassword = async () => {
     if (!user?.email) {
       console.error('Seguridad: No se encontró correo de usuario.');
+      toast({
+        variant: "destructive",
+        title: "Error de sesión",
+        description: "No se pudo identificar tu correo electrónico.",
+      });
       return;
     }
 
     setIsSending(true);
-    console.log(`Seguridad: Solicitando cambio para ${user.email}...`);
+    console.log(`[Seguridad] Iniciando proceso para: ${user.email}`);
     
     try {
+      // Intentamos enviar el correo usando la configuración nativa
       await sendPasswordResetEmail(auth, user.email);
-      console.log('Seguridad: Solicitud aceptada por Firebase.');
+      
+      console.log('[Seguridad] Firebase aceptó la solicitud correctamente.');
       toast({
         title: "Enlace Enviado",
-        description: "Se ha enviado un enlace de seguridad a tu correo electrónico. Por favor, revisa tu bandeja de entrada.",
+        description: `Se ha enviado un enlace a ${user.email}. Por favor, revisa tu bandeja de entrada y la carpeta de SPAM.`,
       });
     } catch (error: any) {
-      console.error('Seguridad: Error de Firebase Auth:', error.code, error.message);
+      console.error('[Seguridad] Error detallado de Firebase Auth:', {
+        code: error.code,
+        message: error.message
+      });
+
+      let mensaje = "No se pudo enviar el correo. Intenta de nuevo más tarde.";
+      
+      if (error.code === 'auth/unauthorized-domain') {
+        mensaje = "Dominio no autorizado en la consola de Firebase.";
+      } else if (error.code === 'auth/too-many-requests') {
+        mensaje = "Demasiadas solicitudes. Espera unos minutos.";
+      }
+
       toast({
         variant: "destructive",
-        title: "Error de comunicación",
-        description: "No se pudo enviar el correo de seguridad. Verifique su conexión o intente más tarde.",
+        title: "Fallo en el envío",
+        description: mensaje,
       });
     } finally {
       setIsSending(false);
@@ -69,7 +89,7 @@ export default function SeguridadPage() {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* Info lateral */}
+        {/* Info lateral y Guía de Ayuda */}
         <div className="md:col-span-1 space-y-6">
           <div className="bg-slate-100/50 p-6 rounded-[2rem] border border-slate-200">
             <div className="p-3 bg-white rounded-2xl w-fit mb-4 shadow-sm">
@@ -82,13 +102,24 @@ export default function SeguridadPage() {
           </div>
           
           <div className="bg-blue-50/50 p-6 rounded-[2rem] border border-blue-100 text-blue-700">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-3">
                 <Info className="h-4 w-4" />
-                <span className="text-[10px] font-black uppercase">Importante</span>
+                <span className="text-[10px] font-black uppercase tracking-tight">¿No llega el correo?</span>
             </div>
-            <p className="text-[10px] leading-relaxed font-medium">
-                Si el correo no llega en 2 minutos, revisa tu carpeta de **Spam** o **Correo no deseado**.
-            </p>
+            <ul className="text-[10px] space-y-2 font-medium leading-relaxed">
+              <li className="flex gap-2">
+                <span className="h-4 w-4 rounded-full bg-blue-100 flex items-center justify-center shrink-0">1</span>
+                Revisa la carpeta de <b>SPAM</b> o No deseado.
+              </li>
+              <li className="flex gap-2">
+                <span className="h-4 w-4 rounded-full bg-blue-100 flex items-center justify-center shrink-0">2</span>
+                Verifica en la Consola de Firebase que el dominio <b>firebaseapp.com</b> esté autorizado.
+              </li>
+              <li className="flex gap-2">
+                <span className="h-4 w-4 rounded-full bg-blue-100 flex items-center justify-center shrink-0">3</span>
+                Asegúrate de que las plantillas de correo estén activas en Firebase Auth.
+              </li>
+            </ul>
           </div>
         </div>
 
