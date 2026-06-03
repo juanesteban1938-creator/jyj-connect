@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { MainNav } from '@/components/dashboard/main-nav';
 import { Button } from '@/components/ui/button';
-import { Bell, UserCircle, Loader2 } from 'lucide-react';
+import { Bell, UserCircle, Loader2, ShieldCheck, Lock } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,12 +87,25 @@ export default function DashboardLayout({
                   <UserCircle className="h-8 w-8 text-primary" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>Gestión de Cuenta</DropdownMenuLabel>
+              <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl shadow-xl">
+                <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Gestión de Cuenta</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-xs font-medium">{user?.email || 'Admin User'}</DropdownMenuItem>
+                <DropdownMenuItem className="text-xs font-bold text-slate-600 py-3">
+                  <Lock className="h-3.5 w-3.5 mr-2 text-slate-400" />
+                  {user?.email || 'Admin User'}
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout} className="text-red-600 font-bold">Cerrar Sesión</DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => router.push('/dashboard/seguridad')}
+                  className="text-xs font-black uppercase tracking-tight py-3 cursor-pointer"
+                >
+                  <ShieldCheck className="h-4 w-4 mr-2 text-orange-500" />
+                  Seguridad de Acceso
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={logout} className="text-red-600 font-bold py-3 cursor-pointer">
+                  Cerrar Sesión
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

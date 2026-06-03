@@ -17,7 +17,6 @@ import {
   MapPin,
   CreditCard,
   FileText,
-  ShieldCheck,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -179,24 +178,6 @@ export function MainNav() {
                     </Link>
                     </SidebarMenuItem>
                 ))}
-            </SidebarMenu>
-        </SidebarGroup>
-
-        <SidebarGroup className="mt-auto">
-            <SidebarGroupLabel>CONFIGURACIÓN</SidebarGroupLabel>
-            <SidebarMenu>
-                <SidebarMenuItem>
-                  <Link href="/dashboard/seguridad">
-                    <SidebarMenuButton
-                      isActive={pathname === '/dashboard/seguridad'}
-                      tooltip="Seguridad"
-                      className="justify-start"
-                    >
-                      <ShieldCheck />
-                      <span>Seguridad</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
             </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
