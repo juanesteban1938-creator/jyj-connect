@@ -43,6 +43,7 @@
     "date-fns": "latest",
     "dotenv": "^16.5.0",
     "embla-carousel-react": "^8.6.0",
+    "exceljs": "^4.4.0",
     "firebase": "^11.9.1",
     "genkit": "^1.20.0",
     "html2canvas": "^1.4.1",
