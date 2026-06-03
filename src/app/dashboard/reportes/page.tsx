@@ -248,7 +248,9 @@ export default function ReportesPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                 {tipoReporte !== "vehiculos" && (
                   <div className="space-y-4">
-                    <p className="text-[10px] font-black uppercase text-indigo-500 flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-indigo-500" /> Atributos Conductor</p>
+                    <div className="text-[10px] font-black uppercase text-indigo-500 flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" /> Atributos Conductor
+                    </div>
                     <div className="grid grid-cols-2 gap-2">
                       {CAMPOS_CONDUCTOR.map((campo) => (
                         <label key={campo.key} className={cn("flex items-center gap-2 p-2.5 rounded-xl border transition-all cursor-pointer", campos[campo.key] ? "bg-indigo-50/50 border-indigo-100" : "bg-slate-50/30 border-transparent hover:border-slate-200")}>
@@ -261,7 +263,9 @@ export default function ReportesPage() {
                 )}
                 {tipoReporte !== "conductores" && (
                   <div className="space-y-4">
-                    <p className="text-[10px] font-black uppercase text-blue-500 flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-blue-500" /> Atributos Vehículo</p>
+                    <div className="text-[10px] font-black uppercase text-blue-500 flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-blue-500" /> Atributos Vehículo
+                    </div>
                     <div className="grid grid-cols-2 gap-2">
                       {CAMPOS_VEHICULO.map((campo) => (
                         <label key={campo.key} className={cn("flex items-center gap-2 p-2.5 rounded-xl border transition-all cursor-pointer", campos[campo.key] ? "bg-blue-50/50 border-blue-100" : "bg-slate-50/30 border-transparent hover:border-slate-200")}>
@@ -276,7 +280,7 @@ export default function ReportesPage() {
 
               <div className="flex justify-end pt-6">
                 <Button onClick={() => setPaso(tipoReporte === "combinado" ? 2 : 3)} className="bg-slate-900 text-white font-black text-xs uppercase h-12 px-10 rounded-2xl shadow-xl">
-                  Continuar Auditoría <Loader2 className="ml-2 h-4 w-4 hidden" />
+                  Continuar Auditoría
                 </Button>
               </div>
             </div>
