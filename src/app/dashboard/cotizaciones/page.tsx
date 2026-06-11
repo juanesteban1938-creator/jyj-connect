@@ -98,13 +98,24 @@ export default function CotizacionesPage() {
     todasLasSolicitudes.filter(c => c.estado === 'pendiente').length, 
   [todasLasSolicitudes]);
 
-  const handleUpdateStatus = async (id: string, jid: string, newStatus: string, tipo: 'cotizacion' | 'asesor') => {
+  const handleUpdateStatus = async (id: string, jid: string, telefono: string, newStatus: string, tipo: 'cotizacion' | 'asesor') => {
     const collectionName = tipo === 'asesor' ? 'solicitudes_asesor' : 'cotizaciones';
     const docRef = doc(db, collectionName, id);
     try {
       await updateDoc(docRef, { estado: newStatus });
       
       if (newStatus === 'descartado') {
+        // --- LÓGICA DE REINICIO DE BOT (MODO AGENTE) ---
+        // Se formatea el JID para WhatsApp (ej: 573001234567@s.whatsapp.net)
+        const cleanPhone = (telefono || '').replace(/\D/g, '');
+        if (cleanPhone) {
+          const fullDigits = cleanPhone.startsWith('57') ? cleanPhone : '57' + cleanPhone;
+          const botControlJid = `${fullDigits}@s.whatsapp.net`;
+          // Se elimina el documento de control para que el bot vuelva a responder
+          await deleteDoc(doc(db, 'modo_agente', botControlJid)).catch(() => {});
+        }
+        // ----------------------------------------------
+
         await deleteDoc(doc(db, 'sesiones_nova', jid)).catch(() => {});
         const convSnap = await getDocs(query(collection(db, 'conversaciones'), where('jid', '==', jid)));
         const deletePromises = convSnap.docs.map(d => deleteDoc(d.ref));
@@ -249,10 +260,10 @@ export default function CotizacionesPage() {
                                   <DropdownMenuSeparator />
                                 </>
                               )}
-                              <DropdownMenuItem onClick={() => handleUpdateStatus(c.id, c.jid, c._tipo === 'asesor' ? 'atendido' : 'contactado', c._tipo)} className="rounded-lg font-bold text-xs py-2.5">
+                              <DropdownMenuItem onClick={() => handleUpdateStatus(c.id, c.jid, c.telefono, c._tipo === 'asesor' ? 'atendido' : 'contactado', c._tipo)} className="rounded-lg font-bold text-xs py-2.5">
                                 <CheckCircle2 className="mr-2 h-4 w-4 text-blue-500" /> {c._tipo === 'asesor' ? 'Marcar Atendido' : 'Marcar Contactado'}
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleUpdateStatus(c.id, c.jid, 'descartado', c._tipo)} className="rounded-lg font-bold text-xs py-2.5 text-red-600">
+                              <DropdownMenuItem onClick={() => handleUpdateStatus(c.id, c.jid, c.telefono, 'descartado', c._tipo)} className="rounded-lg font-bold text-xs py-2.5 text-red-600">
                                 <XCircle className="mr-2 h-4 w-4" /> Descartar
                               </DropdownMenuItem>
                             </DropdownMenuContent>
