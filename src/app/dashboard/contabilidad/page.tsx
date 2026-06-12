@@ -55,7 +55,6 @@ import { useToast } from '@/hooks/use-toast';
 import { realizarCierreContable, crearAsientoApertura } from '@/lib/accounting-engine';
 import { GastoAdminForm } from '@/components/dashboard/contabilidad/gasto-admin-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { generarInformeGerencial } from '@/ai/flows/informe-gerencial-flow';
 import type { AsientoContable, CierreFiscal } from '@/lib/types';
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', {
@@ -247,21 +246,40 @@ export default function ContabilidadPage() {
     }
   };
 
+  /**
+   * Generación de Informe IA a través de API segura (Backend)
+   * Evita bloqueos de CORS llamando a una ruta interna de Next.js
+   */
   const handleGenerarInformeIA = async () => {
     setIsGeneratingIA(true);
     try {
-      const result = await generarInformeGerencial({
-        mes: MESES[new Date().getMonth()],
-        anio: new Date().getFullYear().toString(),
-        ingresos: reports.estadoResultados.ingresos,
-        egresos: reports.estadoResultados.costos + reports.estadoResultados.gastos,
-        utilidad: reports.estadoResultados.utilidadNeta
+      const response = await fetch('/api/reporte-gerencial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mes: MESES[new Date().getMonth()],
+          anio: new Date().getFullYear().toString(),
+          ingresos: reports.estadoResultados.ingresos,
+          egresos: reports.estadoResultados.costos + reports.estadoResultados.gastos,
+          utilidad: reports.estadoResultados.utilidadNeta
+        })
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Fallo en la comunicación con Nova AI.');
+      }
+
+      const result = await response.json();
       setInformeIA(result.informe);
       setActiveTab('informe_ia');
-      toast({ title: "Informe de IA Generado" });
+      toast({ title: "Informe Estratégico Generado" });
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Error con la IA", description: "No se pudo conectar con el servicio de análisis." });
+      toast({ 
+        variant: "destructive", 
+        title: "Fallo de Análisis", 
+        description: err.message || "No se pudo conectar con el motor de inteligencia." 
+      });
     } finally {
       setIsGeneratingIA(false);
     }
@@ -648,4 +666,3 @@ export default function ContabilidadPage() {
     </div>
   );
 }
-
