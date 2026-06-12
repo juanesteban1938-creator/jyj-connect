@@ -9,19 +9,20 @@ export const dynamic = 'force-dynamic';
  */
 
 export async function POST(request: Request) {
+  // 1. Inyección de Console Log de validación (Debug solicitado)
+  console.log("🔍 ESTADO DE LA LLAVE GEMINI:", process.env.GEMINI_API_KEY ? "CARGADA ✅" : "VACÍA ❌", process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.substring(0, 7) + "..." : "");
+
+  // 2. Validación estricta solicitada: Retorno 500 si la variable no existe en el entorno
+  if (!process.env.GEMINI_API_KEY) {
+    return NextResponse.json(
+      { error: "Error interno: La variable GEMINI_API_KEY no se está leyendo en el servidor." },
+      { status: 500 }
+    );
+  }
+
   try {
     const input = await request.json();
     const { mes, anio, ingresos, egresos, utilidad } = input;
-
-    // Validación de seguridad de credenciales en el servidor
-    // Genkit busca automáticamente GOOGLE_GENAI_API_KEY o GEMINI_API_KEY
-    if (!process.env.GOOGLE_GENAI_API_KEY && !process.env.GEMINI_API_KEY) {
-      console.error('[API Reporte] Error: No se encontró la llave de API en las variables de entorno.');
-      return NextResponse.json(
-        { error: 'La llave de API de Google (GEMINI_API_KEY) no está configurada en el servidor.' },
-        { status: 501 }
-      );
-    }
 
     // Ejecución de la IA a través de Genkit (Server Side)
     const response = await ai.generate({
