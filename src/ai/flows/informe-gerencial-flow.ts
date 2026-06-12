@@ -35,9 +35,9 @@ const prompt = ai.definePrompt({
   prompt: `Eres el Director Financiero de Transportes Especiales J&J. Tu tarea es redactar un "Informe de Desempeño para la Junta Directiva" correspondiente a {{mes}} {{anio}}.
 
 Utiliza los siguientes datos financieros reales:
-- Ingresos Totales: ${{ingresos}} COP
-- Egresos Totales (Costos + Gastos): ${{egresos}} COP
-- Utilidad Neta: ${{utilidad}} COP
+- Ingresos Totales: \${{ingresos}} COP
+- Egresos Totales (Costos + Gastos): \${{egresos}} COP
+- Utilidad Neta: \${{utilidad}} COP
 
 Instrucciones de Redacción:
 1. Párrafo 1: Resumen del estado financiero actual, analizando la relación ingresos/egresos y el margen de utilidad.
