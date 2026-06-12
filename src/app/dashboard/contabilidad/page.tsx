@@ -43,7 +43,10 @@ import {
   History,
   ArrowUpRight,
   PlusCircle,
-  Calculator
+  Calculator,
+  Sparkles,
+  ArrowLeft,
+  ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -52,6 +55,7 @@ import { useToast } from '@/hooks/use-toast';
 import { realizarCierreContable, crearAsientoApertura } from '@/lib/accounting-engine';
 import { GastoAdminForm } from '@/components/dashboard/contabilidad/gasto-admin-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { generarInformeGerencial } from '@/ai/flows/informe-gerencial-flow';
 import type { AsientoContable, CierreFiscal } from '@/lib/types';
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', {
@@ -72,6 +76,10 @@ export default function ContabilidadPage() {
   const [isOpening, setIsOpening] = useState(false);
   const [isGastoOpen, setIsGastoOpen] = useState(false);
   
+  // Estados para Informe IA
+  const [isGeneratingIA, setIsGeneratingIA] = useState(false);
+  const [informeIA, setInformeIA] = useState<string | null>(null);
+
   const [cierreMes, setCierreMes] = useState(new Date().getMonth().toString());
   const [cierreAnio, setCierreAnio] = useState(new Date().getFullYear().toString());
 
@@ -148,7 +156,6 @@ export default function ContabilidadPage() {
 
   const listaTerceros = useMemo(() => {
     const unique = new Map();
-    // Extraemos de mayorData para asegurar que cubrimos todos los que tienen saldo
     mayorData.forEach(m => {
       if (m.terceroId && !unique.has(m.terceroId)) {
         unique.set(m.terceroId, m.terceroNombre);
@@ -240,10 +247,33 @@ export default function ContabilidadPage() {
     }
   };
 
+  const handleGenerarInformeIA = async () => {
+    setIsGeneratingIA(true);
+    try {
+      const result = await generarInformeGerencial({
+        mes: MESES[new Date().getMonth()],
+        anio: new Date().getFullYear().toString(),
+        ingresos: reports.estadoResultados.ingresos,
+        egresos: reports.estadoResultados.costos + reports.estadoResultados.gastos,
+        utilidad: reports.estadoResultados.utilidadNeta
+      });
+      setInformeIA(result.informe);
+      setActiveTab('informe_ia');
+      toast({ title: "Informe de IA Generado" });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error con la IA", description: "No se pudo conectar con el servicio de análisis." });
+    } finally {
+      setIsGeneratingIA(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-[80vh] flex-col items-center justify-center gap-4">
-        <Loader2 className="h-12 w-12 animate-spin text-orange-500" />
+        <div className="relative">
+          <Loader2 className="h-12 w-12 animate-spin text-orange-500" />
+          <Sparkles className="h-4 w-4 text-orange-400 absolute -top-1 -right-1 animate-pulse" />
+        </div>
         <p className="text-xs font-black uppercase text-slate-400 tracking-[0.3em]">Cargando Sistema Contable...</p>
       </div>
     );
@@ -290,14 +320,15 @@ export default function ContabilidadPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* KPI & IA Action Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="rounded-2xl shadow-sm border-none overflow-hidden hover:shadow-md transition-all">
           <div className="p-6 bg-emerald-500 text-white h-full flex flex-col justify-between">
             <div className="flex items-center justify-between mb-4">
               <span className="text-[10px] font-black uppercase opacity-90 tracking-widest">Activos Totales</span>
               <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md"><DollarSign className="h-5 w-5 text-white" /></div>
             </div>
-            <p className="text-2xl lg:text-3xl font-black tracking-tight">{currencyFormatter.format(reports.balance.activos)}</p>
+            <p className="text-2xl font-black tracking-tight">{currencyFormatter.format(reports.balance.activos)}</p>
           </div>
         </Card>
         <Card className="rounded-2xl shadow-sm border-none overflow-hidden hover:shadow-md transition-all">
@@ -306,7 +337,7 @@ export default function ContabilidadPage() {
               <span className="text-[10px] font-black uppercase opacity-90 tracking-widest">Pasivos (CxP)</span>
               <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md"><TrendingDown className="h-5 w-5 text-white" /></div>
             </div>
-            <p className="text-2xl lg:text-3xl font-black tracking-tight">{currencyFormatter.format(reports.balance.pasivos)}</p>
+            <p className="text-2xl font-black tracking-tight">{currencyFormatter.format(reports.balance.pasivos)}</p>
           </div>
         </Card>
         <Card className="rounded-2xl shadow-sm border-none overflow-hidden hover:shadow-md transition-all">
@@ -315,7 +346,23 @@ export default function ContabilidadPage() {
               <span className="text-[10px] font-black uppercase opacity-90 tracking-widest">Utilidad Neta</span>
               <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md"><Scale className="h-5 w-5 text-white" /></div>
             </div>
-            <p className="text-2xl lg:text-3xl font-black tracking-tight">{currencyFormatter.format(reports.estadoResultados.utilidadNeta)}</p>
+            <p className="text-2xl font-black tracking-tight">{currencyFormatter.format(reports.estadoResultados.utilidadNeta)}</p>
+          </div>
+        </Card>
+        <Card className="rounded-2xl shadow-sm border-none overflow-hidden border-2 border-dashed border-orange-200 bg-white group hover:border-orange-500 transition-all cursor-default">
+          <div className="p-6 h-full flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+               <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Análisis Gerencial IA</span>
+               <div className="p-2 rounded-xl bg-orange-50 text-orange-500"><Sparkles className="h-4 w-4" /></div>
+            </div>
+            <p className="text-[9px] text-slate-400 font-bold uppercase mb-3">Redactar Informe de Junta</p>
+            <Button 
+                onClick={handleGenerarInformeIA} 
+                disabled={isGeneratingIA}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black text-[9px] uppercase h-9 rounded-lg"
+            >
+                {isGeneratingIA ? <Loader2 className="h-3 w-3 animate-spin" /> : "Generar con Gemini"}
+            </Button>
           </div>
         </Card>
       </div>
@@ -332,6 +379,11 @@ export default function ContabilidadPage() {
             <TabsTrigger value="estados" className="flex-1 lg:flex-none rounded-lg px-6 font-black uppercase text-[9px] sm:text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:text-orange-600 shadow-none">
               <BarChart3 className="h-3 w-3 mr-2" /> Estados
             </TabsTrigger>
+            {informeIA && (
+                <TabsTrigger value="informe_ia" className="flex-1 lg:flex-none rounded-lg px-6 font-black uppercase text-[9px] sm:text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:text-orange-600 shadow-none border border-orange-100">
+                    <Sparkles className="h-3 w-3 mr-2 text-orange-500" /> Informe IA
+                </TabsTrigger>
+            )}
           </TabsList>
 
           <div className="flex items-center gap-3 w-full lg:w-auto">
@@ -351,7 +403,7 @@ export default function ContabilidadPage() {
                   </Select>
                 </div>
               )}
-              {activeTab !== 'estados' && (
+              {activeTab !== 'estados' && activeTab !== 'informe_ia' && (
                 <div className="relative w-full lg:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input placeholder="Buscar..." className="bg-slate-50 border-slate-200 pl-9 h-11 rounded-xl focus:ring-orange-500" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
@@ -506,6 +558,53 @@ export default function ContabilidadPage() {
                 </div>
               </div>
             </TabsContent>
+
+            <TabsContent value="informe_ia" className="m-0 border-none p-12">
+               <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <header className="flex items-center justify-between border-b pb-6">
+                        <div className="space-y-1">
+                            <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Informe de Junta Directiva</h2>
+                            <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.3em] flex items-center gap-2">
+                                <Sparkles className="h-3 w-3" /> Generado por Nova Intelligence v4.0
+                            </p>
+                        </div>
+                        <Button variant="outline" onClick={() => setActiveTab('mayor')} className="rounded-xl font-black text-[10px] uppercase h-9 border-slate-200">
+                            <ArrowLeft className="h-3 w-3 mr-2" /> Regresar al Libro
+                        </Button>
+                    </header>
+
+                    <div className="grid grid-cols-3 gap-6 bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+                        <div className="text-center">
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Periodo Actual</p>
+                            <p className="text-xs font-black text-slate-700">{MESES[new Date().getMonth()].toUpperCase()} {new Date().getFullYear()}</p>
+                        </div>
+                        <div className="text-center border-x">
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Monto Analizado</p>
+                            <p className="text-xs font-black text-emerald-600">{currencyFormatter.format(reports.estadoResultados.ingresos)}</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Status Auditoría</p>
+                            <p className="text-xs font-black text-orange-600">CERTIFICADO</p>
+                        </div>
+                    </div>
+
+                    <div className="prose prose-slate max-w-none">
+                        {informeIA?.split('\n\n').map((parrafo, idx) => (
+                            <p key={idx} className="text-sm font-medium text-slate-600 leading-relaxed text-justify first-letter:text-2xl first-letter:font-black first-letter:text-slate-900">
+                                {parrafo}
+                            </p>
+                        ))}
+                    </div>
+
+                    <footer className="pt-12 flex flex-col items-center gap-4">
+                        <div className="w-48 h-px bg-slate-200" />
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.4em]">Documento Confidencial — J&J Connect</p>
+                        <Button variant="ghost" onClick={() => window.print()} className="text-[9px] font-black uppercase text-slate-400 hover:text-orange-500">
+                            Descargar como Acta
+                        </Button>
+                    </footer>
+               </div>
+            </TabsContent>
         </Card>
       </Tabs>
 
@@ -523,7 +622,30 @@ export default function ContabilidadPage() {
         </DialogContent>
       </Dialog>
 
+      {isGeneratingIA && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center">
+            <Card className="rounded-[2.5rem] border-none shadow-2xl p-8 max-w-sm w-full bg-white text-center space-y-6">
+                <div className="relative inline-block">
+                    <div className="h-20 w-24 rounded-3xl bg-orange-500 flex items-center justify-center mx-auto">
+                        <Sparkles className="h-10 w-10 text-white animate-pulse" />
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <h3 className="text-lg font-black uppercase tracking-tight text-slate-900 leading-none">Generando Informe</h3>
+                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Nova Intelligence v4.0</p>
+                </div>
+                <div className="space-y-4">
+                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-orange-500 animate-[progress_3s_ease-in-out_infinite]" style={{ width: '40%' }} />
+                    </div>
+                    <p className="text-xs font-bold text-slate-400 italic">Sintetizando movimientos contables del mes...</p>
+                </div>
+            </Card>
+        </div>
+      )}
+
       <footer className="text-center pt-8"><p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">ERP Contable J&J — Cierres Inmutables v4.0</p></footer>
     </div>
   );
 }
+
