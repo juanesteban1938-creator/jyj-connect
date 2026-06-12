@@ -14,10 +14,11 @@ export async function POST(request: Request) {
     const { mes, anio, ingresos, egresos, utilidad } = input;
 
     // Validación de seguridad de credenciales en el servidor
+    // Genkit busca automáticamente GOOGLE_GENAI_API_KEY o GEMINI_API_KEY
     if (!process.env.GOOGLE_GENAI_API_KEY && !process.env.GEMINI_API_KEY) {
-      console.error('[API Reporte] Error: No se encontró GOOGLE_GENAI_API_KEY o GEMINI_API_KEY.');
+      console.error('[API Reporte] Error: No se encontró la llave de API en las variables de entorno.');
       return NextResponse.json(
-        { error: 'El servicio de IA no está configurado (Falta API Key).' },
+        { error: 'La llave de API de Google (GEMINI_API_KEY) no está configurada en el servidor.' },
         { status: 501 }
       );
     }
@@ -46,6 +47,15 @@ Tono: Estrictamente formal, profesional, corporativo y sobrio. No uses emojis. U
     return NextResponse.json({ informe: response.text });
   } catch (error: any) {
     console.error('Error en /api/reporte-gerencial:', error);
+    
+    // Captura específica de error de llave inválida para guiar al usuario
+    if (error.message?.includes('API key not valid')) {
+      return NextResponse.json(
+        { error: 'La llave de API (GEMINI_API_KEY) proporcionada no es válida o ha expirado.' },
+        { status: 401 }
+      );
+    }
+
     return NextResponse.json(
       { error: 'Fallo al conectar con Nova AI: ' + (error.message || 'Error desconocido') },
       { status: 500 }
