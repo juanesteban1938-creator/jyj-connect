@@ -1,7 +1,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 2.3.0 (Integración de Motor Contable Central)
+ * Versión: 2.3.1 (Corrección de bucle de reconexión y robustez QR)
  */
 
 const express = require('express');
@@ -183,12 +183,35 @@ async function generateServiceCard(data) {
 
 client.on('qr', async (qr) => {
     isReady = false;
-    authStatus = 'Esperando escaneo QR...';
-    try { qrCodeBase64 = await qrcode.toDataURL(qr); } catch(e) { console.error('[Nova] QR:', e.message); }
+    authStatus = 'Código QR listo para escanear.';
+    console.log('[Nova] Evento QR recibido.');
+    try { 
+        qrCodeBase64 = await qrcode.toDataURL(qr); 
+    } catch(e) { 
+        console.error('[Nova] Error generando imagen QR:', e.message); 
+    }
 });
 
-client.on('ready', () => { isReady = true; qrCodeBase64 = ''; authStatus = 'Listo.'; });
-client.on('disconnected', () => { isReady = false; authStatus = 'Desconectado.'; client.initialize().catch(console.error); });
+client.on('ready', () => { 
+    isReady = true; 
+    qrCodeBase64 = ''; 
+    authStatus = 'Conectada y operando.'; 
+    console.log('[Nova] Cliente está listo.');
+});
+
+client.on('auth_failure', (msg) => {
+    console.error('[Nova] Fallo de autenticación:', msg);
+    authStatus = 'Sesión expirada. Generando nuevo QR...';
+    qrCodeBase64 = '';
+});
+
+client.on('disconnected', (reason) => { 
+    isReady = false; 
+    authStatus = 'Desconectado: ' + reason; 
+    console.log('[Nova] Desconectado. Razón:', reason);
+    qrCodeBase64 = '';
+    client.initialize().catch(err => console.error('[Nova] Fallo al reiniciar tras desconexión:', err.message)); 
+});
 
 const checkApiKey = (req, res, next) => {
     const key = req.headers['x-api-key'];
@@ -197,22 +220,32 @@ const checkApiKey = (req, res, next) => {
 };
 
 app.get('/status', checkApiKey, (req, res) => res.json({ connected: isReady, status: authStatus }));
+
 app.get('/qr', checkApiKey, (req, res) => {
     if (isReady) return res.json({ connected: true });
-    if (!qrCodeBase64) return res.status(404).json({ error: 'QR no generado' });
+    if (!qrCodeBase64) return res.status(404).json({ error: 'QR no disponible aún. Intenta en unos segundos.' });
     res.json({ qr: qrCodeBase64 }); 
 });
 
 app.post('/restart', checkApiKey, async (req, res) => {
+    console.log('[Nova] Solicitud de reinicio forzado recibida.');
     try {
-        await client.logout();
-        await client.destroy();
+        // Intento de cierre limpio
+        try { await client.logout(); } catch(e) {}
+        try { await client.destroy(); } catch(e) {}
+        
         isReady = false;
         qrCodeBase64 = '';
-        authStatus = 'Reiniciando...';
-        client.initialize();
-        res.json({ success: true });
-    } catch (error) { res.status(500).json({ error: error.message }); }
+        authStatus = 'Reiniciando motor...';
+        
+        // Reinicio completo del cliente
+        client.initialize().catch(err => console.error('[Nova] Error en initialize post-restart:', err.message));
+        
+        res.json({ success: true, message: 'Reinicio iniciado' });
+    } catch (error) { 
+        console.error('[Nova] Error crítico en /restart:', error.message);
+        res.status(500).json({ error: error.message }); 
+    }
 });
 
 app.post('/send-message', checkApiKey, async (req, res) => {
@@ -231,7 +264,7 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
     const data = req.body;
     if (!isReady) return res.status(503).json({ error: 'Nova no conectada' });
     try {
-        const jid = resolveWAId(data.clienteTelefono);
+        const jid = data.clienteTelefono.includes('@') ? data.clienteTelefono : `${data.clienteTelefono}@c.us`;
         const imageBase64 = await generateServiceCard(data);
         const media = new MessageMedia('image/png', imageBase64, 'servicio.png');
         await client.sendMessage(jid, media);
@@ -243,6 +276,6 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
 });
 
 app.listen(port, '0.0.0.0', () => {
-    console.log(`[Nova Server] Sincronizado: ${admin.app().options.projectId}`);
-    client.initialize().catch(err => console.error('[Nova] Init error:', err));
+    console.log(`[Nova Server] Sincronizado: ${admin.app().options.projectId} en puerto ${port}`);
+    client.initialize().catch(err => console.error('[Nova] Init error:', err.message));
 });
