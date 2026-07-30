@@ -12,6 +12,7 @@ import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 export default function WhatsAppStatusPage() {
   const [status, setStatus] = useState<{ connected: boolean; status?: string; error?: string } | null>(null);
@@ -92,9 +93,10 @@ export default function WhatsAppStatusPage() {
       intervalRef.current = setTimeout(tick, delay);
     };
 
-    intervalRef.current = setTimeout(tick, 5000);
+    const timer = setTimeout(tick, 5000);
     return () => {
       if (intervalRef.current) clearTimeout(intervalRef.current);
+      clearTimeout(timer);
     };
   }, [checkStatus, status?.connected]);
 
@@ -174,7 +176,7 @@ export default function WhatsAppStatusPage() {
           <Card className="rounded-3xl shadow-xl border-none overflow-hidden bg-white border-2 border-orange-500/20">
             <CardHeader className="bg-orange-500 text-white p-6">
               <CardTitle className="text-lg font-black uppercase tracking-tight">Vincular Nova</CardTitle>
-              <CardDescription className="text-[10px] font-bold uppercase text-orange-100 mt-1">Escanea desde WhatsApp > Dispositivos vinculados</CardDescription>
+              <CardDescription className="text-[10px] font-bold uppercase text-orange-100 mt-1">Escanea desde WhatsApp &gt; Dispositivos vinculados</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col items-center justify-center p-10 h-full min-h-[350px]">
               {qrCode ? (
@@ -237,7 +239,7 @@ export default function WhatsAppStatusPage() {
                 <TableRow key={log.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-50 last:border-0">
                   <TableCell className="p-5">
                       <div className="flex flex-col">
-                        <span className="text-xs font-black text-slate-700">{log.fecha ? format(log.fecha.toDate(), 'dd MMM yy', { locale: import('date-fns/locale').then(l => l.es) }) : '...'}</span>
+                        <span className="text-xs font-black text-slate-700">{log.fecha ? format(log.fecha.toDate(), 'dd MMM yy') : '...'}</span>
                         <span className="text-[10px] font-bold text-slate-400">{log.fecha ? format(log.fecha.toDate(), 'HH:mm') : ''}</span>
                       </div>
                   </TableCell>
