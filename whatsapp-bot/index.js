@@ -1,7 +1,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 2.3.1 (Corrección de bucle de reconexión y robustez QR)
+ * Versión: 2.3.2 (Optimización de arranque y limpieza de sesión)
  */
 
 const express = require('express');
@@ -28,7 +28,7 @@ const API_KEY = process.env.API_KEY || 'jj-connect-2026';
 
 let qrCodeBase64 = ''; 
 let isReady = false;
-let authStatus = 'Iniciando...';
+let authStatus = 'Iniciando sistema...';
 
 const client = new Client({
     authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
@@ -38,7 +38,9 @@ const client = new Client({
             '--no-sandbox', 
             '--disable-setuid-sandbox', 
             '--disable-dev-shm-usage',
-            '--disable-gpu'
+            '--disable-gpu',
+            '--no-zygote',
+            '--single-process'
         ]
     }
 });
@@ -76,7 +78,6 @@ client.on('message', async (msg) => {
         fecha: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    // Lógica de detección de pagos con IA
     if (msg.hasMedia && (body.toLowerCase().includes('pago') || body.toLowerCase().includes('soporte') || body.toLowerCase().includes('transferencia') || body.toLowerCase().includes('comprobante'))) {
         try {
             const transaccionId = 'WA-' + msg.id.id;
@@ -101,7 +102,6 @@ client.on('message', async (msg) => {
                 const anticipoActual = Number(targetService.anticipo) || 0;
                 const saldoPendiente = Math.max(0, valorTotal - anticipoActual);
                 
-                // 1. Actualizar Servicio
                 await db.collection('services').doc(targetService.id).update({
                     estadoPago: 'Pagado',
                     anticipo: valorTotal,
@@ -109,7 +109,6 @@ client.on('message', async (msg) => {
                     metodoPago: 'Transferencia'
                 });
 
-                // 2. Registrar Auditoría de Pago
                 await db.collection('pagos_aplicados').add({
                     servicioId: targetService.id,
                     consecutivo: targetService.consecutivo,
@@ -125,7 +124,6 @@ client.on('message', async (msg) => {
                     fecha: admin.firestore.FieldValue.serverTimestamp()
                 });
 
-                // 3. DISPARADOR CONTABLE: Asiento de Recaudo
                 await registrarAsientoContable({
                     concepto: `Recaudo Automático Nova (WhatsApp): Servicio ${targetService.consecutivo}`,
                     sourceId: targetService.id,
@@ -136,7 +134,6 @@ client.on('message', async (msg) => {
                     ]
                 });
 
-                // 4. Notificar confirmación de correo pendiente
                 if (targetService.emailCliente) {
                     await db.collection('pagos_pendientes_correo').add({
                         servicioId: targetService.id,
@@ -159,7 +156,7 @@ client.on('message', async (msg) => {
                 await msg.reply(`✅ *¡PAGO RECIBIDO!* 📝\n\nHe procesado tu soporte para el servicio *${targetService.consecutivo}*.\n\n💰 *Monto:* ${new Intl.NumberFormat('es-CO', {style:'currency', currency:'COP', minimumFractionDigits: 0}).format(saldoPendiente)}\n📊 *Estado:* Totalmente Pagado.\n\nEn breve recibirás la confirmación oficial en tu correo. ¡Gracias! ✨`);
             }
         } catch (err) {
-            console.error('[Nova] Error:', err);
+            console.error('[Nova] Error en detección de pago:', err);
         }
     }
 });
@@ -183,8 +180,8 @@ async function generateServiceCard(data) {
 
 client.on('qr', async (qr) => {
     isReady = false;
-    authStatus = 'Código QR listo para escanear.';
-    console.log('[Nova] Evento QR recibido.');
+    authStatus = 'Código QR listo. Escanea ahora.';
+    console.log('[Nova] Evento QR disparado. Generando base64...');
     try { 
         qrCodeBase64 = await qrcode.toDataURL(qr); 
     } catch(e) { 
@@ -196,21 +193,25 @@ client.on('ready', () => {
     isReady = true; 
     qrCodeBase64 = ''; 
     authStatus = 'Conectada y operando.'; 
-    console.log('[Nova] Cliente está listo.');
+    console.log('[Nova] Cliente inicializado correctamente.');
 });
 
 client.on('auth_failure', (msg) => {
     console.error('[Nova] Fallo de autenticación:', msg);
-    authStatus = 'Sesión expirada. Generando nuevo QR...';
+    authStatus = 'Sesión inválida. Reintentando con QR...';
     qrCodeBase64 = '';
 });
 
 client.on('disconnected', (reason) => { 
     isReady = false; 
     authStatus = 'Desconectado: ' + reason; 
-    console.log('[Nova] Desconectado. Razón:', reason);
+    console.log('[Nova] Cliente desconectado. Razón:', reason);
     qrCodeBase64 = '';
-    client.initialize().catch(err => console.error('[Nova] Fallo al reiniciar tras desconexión:', err.message)); 
+    // Esperar un poco antes de reintentar para no saturar procesos
+    setTimeout(() => {
+        console.log('[Nova] Re-inicializando cliente tras desconexión...');
+        client.initialize().catch(err => console.error('[Nova] Error en re-init:', err.message));
+    }, 5000);
 });
 
 const checkApiKey = (req, res, next) => {
@@ -223,25 +224,27 @@ app.get('/status', checkApiKey, (req, res) => res.json({ connected: isReady, sta
 
 app.get('/qr', checkApiKey, (req, res) => {
     if (isReady) return res.json({ connected: true });
-    if (!qrCodeBase64) return res.status(404).json({ error: 'QR no disponible aún. Intenta en unos segundos.' });
+    if (!qrCodeBase64) {
+        return res.status(202).json({ error: 'QR no generado aún. El navegador está cargando.' });
+    }
     res.json({ qr: qrCodeBase64 }); 
 });
 
 app.post('/restart', checkApiKey, async (req, res) => {
-    console.log('[Nova] Solicitud de reinicio forzado recibida.');
+    console.log('[Nova] Solicitud de reinicio profundo recibida.');
     try {
-        // Intento de cierre limpio
-        try { await client.logout(); } catch(e) {}
-        try { await client.destroy(); } catch(e) {}
-        
         isReady = false;
         qrCodeBase64 = '';
         authStatus = 'Reiniciando motor...';
         
-        // Reinicio completo del cliente
-        client.initialize().catch(err => console.error('[Nova] Error en initialize post-restart:', err.message));
+        try { await client.logout(); } catch(e) {}
+        try { await client.destroy(); } catch(e) {}
         
-        res.json({ success: true, message: 'Reinicio iniciado' });
+        // El proceso de Railway se encargará de re-ejecutar el script si el proceso muere, 
+        // pero aquí intentamos un reinicio manual suave primero.
+        client.initialize().catch(err => console.error('[Nova] Fallo en initialize post-restart:', err.message));
+        
+        res.json({ success: true, message: 'Reinicio profundo iniciado.' });
     } catch (error) { 
         console.error('[Nova] Error crítico en /restart:', error.message);
         res.status(500).json({ error: error.message }); 
@@ -276,6 +279,8 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
 });
 
 app.listen(port, '0.0.0.0', () => {
-    console.log(`[Nova Server] Sincronizado: ${admin.app().options.projectId} en puerto ${port}`);
-    client.initialize().catch(err => console.error('[Nova] Init error:', err.message));
+    console.log(`[Nova Server] Activo en puerto ${port}. Proyecto: ${admin.app().options.projectId}`);
+    client.initialize().then(() => {
+        console.log('[Nova] Browser lanzado. Esperando estado...');
+    }).catch(err => console.error('[Nova] Error inicial lanzando navegador:', err.message));
 });
