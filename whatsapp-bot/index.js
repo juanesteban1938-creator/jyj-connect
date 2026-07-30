@@ -1,7 +1,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 2.3.2 (Optimización de arranque y limpieza de sesión)
+ * Versión: 2.4.0 (Auto-reparación y purga de sesión nuclear)
  */
 
 const express = require('express');
@@ -10,6 +10,8 @@ const cors = require('cors');
 const puppeteer = require('puppeteer');
 const admin = require('firebase-admin');
 const qrcode = require('qrcode');
+const fs = require('fs');
+const path = require('path');
 
 // Inicialización de Firebase Admin
 if (!admin.apps.length) {
@@ -25,13 +27,30 @@ app.use(cors());
 
 const port = process.env.PORT || 3001;
 const API_KEY = process.env.API_KEY || 'jj-connect-2026';
+const AUTH_PATH = path.join(__dirname, '.wwebjs_auth');
 
 let qrCodeBase64 = ''; 
 let isReady = false;
 let authStatus = 'Iniciando sistema...';
 
+/**
+ * Función Nuclear: Borra los archivos físicos de la sesión
+ * Esto es necesario cuando WhatsApp invalida el token pero LocalAuth intenta reusarlo.
+ */
+function purgarSesionCorrupta() {
+    console.log('[Nova] ⚠️ INICIANDO PURGA NUCLEAR DE SESIÓN...');
+    try {
+        if (fs.existsSync(AUTH_PATH)) {
+            fs.rmSync(AUTH_PATH, { recursive: true, force: true });
+            console.log('[Nova] ✅ Carpeta .wwebjs_auth eliminada correctamente.');
+        }
+    } catch (err) {
+        console.error('[Nova] ❌ Error al eliminar carpeta de sesión:', err.message);
+    }
+}
+
 const client = new Client({
-    authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
+    authStrategy: new LocalAuth({ dataPath: AUTH_PATH }),
     puppeteer: {
         headless: true,
         args: [
@@ -197,9 +216,14 @@ client.on('ready', () => {
 });
 
 client.on('auth_failure', (msg) => {
-    console.error('[Nova] Fallo de autenticación:', msg);
-    authStatus = 'Sesión inválida. Reintentando con QR...';
+    console.error('[Nova] Fallo de autenticación crítico:', msg);
+    authStatus = 'Sesión inválida. Purgando archivos...';
     qrCodeBase64 = '';
+    purgarSesionCorrupta();
+    // Reiniciar inmediatamente para generar QR
+    setTimeout(() => {
+        client.initialize().catch(err => console.error('[Nova] Error post-auth-failure:', err.message));
+    }, 5000);
 });
 
 client.on('disconnected', (reason) => { 
@@ -207,7 +231,13 @@ client.on('disconnected', (reason) => {
     authStatus = 'Desconectado: ' + reason; 
     console.log('[Nova] Cliente desconectado. Razón:', reason);
     qrCodeBase64 = '';
-    // Esperar un poco antes de reintentar para no saturar procesos
+
+    // Si la razón es cierre de sesión o fallo de credenciales, limpiar archivos
+    if (reason === 'LOGOUT' || reason === 'NAVIGATION_TIMEOUT') {
+        purgarSesionCorrupta();
+    }
+
+    // Intentar re-inicialización limpia
     setTimeout(() => {
         console.log('[Nova] Re-inicializando cliente tras desconexión...');
         client.initialize().catch(err => console.error('[Nova] Error en re-init:', err.message));
@@ -240,11 +270,12 @@ app.post('/restart', checkApiKey, async (req, res) => {
         try { await client.logout(); } catch(e) {}
         try { await client.destroy(); } catch(e) {}
         
-        // El proceso de Railway se encargará de re-ejecutar el script si el proceso muere, 
-        // pero aquí intentamos un reinicio manual suave primero.
+        // Purgar archivos físicos antes de re-inicializar
+        purgarSesionCorrupta();
+        
         client.initialize().catch(err => console.error('[Nova] Fallo en initialize post-restart:', err.message));
         
-        res.json({ success: true, message: 'Reinicio profundo iniciado.' });
+        res.json({ success: true, message: 'Reinicio profundo con purga de archivos iniciado.' });
     } catch (error) { 
         console.error('[Nova] Error crítico en /restart:', error.message);
         res.status(500).json({ error: error.message }); 
