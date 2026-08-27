@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -40,14 +39,14 @@ export default function EnvioCustodiaPage() {
 
   const { data: envios, isLoading } = useCollection<Envio>(enviosQuery);
 
-  // CÁLCULO DE KPIs ANALÍTICOS
+  // Lógica Matemática Estricta con Reduce
   const stats = useMemo(() => {
     if (!envios) return { total: 0, fondo: 0, costos: 0, activos: 0 };
     return envios.reduce((acc, e) => {
       if (e.estado !== 'cancelado') {
         acc.total += (e.tarifaTotal || 0);
-        acc.fondo += (e.primaRiesgo || 0);
-        acc.costos += (e.subtotal || 0);
+        acc.fondo += (e.primaRiesgo || 0) + (e.cargoCustodia || 0);
+        acc.costos += (e.costoBaseLogistico || 0);
         if (e.estado === 'programado' || e.estado === 'en_transito') {
           acc.activos += 1;
         }
@@ -94,21 +93,20 @@ export default function EnvioCustodiaPage() {
   const filteredEnvios = envios?.filter(e => 
     e.consecutivo.toLowerCase().includes(searchTerm.toLowerCase()) ||
     e.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    e.destino.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    e.conductorNombre?.toLowerCase().includes(searchTerm.toLowerCase())
+    e.destino.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
   const KPICard = ({ title, value, icon: Icon, colorClass }: any) => (
-    <Card className="border-none shadow-sm bg-white overflow-hidden group">
+    <Card className="border-none shadow-sm bg-white overflow-hidden rounded-2xl group transition-all hover:shadow-md">
       <CardContent className="p-6">
         <div className="flex justify-between items-start mb-4">
-          <div className={cn("p-2.5 rounded-xl transition-colors", colorClass)}>
+          <div className={cn("p-2 rounded-xl bg-opacity-10", colorClass)}>
             <Icon className="h-5 w-5" />
           </div>
-          <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">En Vivo</span>
+          <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest bg-slate-50 px-2 py-1 rounded-full">En Vivo</span>
         </div>
-        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">{title}</p>
-        <h3 className="text-2xl font-black text-slate-900 tracking-tight">{value}</h3>
+        <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.15em] mb-1">{title}</p>
+        <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-mono">{value}</h3>
       </CardContent>
     </Card>
   );
@@ -130,50 +128,39 @@ export default function EnvioCustodiaPage() {
               <PlusCircle className="h-5 w-5 mr-2" /> Nuevo Envío Blindado
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-[90vw] sm:max-w-4xl lg:max-w-6xl rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
-            <DialogHeader className="p-8 border-b bg-slate-50/50">
-              <DialogTitle className="text-xl font-black uppercase flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-orange-500 text-white shadow-lg shadow-orange-200">
-                  <Package className="h-5 w-5" />
-                </div>
-                Consola de Programación Nova
-              </DialogTitle>
-              <DialogDescription className="text-xs font-bold uppercase text-slate-400 mt-1">
-                Configuración logística y análisis de rentabilidad en tiempo real
-              </DialogDescription>
-            </DialogHeader>
-            <div className="p-0 max-h-[85vh] overflow-y-auto">
+          <DialogContent className="max-w-[90vw] sm:max-w-5xl lg:max-w-6xl rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl bg-slate-50">
+            <div className="p-0 max-h-[90vh] overflow-y-auto">
               <EnvioForm onSave={handleSaveEnvio} isSaving={isSaving} onCancel={() => setIsFormOpen(false)} />
             </div>
           </DialogContent>
         </Dialog>
       </header>
 
-      {/* KPI GRID */}
+      {/* KPI GRID - PIXEL PERFECT REPLICA */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <KPICard 
           title="Total Recaudado" 
           value={currencyFormatter.format(stats.total)} 
           icon={DollarSign} 
-          colorClass="bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white"
+          colorClass="bg-blue-500 text-blue-600"
         />
         <KPICard 
           title="Fondo de Custodia" 
           value={currencyFormatter.format(stats.fondo)} 
           icon={ShieldCheck} 
-          colorClass="bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white"
+          colorClass="bg-emerald-500 text-emerald-600"
         />
         <KPICard 
           title="Costos Operativos" 
           value={currencyFormatter.format(stats.costos)} 
           icon={Truck} 
-          colorClass="bg-orange-50 text-orange-600 group-hover:bg-orange-600 group-hover:text-white"
+          colorClass="bg-orange-500 text-orange-600"
         />
         <KPICard 
           title="Envíos Activos" 
-          value={`${stats.activos} Ops.`} 
+          value={`${stats.activos} OPS.`} 
           icon={Activity} 
-          colorClass="bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white"
+          colorClass="bg-indigo-500 text-indigo-600"
         />
       </div>
 
@@ -186,7 +173,7 @@ export default function EnvioCustodiaPage() {
             <div className="relative max-w-sm w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input 
-                placeholder="Buscar por ID, descripción o custodio..." 
+                placeholder="Buscar por ID o descripción..." 
                 className="pl-9 h-11 bg-white border-slate-200 rounded-xl focus:ring-orange-500 transition-all text-xs"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}

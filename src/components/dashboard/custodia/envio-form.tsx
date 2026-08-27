@@ -9,20 +9,17 @@ import { doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
-import { Badge } from '@/components/ui/badge';
 import { 
-  Calculator, 
   ShieldAlert, 
   Loader2, 
   MapPin, 
   Clock, 
   Calendar, 
   CheckCircle2,
-  ShieldCheck,
-  AlertTriangle
+  DollarSign
 } from 'lucide-react';
 import type { ConfigCustodia } from '@/lib/custodia-types';
 import { cn } from '@/lib/utils';
@@ -71,48 +68,30 @@ export function EnvioForm({ onSave, isSaving, onCancel }: { onSave: (data: any) 
   const calculation = useMemo(() => {
     if (!config) return null;
 
-    // Lógica de valor mínimo si es omitido o muy bajo
-    const fueValorDeclaradoOmitido = valorDeclaradoInput <= 0;
-    const valorDeclaradoReal = fueValorDeclaradoOmitido ? config.valor_declarado_minimo : valorDeclaradoInput;
-
-    const superaTope = valorDeclaradoReal > config.tope_cobertura_estandar;
-    const superaKm = kmEstimados > config.km_maximo_urbano;
+    const valorReal = valorDeclaradoInput > 0 ? valorDeclaradoInput : config.valor_declarado_minimo;
+    const superaTope = valorReal > config.tope_cobertura_estandar;
     
     if (superaTope) {
-      return { 
-        requiereRevisionManual: true, 
-        motivo: 'Excede tope de cobertura estándar',
-        plan: 'Corporativo',
-        fueValorDeclaradoOmitido,
-        valorDeclaradoReal
-      };
+      return { requiereRevisionManual: true, plan: 'Corporativo', valorReal };
     }
 
-    // CÁLCULO J&J CARGA
-    const costoFijoUnidad = config.costo_fijo_mensual / config.envios_mes_estimados;
-    const costoVariableKM = config.tarifa_por_km * kmEstimados;
-    const costoBaseLogistico = costoFijoUnidad + costoVariableKM;
-    
-    const primaRiesgo = valorDeclaradoReal * config.tasa_riesgo;
+    // Algoritmo J&J Carga
+    const costoBaseLogistico = (config.costo_fijo_mensual / config.envios_mes_estimados) + (config.tarifa_por_km * kmEstimados);
+    const primaRiesgo = valorReal * config.tasa_riesgo;
     const cargoCustodia = config.cargo_fijo_custodia;
     
     const subtotal = costoBaseLogistico + primaRiesgo + cargoCustodia;
     const margenUtilidadValor = subtotal * config.margen_utilidad;
     
-    const tarifaFinalBruta = subtotal + margenUtilidadValor;
-    const tarifaTotal = Math.ceil(tarifaFinalBruta / 100) * 100;
+    const tarifaTotal = Math.ceil((subtotal + margenUtilidadValor) / 10) * 10;
 
-    // CLASIFICACIÓN DE PLANES
     let plan: 'Esencial' | 'Seguro' | 'Corporativo' = 'Esencial';
-    const porcentajeTope = (valorDeclaradoReal / config.tope_cobertura_estandar) * 100;
-    
-    if (porcentajeTope > 35) plan = 'Seguro';
+    if ((valorReal / config.tope_cobertura_estandar) > 0.35) plan = 'Seguro';
 
-    // Proporciones para barra visual
     const totalParts = costoBaseLogistico + primaRiesgo + cargoCustodia + margenUtilidadValor;
     const pBase = (costoBaseLogistico / totalParts) * 100;
-    const pPrima = (primaRiesgo / totalParts) * 100;
-    const pCargo = (cargoCustodia / totalParts) * 100;
+    const pRiesgo = (primaRiesgo / totalParts) * 100;
+    const pCustodia = (cargoCustodia / totalParts) * 100;
     const pMargen = (margenUtilidadValor / totalParts) * 100;
 
     return {
@@ -122,11 +101,9 @@ export function EnvioForm({ onSave, isSaving, onCancel }: { onSave: (data: any) 
       margenUtilidadValor,
       tarifaTotal,
       plan,
-      superaKm,
-      fueValorDeclaradoOmitido,
-      valorDeclaradoReal,
+      valorReal,
       requiereRevisionManual: false,
-      percentages: { pBase, pPrima, pCargo, pMargen }
+      percentages: { pBase, pRiesgo, pCustodia, pMargen }
     };
   }, [config, valorDeclaradoInput, kmEstimados]);
 
@@ -134,104 +111,84 @@ export function EnvioForm({ onSave, isSaving, onCancel }: { onSave: (data: any) 
     onSave({
       ...data,
       ...calculation,
-      valorDeclaradoReal: calculation?.valorDeclaradoReal,
-      fueValorDeclaradoOmitido: calculation?.fueValorDeclaradoOmitido,
-      planClasificacion: calculation?.plan
     });
   };
 
-  if (loadingConfig) return <div className="flex justify-center p-20"><Loader2 className="animate-spin text-[#B8860B] h-12 w-12" /></div>;
+  if (loadingConfig) return <div className="flex justify-center p-20"><Loader2 className="animate-spin text-orange-500 h-10 w-10" /></div>;
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-12 min-h-[600px]">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-12 min-h-[650px]">
         
-        {/* COLUMNA IZQUIERDA: ENTRADAS */}
-        <div className="lg:col-span-7 p-8 space-y-8 bg-white border-r">
-          <div className="space-y-6">
-            <h4 className="text-[11px] font-black uppercase text-[#1F3864] tracking-[0.2em] flex items-center gap-2 font-sans">
-              <MapPin className="h-4 w-4 text-[#B8860B]" /> Información del Envío
-            </h4>
+        {/* BLOQUE IZQUIERDO: DATOS DE COTIZACIÓN */}
+        <div className="lg:col-span-7 p-8 sm:p-10 space-y-8 bg-white">
+          <header className="space-y-1">
+            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Cotizador de Envío</h2>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Ingrese los parámetros logísticos</p>
+          </header>
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField name="fecha" control={form.control} render={({ field }) => (
-                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Fecha de Recogida</FormLabel><FormControl><Input type="date" {...field} className="rounded-xl h-11 border-slate-200" /></FormControl></FormItem>
-              )} />
-              <FormField name="hora" control={form.control} render={({ field }) => (
-                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Hora de Recogida</FormLabel><FormControl><Input type="time" {...field} className="rounded-xl h-11 border-slate-200" /></FormControl></FormItem>
-              )} />
-            </div>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField name="fecha" control={form.control} render={({ field }) => (
+              <FormItem><FormLabel className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Fecha Recogida</FormLabel><FormControl><Input type="date" {...field} className="rounded-xl h-11" /></FormControl></FormItem>
+            )} />
+            <FormField name="hora" control={form.control} render={({ field }) => (
+              <FormItem><FormLabel className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Hora Recogida</FormLabel><FormControl><Input type="time" {...field} className="rounded-xl h-11" /></FormControl></FormItem>
+            )} />
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField name="origen" control={form.control} render={({ field }) => (
-                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Dirección Origen</FormLabel><FormControl><Input placeholder="Ej. Calle 100 #15-30" {...field} className="rounded-xl h-11" /></FormControl></FormItem>
-              )} />
-              <FormField name="destino" control={form.control} render={({ field }) => (
-                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Dirección Destino</FormLabel><FormControl><Input placeholder="Ej. Cra 7 #72-10" {...field} className="rounded-xl h-11" /></FormControl></FormItem>
-              )} />
-            </div>
-
-            <FormField name="descripcion" control={form.control} render={({ field }) => (
-              <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Descripción de la Mercancía</FormLabel><FormControl><Input placeholder="Ej. Computador Portátil" {...field} className="rounded-xl h-11" /></FormControl></FormItem>
+          <div className="space-y-4">
+            <FormField name="origen" control={form.control} render={({ field }) => (
+              <FormItem><FormLabel className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Punto de Origen</FormLabel><FormControl><Input placeholder="Dirección completa..." {...field} className="rounded-xl h-11" /></FormControl></FormItem>
+            )} />
+            <FormField name="destino" control={form.control} render={({ field }) => (
+              <FormItem><FormLabel className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Punto de Destino</FormLabel><FormControl><Input placeholder="Dirección completa..." {...field} className="rounded-xl h-11" /></FormControl></FormItem>
             )} />
           </div>
 
           <Separator className="bg-slate-100" />
 
+          {/* SLIDERS REPLICADOS */}
           <div className="space-y-10">
-            <h4 className="text-[11px] font-black uppercase text-[#1F3864] tracking-[0.2em] font-sans">Ajuste de Variables</h4>
-            
             <div className="space-y-4">
               <div className="flex justify-between items-end">
-                 <label className="text-[10px] font-black uppercase text-slate-500">Distancia Estimada</label>
-                 <span className="text-lg font-mono font-bold text-[#1F3864]">{kmEstimados} <span className="text-[10px] text-slate-400">KM</span></span>
+                 <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Distancia Estimada</label>
+                 <span className="text-2xl font-mono font-black text-orange-500">{kmEstimados} <span className="text-xs text-slate-400">KM</span></span>
               </div>
               <FormField name="kmEstimados" control={form.control} render={({ field }) => (
                 <FormItem>
                   <FormControl>
                     <Slider 
-                      min={1} 
-                      max={60} 
-                      step={1} 
+                      min={1} max={60} step={1} 
                       value={[field.value]} 
                       onValueChange={(v) => field.onChange(v[0])} 
-                      className="py-4 cursor-pointer"
+                      className="py-4 accent-orange-500"
                     />
                   </FormControl>
                 </FormItem>
               )} />
-              {calculation?.superaKm && (
-                <p className="text-[10px] text-amber-600 font-bold uppercase flex items-center gap-1">
-                  <AlertTriangle className="h-3 w-3" /> Fuera del perímetro urbano estándar
-                </p>
-              )}
             </div>
 
             <div className="space-y-4">
               <div className="flex justify-between items-end">
-                 <label className="text-[10px] font-black uppercase text-slate-500">Valor Comercial Declarado</label>
-                 <span className={cn("text-lg font-mono font-bold", valorDeclaradoInput > (config?.tope_cobertura_estandar || 0) ? "text-rose-600" : "text-[#B8860B]")}>
-                  {currencyFormatter.format(valorDeclaradoInput)}
-                 </span>
+                 <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Valor Comercial Declarado</label>
+                 <span className="text-2xl font-mono font-black text-orange-500">{currencyFormatter.format(valorDeclaradoInput)}</span>
               </div>
               <FormField name="valorDeclarado" control={form.control} render={({ field }) => (
                 <FormItem>
                   <FormControl>
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                       <Slider 
-                        min={0} 
-                        max={10000000} 
-                        step={100000} 
+                        min={0} max={6000000} step={50000} 
                         value={[field.value]} 
                         onValueChange={(v) => field.onChange(v[0])} 
-                        className="py-2 cursor-pointer"
+                        className="py-2 accent-orange-500"
                       />
-                      <div className="relative max-w-[200px] mx-auto">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                      <div className="relative max-w-[240px]">
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
                         <Input 
                           type="number" 
                           {...field} 
-                          className="rounded-xl h-11 font-mono font-bold text-center bg-slate-50 border-slate-200"
+                          className="pl-9 rounded-xl h-11 font-mono font-bold bg-slate-50 border-slate-200"
                         />
                       </div>
                     </div>
@@ -242,111 +199,88 @@ export function EnvioForm({ onSave, isSaving, onCancel }: { onSave: (data: any) 
           </div>
         </div>
 
-        {/* COLUMNA DERECHA: RESULTADO */}
-        <div className="lg:col-span-5 bg-[#F8FAFC] flex flex-col justify-between overflow-hidden relative">
-          <div className="p-8 space-y-8">
-            <div className="flex items-center justify-between">
-              <h4 className="text-[11px] font-black uppercase text-[#1F3864] tracking-[0.2em] flex items-center gap-2 font-sans">
-                <Calculator className="h-4 w-4 text-[#B8860B]" /> Análisis de Tarifa J&J
-              </h4>
+        {/* BLOQUE DERECHO: DESGLOSE NAVY/BLANCO */}
+        <div className="lg:col-span-5 flex flex-col shadow-2xl">
+          {/* PARTE SUPERIOR (NAVY) */}
+          <div className="bg-[#1F3864] p-8 sm:p-10 text-white flex flex-col justify-center min-h-[220px] relative">
+            <div className="absolute top-8 right-8">
               {calculation && (
                 <Badge className={cn(
-                  "font-black uppercase text-[9px] px-3 py-1 rounded-lg border-none",
-                  calculation.plan === 'Esencial' ? "bg-blue-100 text-blue-700" :
-                  calculation.plan === 'Seguro' ? "bg-amber-100 text-[#B8860B]" :
-                  "bg-rose-100 text-rose-700"
+                  "font-black uppercase text-[8px] tracking-[0.15em] px-3 py-1 rounded-full border-none",
+                  calculation.plan === 'Esencial' ? "bg-emerald-500 text-white" : "bg-orange-500 text-white"
                 )}>
                   Plan {calculation.plan}
                 </Badge>
               )}
             </div>
-
+            
+            <p className="text-[10px] font-black uppercase text-slate-300 tracking-[0.3em] mb-4">Tarifa sugerida al cliente</p>
             {calculation?.requiereRevisionManual ? (
-              <div className="bg-white border-2 border-rose-200 p-10 rounded-[2.5rem] text-center space-y-6 shadow-xl animate-in zoom-in-95 duration-500">
-                <ShieldAlert className="h-20 w-20 text-rose-600 mx-auto" />
-                <h3 className="text-xl font-serif font-black text-[#1F3864] uppercase leading-tight">Valor Fuera de Rango</h3>
-                <p className="text-sm text-slate-500 font-medium leading-relaxed">
-                  El valor excede el tope de cobertura de <b>{currencyFormatter.format(config?.tope_cobertura_estandar || 0)}</b>.
-                </p>
-                <div className="bg-rose-50 p-5 rounded-2xl text-[11px] font-black text-rose-800 uppercase tracking-widest border border-rose-100">
-                  Requiere Cotización Manual
-                </div>
+              <div className="flex items-center gap-3 text-rose-400">
+                <ShieldAlert className="h-8 w-8" />
+                <h2 className="text-xl font-black uppercase leading-tight">Revisión Manual Requerida</h2>
               </div>
             ) : calculation ? (
-              <div className="space-y-10 animate-in fade-in duration-700">
-                <div className="space-y-4">
-                   <div className="flex h-6 w-full rounded-full overflow-hidden shadow-md border-4 border-white bg-slate-200">
-                      <div className="h-full bg-[#1F3864] transition-all duration-500" style={{ width: `${calculation.percentages.pBase}%` }} />
-                      <div className="h-full bg-[#4F46E5] transition-all duration-500" style={{ width: `${calculation.percentages.pPrima}%` }} />
-                      <div className="h-full bg-[#F97316] transition-all duration-500" style={{ width: `${calculation.percentages.pCargo}%` }} />
-                      <div className="h-full bg-[#B8860B] transition-all duration-500" style={{ width: `${calculation.percentages.pMargen}%` }} />
-                   </div>
-                   <div className="flex justify-between text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">
-                      <span>Proporción de costos operativos</span>
-                      <span>Análisis 100% Preciso</span>
-                   </div>
-                </div>
-
-                <div className="space-y-5 bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-                  <div className="flex items-center justify-between group">
-                    <div className="flex items-center gap-3">
-                      <div className="h-2.5 w-2.5 rounded-full bg-[#1F3864]" />
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Costo Base Logístico</span>
-                    </div>
-                    <span className="text-sm font-mono font-black text-[#1F3864]">{currencyFormatter.format(calculation.costoBaseLogistico)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-2.5 w-2.5 rounded-full bg-[#4F46E5]" />
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Prima de Riesgo</span>
-                    </div>
-                    <span className="text-sm font-mono font-black text-indigo-600">{currencyFormatter.format(calculation.primaRiesgo)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-2.5 w-2.5 rounded-full bg-[#F97316]" />
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Cargo de Custodia J&J</span>
-                    </div>
-                    <span className="text-sm font-mono font-black text-slate-900">{currencyFormatter.format(calculation.cargoCustodia)}</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-dashed">
-                    <div className="flex items-center gap-3">
-                      <div className="h-2.5 w-2.5 rounded-full bg-[#B8860B]" />
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Margen de Utilidad</span>
-                    </div>
-                    <span className="text-sm font-mono font-black text-[#B8860B]">{currencyFormatter.format(calculation.margenUtilidadValor)}</span>
-                  </div>
-                </div>
-
-                <div className="text-center space-y-3 pt-6">
-                  <p className="text-[10px] font-black text-[#1F3864] uppercase tracking-[0.4em] opacity-60">Tarifa Sugerida al Cliente</p>
-                  <h2 className="text-6xl font-mono font-black text-[#1F3864] tracking-tighter drop-shadow-sm">
-                    {currencyFormatter.format(calculation.tarifaTotal)}
-                    <span className="text-xs font-bold text-slate-400 ml-2">COP</span>
-                  </h2>
-                </div>
-              </div>
+              <h2 className="text-5xl sm:text-6xl font-mono font-black tracking-tighter">
+                {currencyFormatter.format(calculation.tarifaTotal)}
+              </h2>
             ) : null}
           </div>
 
-          <div className="p-8 bg-white border-t border-slate-100 space-y-6">
-             <div className="bg-slate-50 p-4 rounded-2xl flex items-start gap-3 border border-slate-100">
-                <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
-                <p className="text-[10px] text-slate-500 font-bold uppercase leading-relaxed">
-                  Este cálculo incluye seguimiento satelital y evidencia fotográfica del trayecto.
-                </p>
-             </div>
-             <div className="flex gap-4">
-                <Button type="button" variant="ghost" onClick={onCancel} className="flex-1 rounded-2xl font-black uppercase text-[11px] h-14 tracking-widest text-slate-400">Cancelar</Button>
-                <Button 
-                  type="submit" 
-                  disabled={isSaving || !!calculation?.requiereRevisionManual} 
-                  className="flex-[2] bg-[#1F3864] hover:bg-[#152a4a] text-white font-black uppercase text-xs h-14 rounded-2xl shadow-2xl shadow-blue-200 transition-all active:scale-95"
-                >
-                  {isSaving ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <CheckCircle2 className="mr-2 h-5 w-5" />}
-                  Confirmar Programación
-                </Button>
-             </div>
+          {/* PARTE INFERIOR (BLANCO) */}
+          <div className="flex-1 bg-white p-8 sm:p-10 space-y-8">
+            <div className="space-y-4">
+               {calculation && !calculation.requiereRevisionManual && (
+                 <>
+                  <div className="flex h-4 w-full rounded-full overflow-hidden bg-slate-100 border border-slate-50 shadow-inner">
+                    <div className="h-full bg-[#1F3864] transition-all" style={{ width: `${calculation.percentages.pBase}%` }} />
+                    <div className="h-full bg-[#4F46E5] transition-all" style={{ width: `${calculation.percentages.pRiesgo}%` }} />
+                    <div className="h-full bg-[#F97316] transition-all" style={{ width: `${calculation.percentages.pCargo}%` }} />
+                    <div className="h-full bg-[#B8860B] transition-all" style={{ width: `${calculation.percentages.pMargen}%` }} />
+                  </div>
+
+                  <div className="space-y-4 pt-4">
+                    {[
+                      { label: 'Costo Operativo Base', val: calculation.costoBaseLogistico, color: 'bg-[#1F3864]' },
+                      { label: 'Prima de Riesgo', val: calculation.primaRiesgo, color: 'bg-[#4F46E5]' },
+                      { label: 'Cargo de Custodia J&J', val: calculation.cargoCustodia, color: 'bg-[#F97316]' },
+                      { label: 'Margen de Utilidad', val: calculation.margenUtilidadValor, color: 'bg-[#B8860B]' },
+                    ].map((row, i) => (
+                      <div key={i} className="flex items-center justify-between group">
+                        <div className="flex items-center gap-3">
+                          <div className={cn("h-2.5 w-2.5 rounded-full", row.color)} />
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{row.label}</span>
+                        </div>
+                        <span className="text-sm font-mono font-bold text-slate-800">{currencyFormatter.format(row.val)}</span>
+                      </div>
+                    ))}
+                  </div>
+                 </>
+               )}
+
+               {calculation?.requiereRevisionManual && (
+                 <div className="py-12 text-center space-y-4">
+                    <div className="h-16 w-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto">
+                      <ShieldAlert className="h-8 w-8" />
+                    </div>
+                    <p className="text-xs font-bold text-slate-400 uppercase leading-relaxed max-w-[240px] mx-auto">
+                      El valor declarado supera el límite de cobertura automática. Contacte a gerencia.
+                    </p>
+                 </div>
+               )}
+            </div>
+
+            <div className="pt-8 flex flex-col gap-3">
+               <Button 
+                type="submit" 
+                disabled={isSaving || !!calculation?.requiereRevisionManual} 
+                className="w-full h-14 bg-[#1F3864] hover:bg-[#152a4a] text-white font-black uppercase text-xs rounded-2xl shadow-2xl transition-all"
+               >
+                 {isSaving ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <CheckCircle2 className="mr-2 h-5 w-5" />}
+                 Confirmar y Programar Envío
+               </Button>
+               <Button type="button" variant="ghost" onClick={onCancel} className="text-[10px] font-black uppercase text-slate-400">Cancelar Operación</Button>
+            </div>
           </div>
         </div>
       </form>
