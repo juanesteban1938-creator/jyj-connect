@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -20,6 +19,7 @@ import {
   ShieldCheck,
   Package,
   Settings2,
+  Calculator,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -72,6 +72,7 @@ export function MainNav() {
 
   const custodiaItems = [
     { id: 'custodia_envios', href: '/dashboard/custodia/envios', label: 'Envíos Blindados', icon: Package },
+    { id: 'custodia_cotizador', href: '/dashboard/custodia/cotizador', label: 'Cotizador de Envío', icon: Calculator },
     { id: 'custodia_config', href: '/dashboard/custodia/configuracion', label: 'Parámetros Tarifarios', icon: Settings2 },
   ];
 
