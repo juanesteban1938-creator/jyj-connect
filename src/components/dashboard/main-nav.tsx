@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -16,6 +17,9 @@ import {
   MapPin,
   CreditCard,
   FileText,
+  ShieldCheck,
+  Package,
+  Settings2,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -27,37 +31,17 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
 } from '@/components/ui/sidebar';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
-
-const menuItems = [
-  { href: '/dashboard', label: 'Tablero', icon: Home },
-  { href: '/dashboard/servicios', label: 'Servicios', icon: Briefcase },
-  { href: '/dashboard/conductores', label: 'Conductores', icon: Users },
-  { href: '/dashboard/vehiculos', label: 'Vehículos', icon: Truck },
-  { href: '/dashboard/reportes', label: 'Reportes', icon: FileText },
-  { href: '/dashboard/clientes', label: 'Clientes', icon: Users2 },
-];
-
-const finanzasItems = [
-    { href: '/dashboard/analitica', label: 'Analítica', icon: BarChart2 },
-    { href: '/dashboard/rentabilidad', label: 'Rentabilidad', icon: PieChart },
-    { href: '/dashboard/facturacion', label: 'Facturación', icon: BookText },
-    { href: '/dashboard/pagos', label: 'Pagos', icon: CreditCard },
-    { href: '/dashboard/contabilidad', label: 'Contabilidad', icon: FileText },
-]
-
-const sistemaItems = [
-    { href: '/dashboard/gps', label: 'Seguimiento GPS', icon: MapPin },
-    { href: '/dashboard/whatsapp-bandeja', label: 'Bandeja Nova', icon: MessageSquare },
-    { href: '/dashboard/whatsapp-status', label: 'Estado WhatsApp', icon: MessageSquare },
-]
+import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, where, doc } from 'firebase/firestore';
+import { useMemo } from 'react';
+import type { UsuarioPanel } from '@/lib/custodia-types';
 
 export function MainNav() {
   const pathname = usePathname();
   const db = useFirestore();
   const { user } = useUser();
 
+  // Consultas de insignias existentes
   const pendingCotQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, 'cotizaciones'), where('estado', '==', 'pendiente'));
@@ -68,113 +52,125 @@ export function MainNav() {
     return query(collection(db, 'ubicaciones_gps'), where('activo', '==', true));
   }, [db, user]);
 
-  const pendingPaymentsQuery = useMemoFirebase(() => {
-    if (!db || !user) return null;
-    return query(collection(db, 'pagos_pendientes_correo'), where('pendiente', '==', true));
-  }, [db, user]);
-
   const { data: cotizaciones } = useCollection(pendingCotQuery);
   const { data: activeGPS } = useCollection(activeGPSQuery);
-  const { data: pendingPayments } = useCollection(pendingPaymentsQuery);
-  
+
+  // Lógica de Permisos (Aditiva)
+  const userProfileRef = useMemoFirebase(() => {
+    if (!db || !user?.email) return null;
+    return doc(db, 'usuarios_panel', user.email.replace(/\W/g, '_'));
+  }, [db, user]);
+
+  const { data: profile } = useDoc<UsuarioPanel>(userProfileRef);
+
+  const canAccess = (moduleId: string) => {
+    // El super-admin por email siempre tiene acceso total
+    if (user?.email === 'transportes.especialesjyj@gmail.com') return true;
+    // Si no hay perfil, acceso restringido al tablero por defecto
+    if (!profile) return moduleId === 'tablero';
+    return profile.modulos_permitidos?.includes(moduleId);
+  };
+
+  const menuItems = [
+    { id: 'tablero', href: '/dashboard', label: 'Tablero', icon: Home },
+    { id: 'servicios', href: '/dashboard/servicios', label: 'Servicios', icon: Briefcase },
+    { id: 'conductores', href: '/dashboard/conductores', label: 'Conductores', icon: Users },
+    { id: 'vehiculos', href: '/dashboard/vehiculos', label: 'Vehículos', icon: Truck },
+    { id: 'reportes', href: '/dashboard/reportes', label: 'Reportes', icon: FileText },
+    { id: 'clientes', href: '/dashboard/clientes', label: 'Clientes', icon: Users2 },
+  ];
+
+  const finanzasItems = [
+    { id: 'analitica', href: '/dashboard/analitica', label: 'Analítica', icon: BarChart2 },
+    { id: 'rentabilidad', href: '/dashboard/rentabilidad', label: 'Rentabilidad', icon: PieChart },
+    { id: 'facturacion', href: '/dashboard/facturacion', label: 'Facturación', icon: BookText },
+    { id: 'contabilidad', href: '/dashboard/contabilidad', label: 'Contabilidad', icon: FileText },
+  ];
+
+  const custodiaItems = [
+    { id: 'custodia_envios', href: '/dashboard/custodia/envios', label: 'Envíos Blindados', icon: Package },
+    { id: 'custodia_config', href: '/dashboard/custodia/configuracion', label: 'Configuración', icon: Settings2 },
+  ];
+
+  const sistemaItems = [
+    { id: 'gps', href: '/dashboard/gps', label: 'Seguimiento GPS', icon: MapPin },
+    { id: 'whatsapp', href: '/dashboard/whatsapp-bandeja', label: 'Bandeja Nova', icon: MessageSquare },
+    { id: 'usuarios', href: '/dashboard/seguridad/usuarios', label: 'Accesos y Roles', icon: ShieldCheck },
+  ];
+
   return (
     <Sidebar collapsible="offcanvas">
       <SidebarHeader className="p-4 text-center">
         <h2 className="font-headline text-2xl font-semibold">
-          <span className="text-primary">J&J</span> Admin
+          <span className="text-primary">J&J</span> Connect
         </h2>
-        <p className="text-xs text-muted-foreground">Transportes Especiales</p>
+        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Panel de Control</p>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarMenu>
-          {menuItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
-              <Link href={item.href}>
-                <SidebarMenuButton
-                  isActive={pathname === item.href}
-                  tooltip={item.label}
-                  className="justify-start"
-                >
-                  <item.icon />
-                  <span>{item.label}</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          ))}
-          
-          <SidebarMenuItem>
-            <Link href="/dashboard/cotizaciones">
-              <SidebarMenuButton
-                isActive={pathname === '/dashboard/cotizaciones'}
-                tooltip="Cotizaciones"
-                className="justify-start"
-              >
-                <div className="relative">
-                  <ClipboardList />
-                  {(cotizaciones?.length || 0) > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-orange-500 text-[8px] font-black text-white ring-2 ring-white animate-pulse">
-                      {cotizaciones?.length}
-                    </span>
-                  )}
-                </div>
-                <span>Cotizaciones</span>
-              </SidebarMenuButton>
-            </Link>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <SidebarGroup>
+          <SidebarGroupLabel>OPERACIÓN PASAJEROS</SidebarGroupLabel>
+          <SidebarMenu>
+            {menuItems.filter(item => canAccess(item.id)).map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <Link href={item.href}>
+                  <SidebarMenuButton isActive={pathname === item.href} tooltip={item.label}>
+                    <item.icon />
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
+
+        {custodiaItems.some(i => canAccess(i.id)) && (
+          <SidebarGroup>
+            <SidebarGroupLabel>J&J CUSTODIA (NUEVO)</SidebarGroupLabel>
+            <SidebarMenu>
+              {custodiaItems.filter(item => canAccess(item.id)).map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <Link href={item.href}>
+                    <SidebarMenuButton isActive={pathname === item.href} tooltip={item.label}>
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
 
         <SidebarGroup>
-            <SidebarGroupLabel>FINANZAS</SidebarGroupLabel>
-            <SidebarMenu>
-                 {finanzasItems.map((item) => (
-                    <SidebarMenuItem key={item.href}>
-                    <Link href={item.href}>
-                        <SidebarMenuButton
-                        isActive={pathname === item.href}
-                        tooltip={item.label}
-                        className="justify-start"
-                        >
-                        <div className="relative">
-                          <item.icon />
-                          {item.href === '/dashboard/pagos' && (pendingPayments?.length || 0) > 0 && (
-                            <span className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-rose-500 text-[8px] font-black text-white ring-2 ring-white animate-pulse">
-                              {pendingPayments?.length}
-                            </span>
-                          )}
-                        </div>
-                        <span>{item.label}</span>
-                        </SidebarMenuButton>
-                    </Link>
-                    </SidebarMenuItem>
-                ))}
-            </SidebarMenu>
+          <SidebarGroupLabel>FINANZAS</SidebarGroupLabel>
+          <SidebarMenu>
+            {finanzasItems.filter(item => canAccess(item.id)).map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <Link href={item.href}>
+                  <SidebarMenuButton isActive={pathname === item.href} tooltip={item.label}>
+                    <item.icon />
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
         </SidebarGroup>
+
         <SidebarGroup>
-            <SidebarGroupLabel>SISTEMA</SidebarGroupLabel>
-            <SidebarMenu>
-                 {sistemaItems.map((item) => (
-                    <SidebarMenuItem key={item.href}>
-                    <Link href={item.href}>
-                        <SidebarMenuButton
-                        isActive={pathname === item.href}
-                        tooltip={item.label}
-                        className="justify-start"
-                        >
-                        <div className="relative">
-                          <item.icon />
-                          {item.href === '/dashboard/gps' && (activeGPS?.length || 0) > 0 && (
-                            <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                              <span className="relative inline-full rounded-full h-2 w-2 bg-emerald-500"></span>
-                            </span>
-                          )}
-                        </div>
-                        <span>{item.label}</span>
-                        </SidebarMenuButton>
-                    </Link>
-                    </SidebarMenuItem>
-                ))}
-            </SidebarMenu>
+          <SidebarGroupLabel>SISTEMA Y SEGURIDAD</SidebarGroupLabel>
+          <SidebarMenu>
+            {sistemaItems.filter(item => canAccess(item.id)).map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <Link href={item.href}>
+                  <SidebarMenuButton isActive={pathname === item.href} tooltip={item.label}>
+                    <item.icon />
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
     </Sidebar>

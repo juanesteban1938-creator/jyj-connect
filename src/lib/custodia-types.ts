@@ -1,0 +1,21 @@
+
+export interface UsuarioPanel {
+  id: string;
+  email: string;
+  nombre: string;
+  rol: 'admin' | 'operador';
+  modulos_permitidos: string[]; // ['conductores', 'servicios', 'facturacion', 'custodia_envios', 'custodia_config']
+  fecha_creacion: string;
+}
+
+export interface ConfigCustodia {
+  costo_fijo_mensual: number;
+  envios_mes_estimados: number;
+  tarifa_por_km: number;
+  cargo_fijo_custodia: number;
+  tasa_riesgo: number; // Porcentaje decimal (ej. 0.01)
+  margen_utilidad: number; // Porcentaje decimal (ej. 0.20)
+  tope_cobertura_estandar: number;
+  valor_declarado_minimo: number;
+  updatedAt: any;
+}
