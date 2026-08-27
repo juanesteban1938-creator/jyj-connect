@@ -3,11 +3,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * Transportes Especiales J&J - Reglas de Seguridad V4.0
-     * Implementación de RBAC y Expansión J&J Custodia.
-     */
-
     function isSignedIn() {
       return request.auth != null;
     }
@@ -21,58 +16,50 @@ service cloud.firestore {
 
     /** @description Perfiles de Usuario y Roles */
     match /usuarios_panel/{userId} {
-      // Un usuario puede leer su propio perfil, los admins pueden todo.
-      allow get: if isSignedIn() || isAdmin();
+      allow get: if isSignedIn();
       allow list, write: if isAdmin();
     }
 
     /** @description Configuración de Custodia */
     match /configuracion_custodia/{id} {
-      allow read, write: if isAdmin();
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
-    /** @description Libro Diario: Solo creación, nunca edición ni borrado. */
+    /** @description Envíos Blindados */
+    match /envios/{id} {
+      allow read, write: if isSignedIn();
+    }
+
+    /** @description Operación Pasajeros (Intacto) */
+    match /adminUsers/{userId} {
+      allow get: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
+      allow list, create, update, delete: if isAdmin();
+    }
+    match /conductores/{id} { allow read, write: if isAdmin(); }
+    match /vehiculos/{id} { allow read, write: if isAdmin(); }
+    match /clientes/{id} { allow read, write: if isAdmin(); }
+    match /services/{serviceId} {
+      allow read, write: if isAdmin();
+      allow get: if true; 
+    }
     match /asientos_contables/{id} {
       allow read: if isAdmin();
       allow create: if isAdmin();
       allow update, delete: if false; 
     }
-
-    /** @description Cierres Fiscales: Control de periodos inmutables. */
     match /cierres_fiscales/{id} {
       allow read, write: if isAdmin();
     }
-
-    match /adminUsers/{userId} {
-      allow get: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
-      allow list, create, update, delete: if isAdmin();
-    }
-
-    match /conductores/{id} { allow read, write: if isAdmin(); }
-    match /vehiculos/{id} { allow read, write: if isAdmin(); }
-    match /clientes/{id} { allow read, write: if isAdmin(); }
-    
-    match /services/{serviceId} {
-      allow read, write: if isAdmin();
-      allow get: if true; 
-    }
-
     match /cotizaciones/{id} { allow read, write: if isAdmin(); }
     match /solicitudes_asesor/{id} { allow read, write: if isAdmin(); }
     match /pagos_aplicados/{id} { allow read, write: if isAdmin(); }
-    match /pagos_pendientes_correo/{id} { allow read, write: if isAdmin(); }
     match /transacciones/{id} { allow read, write: if isAdmin(); }
-
     match /ubicaciones_gps/{serviceId} {
       allow get, list: if isAdmin();
       allow write: if true; 
     }
-
     match /conversaciones/{id} { allow read, write: if isAdmin(); }
-    
-    /** @description Historial de notificaciones enviadas por Nova */
-    match /notificaciones_whatsapp/{id} { 
-      allow read, write: if isAdmin(); 
-    }
+    match /notificaciones_whatsapp/{id} { allow read, write: if isAdmin(); }
   }
 }

@@ -41,29 +41,18 @@
         "saldo": { "type": "number" }
       }
     },
-    "AsientoContable": {
-      "title": "Asiento Contable",
+    "Envio": {
+      "title": "Envio Custodia",
       "type": "object",
-      "description": "Registro de partida doble para trazabilidad financiera inmutable.",
+      "description": "Registro de envío blindado con cálculo de riesgo.",
       "properties": {
-        "fecha": { "type": "string", "format": "date-time" },
-        "concepto": { "type": "string" },
-        "sourceId": { "type": "string" },
-        "sourceModule": { "type": "string", "enum": ["services", "rentabilidad", "pagos"] },
-        "totalDebito": { "type": "number" },
-        "totalCredito": { "type": "number" },
-        "movimientos": { "type": "array" }
-      }
-    },
-    "CierreFiscal": {
-      "title": "Cierre Fiscal",
-      "type": "object",
-      "description": "Punto de control que bloquea alteraciones en periodos contables cerrados.",
-      "properties": {
-        "mes": { "type": "number" },
-        "anio": { "type": "number" },
-        "fechaCierre": { "type": "string", "format": "date-time" },
-        "cerradoPor": { "type": "string" }
+        "id": { "type": "string" },
+        "consecutivo": { "type": "string" },
+        "origen": { "type": "string" },
+        "destino": { "type": "string" },
+        "valorDeclarado": { "type": "number" },
+        "tarifaTotal": { "type": "number" },
+        "estado": { "type": "string", "enum": ["Programado", "En Ruta", "Entregado", "Cancelado"] }
       }
     },
     "UsuarioPanel": {
@@ -75,8 +64,7 @@
         "email": { "type": "string" },
         "nombre": { "type": "string" },
         "rol": { "type": "string", "enum": ["admin", "operador"] },
-        "modulos_permitidos": { "type": "array", "items": { "type": "string" } },
-        "fecha_creacion": { "type": "string", "format": "date-time" }
+        "modulos_permitidos": { "type": "array", "items": { "type": "string" } }
       }
     },
     "ConfigCustodia": {
@@ -85,14 +73,8 @@
       "description": "Parámetros financieros para el módulo de envíos blindados.",
       "properties": {
         "costo_fijo_mensual": { "type": "number" },
-        "envios_mes_estimados": { "type": "number" },
-        "tarifa_por_km": { "type": "number" },
-        "cargo_fijo_custodia": { "type": "number" },
         "tasa_riesgo": { "type": "number" },
-        "margen_utilidad": { "type": "number" },
-        "tope_cobertura_estandar": { "type": "number" },
-        "valor_declarado_minimo": { "type": "number" },
-        "updatedAt": { "type": "string", "format": "date-time" }
+        "tope_cobertura_estandar": { "type": "number" }
       }
     }
   },
@@ -112,21 +94,13 @@
       "schema": "Vehicle",
       "description": "Inventario de vehículos de la empresa."
     },
-    "/clientes/{id}": {
-      "schema": "Customer",
-      "description": "Cartera de clientes corporativos e individuales."
-    },
     "/services/{id}": {
       "schema": "Service",
       "description": "Registro principal de operaciones de transporte."
     },
-    "/asientos_contables/{id}": {
-      "schema": "AsientoContable",
-      "description": "Libro mayor inmutable de la empresa."
-    },
-    "/cierres_fiscales/{id}": {
-      "schema": "CierreFiscal",
-      "description": "Historial de bloqueos de periodos fiscales."
+    "/envios/{id}": {
+      "schema": "Envio",
+      "description": "Registro de envíos blindados de J&J Custodia."
     },
     "/usuarios_panel/{id}": {
       "schema": "UsuarioPanel",

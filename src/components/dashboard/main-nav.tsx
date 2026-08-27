@@ -41,21 +41,6 @@ export function MainNav() {
   const db = useFirestore();
   const { user } = useUser();
 
-  // Consultas de insignias existentes
-  const pendingCotQuery = useMemoFirebase(() => {
-    if (!db || !user) return null;
-    return query(collection(db, 'cotizaciones'), where('estado', '==', 'pendiente'));
-  }, [db, user]);
-
-  const activeGPSQuery = useMemoFirebase(() => {
-    if (!db || !user) return null;
-    return query(collection(db, 'ubicaciones_gps'), where('activo', '==', true));
-  }, [db, user]);
-
-  const { data: cotizaciones } = useCollection(pendingCotQuery);
-  const { data: activeGPS } = useCollection(activeGPSQuery);
-
-  // Lógica de Permisos (Aditiva)
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user?.email) return null;
     return doc(db, 'usuarios_panel', user.email.replace(/\W/g, '_'));
@@ -64,9 +49,7 @@ export function MainNav() {
   const { data: profile } = useDoc<UsuarioPanel>(userProfileRef);
 
   const canAccess = (moduleId: string) => {
-    // El super-admin por email siempre tiene acceso total
     if (user?.email === 'transportes.especialesjyj@gmail.com') return true;
-    // Si no hay perfil, acceso restringido al tablero por defecto
     if (!profile) return moduleId === 'tablero';
     return profile.modulos_permitidos?.includes(moduleId);
   };
@@ -89,13 +72,13 @@ export function MainNav() {
 
   const custodiaItems = [
     { id: 'custodia_envios', href: '/dashboard/custodia/envios', label: 'Envíos Blindados', icon: Package },
-    { id: 'custodia_config', href: '/dashboard/custodia/configuracion', label: 'Configuración', icon: Settings2 },
+    { id: 'custodia_config', href: '/dashboard/custodia/configuracion', label: 'Parámetros Tarifarios', icon: Settings2 },
   ];
 
   const sistemaItems = [
     { id: 'gps', href: '/dashboard/gps', label: 'Seguimiento GPS', icon: MapPin },
     { id: 'whatsapp', href: '/dashboard/whatsapp-bandeja', label: 'Bandeja Nova', icon: MessageSquare },
-    { id: 'usuarios', href: '/dashboard/seguridad/usuarios', label: 'Accesos y Roles', icon: ShieldCheck },
+    { id: 'usuarios', href: '/dashboard/seguridad/usuarios', label: 'Usuarios y Accesos', icon: ShieldCheck },
   ];
 
   return (
@@ -125,7 +108,7 @@ export function MainNav() {
 
         {custodiaItems.some(i => canAccess(i.id)) && (
           <SidebarGroup>
-            <SidebarGroupLabel>J&J CUSTODIA (NUEVO)</SidebarGroupLabel>
+            <SidebarGroupLabel>J&J CUSTODIA</SidebarGroupLabel>
             <SidebarMenu>
               {custodiaItems.filter(item => canAccess(item.id)).map((item) => (
                 <SidebarMenuItem key={item.href}>
