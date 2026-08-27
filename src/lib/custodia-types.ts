@@ -36,6 +36,9 @@ export interface Envio {
   primaRiesgo: number;
   tarifaTotal: number;
   requiereRevisionManual: boolean;
-  estado: 'Programado' | 'En Ruta' | 'Entregado' | 'Cancelado';
+  estado: 'programado' | 'en_transito' | 'entregado' | 'cancelado' | 'requiere_revision_manual';
+  // Asignación de personal
+  conductorId?: string;
+  conductorNombre?: string;
   createdAt: any;
 }
