@@ -9,15 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
 import { 
-  Calculator, 
-  MapPin, 
-  DollarSign, 
-  ShieldCheck, 
   AlertTriangle, 
   Loader2,
-  Info,
-  ChevronRight,
-  TrendingUp,
   ShieldAlert
 } from 'lucide-react';
 import type { ConfigCustodia } from '@/lib/custodia-types';
@@ -107,32 +100,30 @@ export default function CotizadorEnvioPage() {
 
   return (
     <div className="space-y-8 pb-12 bg-[#F3F4F6] min-h-screen p-4 sm:p-8">
-      <header className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-1 bg-[#B8860B] rounded-full" />
-            <h1 className="text-3xl font-serif font-black text-[#1F3864] tracking-tight uppercase">Cotizador de Envío</h1>
-          </div>
-          <p className="text-slate-500 text-sm font-medium mt-1">Calculadora de precisión financiera para servicios de custodia J&J Carga.</p>
+      <header className="max-w-7xl mx-auto">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-1 bg-[#B8860B] rounded-full" />
+          <h1 className="text-3xl font-serif font-black text-[#1F3864] tracking-tight uppercase">Cotizador de Envío</h1>
         </div>
+        <p className="text-[#5B5F68] text-sm font-medium mt-1">Herramienta de precisión financiera para servicios J&J Carga.</p>
       </header>
 
       <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
-        {/* COLUMNA ENTRADAS */}
+        {/* COLUMNA IZQUIERDA: ENTRADAS */}
         <div className="lg:col-span-7 space-y-6">
-          <Card className="rounded-2xl border border-slate-200 shadow-sm overflow-hidden bg-white">
-            <CardHeader className="p-6 border-b bg-slate-50/50">
-              <CardTitle className="text-sm font-black text-[#1F3864] uppercase tracking-[0.1em] flex items-center gap-2">
-                <Info className="h-4 w-4 text-[#B8860B]" /> Datos de la Cotización
+          <Card className="rounded-2xl border-[#E2E4E9] shadow-sm overflow-hidden bg-white">
+            <CardHeader className="p-6 border-b border-[#E2E4E9]">
+              <CardTitle className="text-xs font-black text-[#1C1E22] uppercase tracking-[0.1em]">
+                Datos de la Cotización
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-8 space-y-10">
+            <CardContent className="p-8 space-y-12">
               {/* DISTANCIA */}
               <div className="space-y-4">
                 <div className="flex justify-between items-end">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Distancia Estimada (KM)</label>
-                  <span className="text-2xl font-mono font-black text-[#1F3864]">{distancia} <span className="text-xs text-slate-400">KM</span></span>
+                  <label className="text-[10px] font-black uppercase text-[#5B5F68] tracking-widest">Distancia Estimada (KM)</label>
+                  <span className="text-2xl font-mono font-black text-[#1F3864]">{distancia} <span className="text-xs text-[#8A8D96]">KM</span></span>
                 </div>
                 <Slider 
                   min={1} 
@@ -143,7 +134,7 @@ export default function CotizadorEnvioPage() {
                   className="py-4 cursor-pointer"
                 />
                 {results?.superaKm && (
-                  <div className="flex items-center gap-2 bg-amber-50 text-amber-700 p-3 rounded-xl border border-amber-100 text-[10px] font-bold uppercase tracking-tight">
+                  <div className="flex items-center gap-2 bg-[#FEF3C7] text-[#B8860B] p-3 rounded-xl border border-[#FDE68A] text-[10px] font-bold uppercase tracking-tight">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Cobertura Extendida: Supera el radio urbano ({config.km_maximo_urbano}KM)
                   </div>
                 )}
@@ -152,7 +143,7 @@ export default function CotizadorEnvioPage() {
               {/* VALOR DECLARADO */}
               <div className="space-y-4">
                 <div className="flex justify-between items-end">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Valor Comercial del Artículo ($)</label>
+                  <label className="text-[10px] font-black uppercase text-[#5B5F68] tracking-widest">Valor Comercial del Artículo ($)</label>
                   <span className={cn(
                     "text-2xl font-mono font-black",
                     results?.superaTope ? "text-rose-600" : "text-[#B8860B]"
@@ -169,141 +160,145 @@ export default function CotizadorEnvioPage() {
                   className="py-4 cursor-pointer"
                 />
                 <div className="relative max-w-[240px]">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8A8D96] font-bold">$</span>
                   <Input 
                     type="number" 
                     value={valorDeclaradoInput}
                     onChange={(e) => setValorDeclaradoInput(Number(e.target.value))}
-                    className="pl-8 rounded-xl h-12 font-mono font-black text-[#1F3864] border-slate-200 focus:ring-2 focus:ring-[#B8860B]" 
+                    className="pl-8 rounded-xl h-12 font-mono font-black text-[#1F3864] border-[#E2E4E9] focus:ring-2 focus:ring-[#B8860B]" 
                     placeholder="Ingrese valor..."
                   />
                 </div>
+                
+                {/* BADGE DEL PLAN AQUÍ */}
+                <div className="pt-2">
+                  {results && (
+                    <div className={cn(
+                      "inline-flex items-center px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-tight",
+                      results.plan === 'Esencial' ? "bg-blue-50 text-blue-700" :
+                      results.plan === 'Seguro' ? "bg-[#FFFBEB] text-[#B8860B]" :
+                      "bg-rose-50 text-rose-700"
+                    )}>
+                      {results.plan === 'Fuera de Rango' ? 'Revisión Corporativa Requerida' : `Clasificación: ${results.plan}`}
+                    </div>
+                  )}
+                </div>
+
                 {valorDeclaradoInput === 0 && (
-                  <p className="text-[9px] text-slate-400 italic font-bold uppercase tracking-tighter">
+                  <p className="text-[9px] text-[#8A8D96] italic font-bold uppercase tracking-tighter">
                     * Sin declaración: Se aplica valor mínimo asegurable de {currencyFormatter.format(config.valor_declarado_minimo)}
                   </p>
                 )}
               </div>
             </CardContent>
           </Card>
-
-          <div className="bg-[#1F3864]/5 p-6 rounded-2xl border border-[#1F3864]/10">
-            <p className="text-[10px] font-bold text-[#1F3864]/60 uppercase leading-relaxed text-center italic">
-              Esta calculadora utiliza los parámetros de negocio vigentes para el mes de {new Intl.DateTimeFormat('es-CO', { month: 'long' }).format(new Date())}.
-            </p>
-          </div>
         </div>
 
-        {/* COLUMNA RESULTADOS */}
+        {/* COLUMNA DERECHA: RESULTADO (LIMPIA Y BLANCA) */}
         <div className="lg:col-span-5 sticky top-24">
-          <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-white">
-            <div className="p-8 bg-[#1F3864] text-white">
-              <div className="flex justify-between items-start mb-6">
-                <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-md">
-                  <Calculator className="h-6 w-6 text-[#B8860B]" />
-                </div>
-                {results && (
-                  <Badge className={cn(
-                    "font-black uppercase text-[10px] px-4 py-1 rounded-full border-none shadow-lg",
-                    results.plan === 'Esencial' ? "bg-emerald-500 text-white" :
-                    results.plan === 'Seguro' ? "bg-[#B8860B] text-white" :
-                    "bg-rose-600 text-white animate-pulse"
-                  )}>
-                    {results.plan === 'Fuera de Rango' ? 'REVISIÓN CORPORATIVA' : `PLAN ${results.plan}`}
-                  </Badge>
-                )}
-              </div>
-              <p className="text-[10px] font-black uppercase text-white/50 tracking-[0.3em] mb-2">Tarifa Sugerida al Cliente</p>
-              <h2 className="text-5xl font-mono font-black tracking-tighter">
-                {results?.superaTope ? '----' : currencyFormatter.format(results?.total || 0)}
-              </h2>
-            </div>
-
-            <CardContent className="p-8 space-y-8">
+          <Card className="rounded-2xl border-[#E2E4E9] shadow-sm overflow-hidden bg-white">
+            <CardHeader className="p-6 pb-2">
+              <p className="text-[10px] font-black uppercase text-[#5B5F68] tracking-widest">Desglose de la tarifa</p>
+              <p className="text-[11px] text-[#8A8D96] font-medium">Así se construye el precio, capa por capa.</p>
+            </CardHeader>
+            
+            <CardContent className="p-6 pt-6 space-y-10">
               {results?.superaTope ? (
-                <div className="py-10 text-center space-y-6">
-                  <ShieldAlert className="h-20 w-20 text-rose-500 mx-auto" />
-                  <div className="space-y-2">
-                    <h3 className="text-xl font-serif font-black text-[#1F3864] uppercase">Riesgo Excedido</h3>
-                    <p className="text-sm text-slate-500 font-medium leading-relaxed px-4">
-                      El valor declarado supera el tope estándar de <b>{currencyFormatter.format(config.tope_cobertura_estandar)}</b>. Se requiere evaluación manual por parte de gerencia.
+                <div className="py-8 text-center space-y-6">
+                  <ShieldAlert className="h-16 w-16 text-rose-500 mx-auto opacity-50" />
+                  <div className="space-y-2 px-4">
+                    <h3 className="text-lg font-serif font-black text-[#1F3864] uppercase">Riesgo Excedido</h3>
+                    <p className="text-xs text-[#5B5F68] font-medium leading-relaxed">
+                      El valor declarado supera el tope estándar de <b>{currencyFormatter.format(config.tope_cobertura_estandar)}</b>. Se requiere evaluación manual.
                     </p>
-                  </div>
-                  <div className="bg-rose-50 p-4 rounded-2xl border border-rose-100 text-[10px] font-black text-rose-700 uppercase tracking-widest">
-                    Consultar Plan Corporativo
                   </div>
                 </div>
               ) : (
                 <>
-                  {/* BARRA SEGMENTADA */}
+                  {/* BARRA SEGMENTADA (COLORES PASTEL) */}
                   <div className="space-y-3">
-                    <div className="flex h-6 w-full rounded-full overflow-hidden shadow-inner bg-slate-100 border-4 border-white">
-                      <div className="h-full bg-[#1F3864] transition-all duration-700" style={{ width: `${results?.percentages.pBase}%` }} />
-                      <div className="h-full bg-[#4F46E5] transition-all duration-700" style={{ width: `${results?.percentages.pRiesgo}%` }} />
-                      <div className="h-full bg-[#F97316] transition-all duration-700" style={{ width: `${results?.percentages.pCustodia}%` }} />
-                      <div className="h-full bg-[#B8860B] transition-all duration-700" style={{ width: `${results?.percentages.pMargen}%` }} />
-                    </div>
-                    <div className="flex justify-between text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">
-                      <span>Estructura de Costos</span>
-                      <span>Análisis 100% Preciso</span>
+                    <div className="flex h-[34px] w-full rounded-lg overflow-hidden border border-[#E2E4E9] bg-slate-50">
+                      <div className="h-full bg-[#DBEAFE] transition-all duration-700" style={{ width: `${results?.percentages.pBase}%` }} title="Base" />
+                      <div className="h-full bg-[#FEF3C7] transition-all duration-700" style={{ width: `${results?.percentages.pRiesgo}%` }} title="Riesgo" />
+                      <div className="h-full bg-[#D1FAE5] transition-all duration-700" style={{ width: `${results?.percentages.pCustodia}%` }} title="Custodia" />
+                      <div className="h-full bg-[#FEE2E2] transition-all duration-700" style={{ width: `${results?.percentages.pMargen}%` }} title="Margen" />
                     </div>
                   </div>
 
                   {/* DESGLOSE LISTA */}
-                  <div className="space-y-4 pt-4">
-                    <div className="flex items-center justify-between group">
-                      <div className="flex items-center gap-3">
-                        <div className="h-2.5 w-2.5 rounded-full bg-[#1F3864]" />
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-tight">Costo Operativo Base</span>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-2 w-2 rounded-full bg-[#3B82F6]" />
+                        <span className="text-[13px] font-medium text-[#1C1E22]">Costo operativo base</span>
                       </div>
-                      <span className="text-sm font-mono font-black text-[#1F3864]">{currencyFormatter.format(results?.costoBase || 0)}</span>
+                      <div className="text-right">
+                        <span className="text-[13px] font-mono font-black text-[#1C1E22]">{currencyFormatter.format(results?.costoBase || 0)}</span>
+                        <span className="text-[10px] text-[#8A8D96] ml-2 font-medium">({results?.percentages.pBase.toFixed(1)}%)</span>
+                      </div>
                     </div>
                     
-                    <div className="flex items-center justify-between group">
-                      <div className="flex items-center gap-3">
-                        <div className="h-2.5 w-2.5 rounded-full bg-[#4F46E5]" />
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-tight">Prima de Riesgo</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-2 w-2 rounded-full bg-[#B8860B]" />
+                        <span className="text-[13px] font-medium text-[#1C1E22]">Prima de riesgo</span>
                       </div>
-                      <span className="text-sm font-mono font-black text-indigo-600">{currencyFormatter.format(results?.primaRiesgo || 0)}</span>
+                      <div className="text-right">
+                        <span className="text-[13px] font-mono font-black text-[#1C1E22]">{currencyFormatter.format(results?.primaRiesgo || 0)}</span>
+                        <span className="text-[10px] text-[#8A8D96] ml-2 font-medium">({results?.percentages.pRiesgo.toFixed(1)}%)</span>
+                      </div>
                     </div>
 
-                    <div className="flex items-center justify-between group">
-                      <div className="flex items-center gap-3">
-                        <div className="h-2.5 w-2.5 rounded-full bg-[#F97316]" />
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-tight">Cargo de Custodia J&J</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-2 w-2 rounded-full bg-[#10B981]" />
+                        <span className="text-[13px] font-medium text-[#1C1E22]">Cargo de custodia</span>
                       </div>
-                      <span className="text-sm font-mono font-black text-slate-900">{currencyFormatter.format(results?.cargoCustodia || 0)}</span>
+                      <div className="text-right">
+                        <span className="text-[13px] font-mono font-black text-[#1C1E22]">{currencyFormatter.format(results?.cargoCustodia || 0)}</span>
+                        <span className="text-[10px] text-[#8A8D96] ml-2 font-medium">({results?.percentages.pCustodia.toFixed(1)}%)</span>
+                      </div>
                     </div>
 
-                    <Separator className="border-dashed" />
-
-                    <div className="flex items-center justify-between pt-2">
-                      <div className="flex items-center gap-3">
-                        <div className="h-2.5 w-2.5 rounded-full bg-[#B8860B]" />
-                        <span className="text-xs font-bold text-[#B8860B] uppercase tracking-tight">Margen de Utilidad</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-2 w-2 rounded-full bg-[#F87171]" />
+                        <span className="text-[13px] font-medium text-[#1C1E22]">Margen de utilidad</span>
                       </div>
-                      <span className="text-sm font-mono font-black text-[#B8860B]">{currencyFormatter.format(results?.margenVal || 0)}</span>
+                      <div className="text-right">
+                        <span className="text-[13px] font-mono font-black text-[#1C1E22]">{currencyFormatter.format(results?.margenVal || 0)}</span>
+                        <span className="text-[10px] text-[#8A8D96] ml-2 font-medium">({results?.percentages.pMargen.toFixed(1)}%)</span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="pt-8 text-center space-y-4">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase italic leading-relaxed">
-                      El precio final incluye monitoreo GPS y seguros.
-                    </p>
-                    <div className="flex items-center justify-center gap-2 text-[#B8860B]">
-                      <TrendingUp className="h-4 w-4" />
-                      <span className="text-[11px] font-black uppercase tracking-[0.2em]">Cálculo Auditado Nova</span>
+                  {/* RESULTADO FINAL */}
+                  <div className="pt-6 border-t border-[#E2E4E9]">
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-[10px] font-black uppercase text-[#8A8D96] tracking-widest">Tarifa sugerida al cliente</span>
+                      <div className="flex items-baseline gap-1.5">
+                        <h2 className="text-3xl font-mono font-black text-[#1F3864] tracking-tighter">
+                          {currencyFormatter.format(results?.total || 0).replace('$', '').trim()}
+                        </h2>
+                        <span className="text-xs font-bold text-[#8A8D96]">COP</span>
+                      </div>
                     </div>
                   </div>
                 </>
               )}
             </CardContent>
           </Card>
+
+          <div className="mt-8 text-center">
+            <p className="text-[10px] font-bold text-[#8A8D96] uppercase leading-relaxed italic px-8">
+              Esta calculadora utiliza los parámetros de negocio vigentes para el mes de {new Intl.DateTimeFormat('es-CO', { month: 'long' }).format(new Date())}.
+            </p>
+          </div>
         </div>
       </main>
       
       <footer className="text-center pt-12">
-        <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.4em]">J&J Carga Business Intelligence — Engine v3.1</p>
+        <p className="text-[9px] font-black text-[#8A8D96] uppercase tracking-[0.4em]">J&J Carga Business Intelligence — Engine v3.2</p>
       </footer>
     </div>
   );
