@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -18,13 +17,10 @@ import {
   Calculator, 
   ShieldAlert, 
   Loader2, 
-  Info, 
   MapPin, 
   Clock, 
   Calendar, 
-  FileText, 
   CheckCircle2,
-  Lock,
   ShieldCheck,
   AlertTriangle
 } from 'lucide-react';
@@ -75,7 +71,7 @@ export function EnvioForm({ onSave, isSaving, onCancel }: { onSave: (data: any) 
   const calculation = useMemo(() => {
     if (!config) return null;
 
-    // Lógica de valor mínimo si es omitido
+    // Lógica de valor mínimo si es omitido o muy bajo
     const fueValorDeclaradoOmitido = valorDeclaradoInput <= 0;
     const valorDeclaradoReal = fueValorDeclaradoOmitido ? config.valor_declarado_minimo : valorDeclaradoInput;
 
@@ -112,7 +108,7 @@ export function EnvioForm({ onSave, isSaving, onCancel }: { onSave: (data: any) 
     
     if (porcentajeTope > 35) plan = 'Seguro';
 
-    // Proporciones para barra visual (sobre el total con margen)
+    // Proporciones para barra visual
     const totalParts = costoBaseLogistico + primaRiesgo + cargoCustodia + margenUtilidadValor;
     const pBase = (costoBaseLogistico / totalParts) * 100;
     const pPrima = (primaRiesgo / totalParts) * 100;
@@ -168,15 +164,15 @@ export function EnvioForm({ onSave, isSaving, onCancel }: { onSave: (data: any) 
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField name="origen" control={form.control} render={({ field }) => (
-                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Dirección Origen (Bogotá)</FormLabel><FormControl><Input placeholder="Ej. Calle 100 #15-30" {...field} className="rounded-xl h-11" /></FormControl></FormItem>
+                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Dirección Origen</FormLabel><FormControl><Input placeholder="Ej. Calle 100 #15-30" {...field} className="rounded-xl h-11" /></FormControl></FormItem>
               )} />
               <FormField name="destino" control={form.control} render={({ field }) => (
-                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Dirección Destino (Bogotá)</FormLabel><FormControl><Input placeholder="Ej. Cra 7 #72-10" {...field} className="rounded-xl h-11" /></FormControl></FormItem>
+                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Dirección Destino</FormLabel><FormControl><Input placeholder="Ej. Cra 7 #72-10" {...field} className="rounded-xl h-11" /></FormControl></FormItem>
               )} />
             </div>
 
             <FormField name="descripcion" control={form.control} render={({ field }) => (
-              <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Descripción de la Mercancía</FormLabel><FormControl><Input placeholder="Ej. Computador Portátil HP Pavilion" {...field} className="rounded-xl h-11" /></FormControl></FormItem>
+              <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Descripción de la Mercancía</FormLabel><FormControl><Input placeholder="Ej. Computador Portátil" {...field} className="rounded-xl h-11" /></FormControl></FormItem>
             )} />
           </div>
 
@@ -185,10 +181,9 @@ export function EnvioForm({ onSave, isSaving, onCancel }: { onSave: (data: any) 
           <div className="space-y-10">
             <h4 className="text-[11px] font-black uppercase text-[#1F3864] tracking-[0.2em] font-sans">Ajuste de Variables</h4>
             
-            {/* KM SLIDER */}
             <div className="space-y-4">
               <div className="flex justify-between items-end">
-                 <label className="text-[10px] font-black uppercase text-slate-500">Distancia Estimada del Trayecto</label>
+                 <label className="text-[10px] font-black uppercase text-slate-500">Distancia Estimada</label>
                  <span className="text-lg font-mono font-bold text-[#1F3864]">{kmEstimados} <span className="text-[10px] text-slate-400">KM</span></span>
               </div>
               <FormField name="kmEstimados" control={form.control} render={({ field }) => (
@@ -212,7 +207,6 @@ export function EnvioForm({ onSave, isSaving, onCancel }: { onSave: (data: any) 
               )}
             </div>
 
-            {/* VALOR DECLARADO SLIDER */}
             <div className="space-y-4">
               <div className="flex justify-between items-end">
                  <label className="text-[10px] font-black uppercase text-slate-500">Valor Comercial Declarado</label>
@@ -244,18 +238,12 @@ export function EnvioForm({ onSave, isSaving, onCancel }: { onSave: (data: any) 
                   </FormControl>
                 </FormItem>
               )} />
-              {calculation?.fueValorDeclaradoOmitido && (
-                <p className="text-[10px] text-slate-400 font-bold uppercase italic text-center">
-                  * Se aplicará el valor mínimo de {currencyFormatter.format(config?.valor_declarado_minimo || 0)} para el cálculo del riesgo.
-                </p>
-              )}
             </div>
           </div>
         </div>
 
-        {/* COLUMNA DERECHA: RESULTADO (STICKY) */}
+        {/* COLUMNA DERECHA: RESULTADO */}
         <div className="lg:col-span-5 bg-[#F8FAFC] flex flex-col justify-between overflow-hidden relative">
-          {/* HEADER DE RESULTADO */}
           <div className="p-8 space-y-8">
             <div className="flex items-center justify-between">
               <h4 className="text-[11px] font-black uppercase text-[#1F3864] tracking-[0.2em] flex items-center gap-2 font-sans">
@@ -278,15 +266,14 @@ export function EnvioForm({ onSave, isSaving, onCancel }: { onSave: (data: any) 
                 <ShieldAlert className="h-20 w-20 text-rose-600 mx-auto" />
                 <h3 className="text-xl font-serif font-black text-[#1F3864] uppercase leading-tight">Valor Fuera de Rango</h3>
                 <p className="text-sm text-slate-500 font-medium leading-relaxed">
-                  El valor declarado excede nuestro tope de cobertura automática de <b>{currencyFormatter.format(config?.tope_cobertura_estandar || 0)}</b>.
+                  El valor excede el tope de cobertura de <b>{currencyFormatter.format(config?.tope_cobertura_estandar || 0)}</b>.
                 </p>
                 <div className="bg-rose-50 p-5 rounded-2xl text-[11px] font-black text-rose-800 uppercase tracking-widest border border-rose-100">
-                  Solicitar Cotización Corporativa
+                  Requiere Cotización Manual
                 </div>
               </div>
             ) : calculation ? (
               <div className="space-y-10 animate-in fade-in duration-700">
-                {/* BARRA SEGMENTADA CORPORATIVA */}
                 <div className="space-y-4">
                    <div className="flex h-6 w-full rounded-full overflow-hidden shadow-md border-4 border-white bg-slate-200">
                       <div className="h-full bg-[#1F3864] transition-all duration-500" style={{ width: `${calculation.percentages.pBase}%` }} />
@@ -300,7 +287,6 @@ export function EnvioForm({ onSave, isSaving, onCancel }: { onSave: (data: any) 
                    </div>
                 </div>
 
-                {/* LISTA DE DESGLOSE INTERNO */}
                 <div className="space-y-5 bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
                   <div className="flex items-center justify-between group">
                     <div className="flex items-center gap-3">
@@ -312,7 +298,7 @@ export function EnvioForm({ onSave, isSaving, onCancel }: { onSave: (data: any) 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="h-2.5 w-2.5 rounded-full bg-[#4F46E5]" />
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Prima de Riesgo ({ (config?.tasa_riesgo || 0) * 100 }%)</span>
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Prima de Riesgo</span>
                     </div>
                     <span className="text-sm font-mono font-black text-indigo-600">{currencyFormatter.format(calculation.primaRiesgo)}</span>
                   </div>
@@ -326,13 +312,12 @@ export function EnvioForm({ onSave, isSaving, onCancel }: { onSave: (data: any) 
                   <div className="flex items-center justify-between pt-2 border-t border-dashed">
                     <div className="flex items-center gap-3">
                       <div className="h-2.5 w-2.5 rounded-full bg-[#B8860B]" />
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Margen de Utilidad ({ (config?.margen_utilidad || 0) * 100 }%)</span>
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Margen de Utilidad</span>
                     </div>
                     <span className="text-sm font-mono font-black text-[#B8860B]">{currencyFormatter.format(calculation.margenUtilidadValor)}</span>
                   </div>
                 </div>
 
-                {/* TARIFA FINAL DESTACADA */}
                 <div className="text-center space-y-3 pt-6">
                   <p className="text-[10px] font-black text-[#1F3864] uppercase tracking-[0.4em] opacity-60">Tarifa Sugerida al Cliente</p>
                   <h2 className="text-6xl font-mono font-black text-[#1F3864] tracking-tighter drop-shadow-sm">
@@ -344,12 +329,11 @@ export function EnvioForm({ onSave, isSaving, onCancel }: { onSave: (data: any) 
             ) : null}
           </div>
 
-          {/* ACCIONES FINALES */}
           <div className="p-8 bg-white border-t border-slate-100 space-y-6">
              <div className="bg-slate-50 p-4 rounded-2xl flex items-start gap-3 border border-slate-100">
                 <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
                 <p className="text-[10px] text-slate-500 font-bold uppercase leading-relaxed">
-                  Este cálculo incluye seguimiento satelital y evidencia fotográfica del 100% del trayecto en Bogotá.
+                  Este cálculo incluye seguimiento satelital y evidencia fotográfica del trayecto.
                 </p>
              </div>
              <div className="flex gap-4">
@@ -365,7 +349,7 @@ export function EnvioForm({ onSave, isSaving, onCancel }: { onSave: (data: any) 
              </div>
           </div>
         </div>
-
       </form>
     </Form>
-  
+  );
+}
