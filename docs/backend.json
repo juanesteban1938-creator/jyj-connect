@@ -65,6 +65,35 @@
         "fechaCierre": { "type": "string", "format": "date-time" },
         "cerradoPor": { "type": "string" }
       }
+    },
+    "UsuarioPanel": {
+      "title": "Usuario Panel",
+      "type": "object",
+      "description": "Perfil de usuario con permisos basados en módulos.",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "nombre": { "type": "string" },
+        "rol": { "type": "string", "enum": ["admin", "operador"] },
+        "modulos_permitidos": { "type": "array", "items": { "type": "string" } },
+        "fecha_creacion": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ConfigCustodia": {
+      "title": "Configuración Custodia",
+      "type": "object",
+      "description": "Parámetros financieros para el módulo de envíos blindados.",
+      "properties": {
+        "costo_fijo_mensual": { "type": "number" },
+        "envios_mes_estimados": { "type": "number" },
+        "tarifa_por_km": { "type": "number" },
+        "cargo_fijo_custodia": { "type": "number" },
+        "tasa_riesgo": { "type": "number" },
+        "margen_utilidad": { "type": "number" },
+        "tope_cobertura_estandar": { "type": "number" },
+        "valor_declarado_minimo": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "auth": {
@@ -99,9 +128,13 @@
       "schema": "CierreFiscal",
       "description": "Historial de bloqueos de periodos fiscales."
     },
-    "/ubicaciones_gps/{serviceId}": {
-      "schema": "VehicleLocation",
-      "description": "Señal GPS en tiempo real transmitida por conductores."
+    "/usuarios_panel/{id}": {
+      "schema": "UsuarioPanel",
+      "description": "Gestión de roles y permisos de acceso al panel."
+    },
+    "/configuracion_custodia/{id}": {
+      "schema": "ConfigCustodia",
+      "description": "Configuración global de parámetros para J&J Custodia."
     }
   }
 }

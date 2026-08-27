@@ -1,10 +1,11 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * Transportes Especiales J&J - Reglas de Seguridad V3.2
-     * Implementación de Inmutabilidad Contable y Gestión de Notificaciones.
+     * Transportes Especiales J&J - Reglas de Seguridad V4.0
+     * Implementación de RBAC y Expansión J&J Custodia.
      */
 
     function isSignedIn() {
@@ -16,6 +17,18 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid)) ||
         request.auth.token.email == 'transportes.especialesjyj@gmail.com'
       );
+    }
+
+    /** @description Perfiles de Usuario y Roles */
+    match /usuarios_panel/{userId} {
+      // Un usuario puede leer su propio perfil, los admins pueden todo.
+      allow get: if isSignedIn() || isAdmin();
+      allow list, write: if isAdmin();
+    }
+
+    /** @description Configuración de Custodia */
+    match /configuracion_custodia/{id} {
+      allow read, write: if isAdmin();
     }
 
     /** @description Libro Diario: Solo creación, nunca edición ni borrado. */
