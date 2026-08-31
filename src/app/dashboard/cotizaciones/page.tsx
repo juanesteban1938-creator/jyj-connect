@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useFirestore, useUser, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, updateDoc, getDocs, where, deleteDoc } from 'firebase/firestore';
 import { 
   Table, 
@@ -25,7 +25,9 @@ import {
   Phone,
   CheckCircle2,
   XCircle,
-  MoreHorizontal
+  MoreHorizontal,
+  ShieldCheck,
+  Car
 } from 'lucide-react';
 import { 
   DropdownMenu, 
@@ -36,12 +38,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
-interface SolicitudBase {
+interface SolicitudUniversal {
   id: string;
   nombreCliente: string;
   telefono: string;
-  jid: string;
+  jid?: string;
   tipoVehiculo: string;
   lugarRecogida: string;
   horaRecogida: string;
@@ -49,7 +52,9 @@ interface SolicitudBase {
   destino: string;
   estado: string;
   fecha: any;
-  _tipo: 'cotizacion' | 'asesor';
+  consecutivo?: string;
+  tarifaTotal?: number;
+  _tipo: 'pasajeros' | 'asesor' | 'custodia';
 }
 
 export default function CotizacionesPage() {
@@ -58,6 +63,7 @@ export default function CotizacionesPage() {
   const router = useRouter();
   const { toast } = useToast();
 
+  // 1. Consultas Multicolección
   const cotizacionesQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, 'cotizaciones'), orderBy('fecha', 'desc'));
@@ -68,13 +74,26 @@ export default function CotizacionesPage() {
     return query(collection(db, 'solicitudes_asesor'), orderBy('fecha', 'desc'));
   }, [db, user]);
 
+  const enviosQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    // Solo mostramos envíos que requieren atención manual en esta bandeja
+    return query(collection(db, 'envios'), orderBy('createdAt', 'desc'));
+  }, [db, user]);
+
   const { data: cotizacionesRaw, isLoading: loadingCots } = useCollection(cotizacionesQuery);
   const { data: solicitudesRaw, isLoading: loadingSols } = useCollection(solicitudesQuery);
+  const { data: enviosRaw, isLoading: loadingEnvios } = useCollection(enviosQuery);
 
-  const isLoading = loadingCots || loadingSols;
+  const isLoading = loadingCots || loadingSols || loadingEnvios;
 
+  // 2. Fusión y Normalización de Datos
   const todasLasSolicitudes = useMemo(() => {
-    const cots = (cotizacionesRaw || []).map(c => ({ ...c, _tipo: 'cotizacion' as const }));
+    const cots = (cotizacionesRaw || []).map(c => ({ 
+      ...c, 
+      _tipo: 'pasajeros' as const,
+      lugarRecogida: c.lugarRecogida || 'N/A'
+    }));
+
     const sols = (solicitudesRaw || [])
       .filter(s => s.estado !== 'descartado')
       .map(s => ({
@@ -87,60 +106,47 @@ export default function CotizacionesPage() {
         _tipo: 'asesor' as const
       }));
 
-    return [...cots, ...sols].sort((a, b) => {
-      const fa = a.fecha?.toDate ? a.fecha.toDate() : new Date(a.fecha);
-      const fb = b.fecha?.toDate ? b.fecha.toDate() : new Date(b.fecha);
+    const envs = (enviosRaw || [])
+      .filter(e => e.estado === 'requiere_revision_manual' || e.estado === 'programado')
+      .map(e => ({
+        ...e,
+        nombreCliente: 'Cliente J&J Carga', // En envios aún no tenemos el campo nombreCliente directo en el root
+        lugarRecogida: e.origen,
+        fechaServicio: e.fecha,
+        horaRecogida: e.hora,
+        tipoVehiculo: e.vehiculo,
+        _tipo: 'custodia' as const
+      }));
+
+    return [...cots, ...sols, ...envs].sort((a, b) => {
+      const fa = a.fecha?.toDate ? a.fecha.toDate() : new Date(a.fecha || a.createdAt);
+      const fb = b.fecha?.toDate ? b.fecha.toDate() : new Date(b.fecha || b.createdAt);
       return fb.getTime() - fa.getTime();
     });
-  }, [cotizacionesRaw, solicitudesRaw]);
+  }, [cotizacionesRaw, solicitudesRaw, enviosRaw]);
 
   const pendingCount = useMemo(() => 
-    todasLasSolicitudes.filter(c => c.estado === 'pendiente').length, 
+    todasLasSolicitudes.filter(c => c.estado === 'pendiente' || c.estado === 'requiere_revision_manual').length, 
   [todasLasSolicitudes]);
 
-  const handleUpdateStatus = async (id: string, jid: string, telefono: string, newStatus: string, tipo: 'cotizacion' | 'asesor') => {
-    const collectionName = tipo === 'asesor' ? 'solicitudes_asesor' : 'cotizaciones';
-    const docRef = doc(db, collectionName, id);
+  const handleUpdateStatus = async (item: SolicitudUniversal, newStatus: string) => {
+    let collectionName = '';
+    if (item._tipo === 'pasajeros') collectionName = 'cotizaciones';
+    else if (item._tipo === 'asesor') collectionName = 'solicitudes_asesor';
+    else if (item._tipo === 'custodia') collectionName = 'envios';
+
+    const docRef = doc(db, collectionName, item.id);
     try {
       await updateDoc(docRef, { estado: newStatus });
       
-      if (newStatus === 'descartado') {
-        // --- LÓGICA DE REINICIO DE BOT (MODO AGENTE) ---
-        // Se formatea el JID para WhatsApp (ej: 573001234567@s.whatsapp.net)
-        const cleanPhone = (telefono || '').replace(/\D/g, '');
-        if (cleanPhone) {
-          const fullDigits = cleanPhone.startsWith('57') ? cleanPhone : '57' + cleanPhone;
-          const botControlJid = `${fullDigits}@s.whatsapp.net`;
-          // Se elimina el documento de control para que el bot vuelva a responder
-          await deleteDoc(doc(db, 'modo_agente', botControlJid)).catch(() => {});
-        }
-        // ----------------------------------------------
-
-        await deleteDoc(doc(db, 'sesiones_nova', jid)).catch(() => {});
-        const convSnap = await getDocs(query(collection(db, 'conversaciones'), where('jid', '==', jid)));
-        const deletePromises = convSnap.docs.map(d => deleteDoc(d.ref));
-        await Promise.all(deletePromises);
+      if (newStatus === 'descartado' && item.jid) {
+        // Lógica de limpieza de bot si aplica
+        await deleteDoc(doc(db, 'sesiones_nova', item.jid)).catch(() => {});
       }
 
-      toast({ title: "Estado Actualizado", description: `La solicitud ahora está en estado ${newStatus}.` });
+      toast({ title: "Estado Actualizado", description: `La solicitud de ${item._tipo} ha cambiado a ${newStatus}.` });
     } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el estado correctamente." });
-    }
-  };
-
-  const getStatusBadge = (estado: string) => {
-    switch (estado) {
-      case 'pendiente':
-        return <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 border-orange-200 text-[10px] px-1.5 py-0">PEND</Badge>;
-      case 'contactado':
-      case 'atendido':
-        return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200 text-[10px] px-1.5 py-0">CONT</Badge>;
-      case 'programado':
-        return <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200 text-[10px] px-1.5 py-0">PROG</Badge>;
-      case 'descartado':
-        return <Badge className="bg-slate-100 text-slate-500 hover:bg-slate-100 border-slate-200 text-[10px] px-1.5 py-0">DESC</Badge>;
-      default:
-        return <Badge variant="outline" className="text-[10px] px-1.5 py-0 uppercase">{estado}</Badge>;
+      toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el estado." });
     }
   };
 
@@ -149,14 +155,14 @@ export default function CotizacionesPage() {
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
         <div>
           <h1 className="text-xl sm:text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
-            Solicitudes Nova
+            Bandeja Nova
             {pendingCount > 0 && (
-              <Badge className="bg-orange-500 text-white font-black px-2 py-0.5 text-xs sm:text-sm rounded-lg">
+              <Badge className="bg-orange-500 text-white font-black px-2 py-0.5 text-xs sm:text-sm rounded-lg shadow-lg shadow-orange-100">
                 {pendingCount} PENDIENTES
               </Badge>
             )}
           </h1>
-          <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">Gestione cotizaciones y solicitudes de atención personalizada.</p>
+          <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1 uppercase tracking-widest">Centro de Control Universal J&J Connect</p>
         </div>
       </header>
 
@@ -164,7 +170,7 @@ export default function CotizacionesPage() {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center p-16 sm:p-24 gap-4">
             <Loader2 className="h-10 w-10 animate-spin text-orange-500" />
-            <p className="text-xs sm:text-sm font-black uppercase text-muted-foreground tracking-widest">Sincronizando solicitudes...</p>
+            <p className="text-xs sm:text-sm font-black uppercase text-muted-foreground tracking-widest">Sincronizando flujos...</p>
           </div>
         ) : todasLasSolicitudes.length === 0 ? (
           <div className="p-16 sm:p-20 text-center text-muted-foreground opacity-40">
@@ -176,10 +182,11 @@ export default function CotizacionesPage() {
             <Table className="w-full table-fixed">
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="border-b border-slate-100">
-                  <TableHead className="px-3 py-2 font-black text-[10px] uppercase text-slate-400 w-[25%]">Cliente</TableHead>
-                  <TableHead className="px-3 py-2 font-black text-[10px] uppercase text-slate-400 w-[35%]">Servicio</TableHead>
+                  <TableHead className="px-3 py-2 font-black text-[10px] uppercase text-slate-400 w-[20%]">Cliente</TableHead>
+                  <TableHead className="px-3 py-2 font-black text-[10px] uppercase text-slate-400 w-[15%]">Categoría</TableHead>
+                  <TableHead className="px-3 py-2 font-black text-[10px] uppercase text-slate-400 w-[30%]">Servicio / Ruta</TableHead>
                   <TableHead className="px-3 py-2 font-black text-[10px] uppercase text-slate-400 w-[15%]">Vehículo</TableHead>
-                  <TableHead className="px-3 py-2 font-black text-[10px] uppercase text-slate-400 text-center w-[15%]">Estado</TableHead>
+                  <TableHead className="px-3 py-2 font-black text-[10px] uppercase text-slate-400 text-center w-[10%]">Estado</TableHead>
                   <TableHead className="px-3 py-2 w-[10%]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -195,7 +202,7 @@ export default function CotizacionesPage() {
 
                   return (
                     <TableRow key={c.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-50 last:border-0">
-                      <TableCell className="px-3 py-2 align-middle">
+                      <TableCell className="px-3 py-4 align-middle">
                         <div className="flex flex-col min-w-0">
                           <p className="font-black text-slate-800 text-xs uppercase leading-tight truncate">{displayName}</p>
                           <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
@@ -203,10 +210,23 @@ export default function CotizacionesPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="px-3 py-2 align-middle">
+
+                      <TableCell className="px-3 py-4 align-middle">
+                        {c._tipo === 'custodia' ? (
+                          <Badge className="bg-orange-500 text-white border-none font-black text-[8px] uppercase tracking-tighter shadow-sm px-2">
+                            📦 Envío Blindado
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-blue-600 text-white border-none font-black text-[8px] uppercase tracking-tighter shadow-sm px-2">
+                            🚗 Pasajeros
+                          </Badge>
+                        )}
+                      </TableCell>
+
+                      <TableCell className="px-3 py-4 align-middle">
                         <div className="space-y-0.5 min-w-0">
                           <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 truncate" title={trayectoFull}>
-                            <MapPin className="h-3 w-3 text-orange-500 shrink-0" />
+                            <MapPin className={cn("h-3 w-3 shrink-0", c._tipo === 'custodia' ? "text-orange-500" : "text-blue-500")} />
                             <span className="truncate">{trayectoShort}</span>
                           </div>
                           <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase">
@@ -215,28 +235,36 @@ export default function CotizacionesPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="px-3 py-2 align-middle">
+
+                      <TableCell className="px-3 py-4 align-middle">
                         {c._tipo === 'asesor' ? (
-                          <Badge className="bg-rose-500 text-white border-none font-black text-[8px] sm:text-[9px] uppercase tracking-tighter truncate block text-center py-0.5">
+                          <Badge className="bg-rose-500 text-white border-none font-black text-[8px] uppercase tracking-tighter truncate block text-center py-0.5">
                             🙋 ASESOR
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="font-black text-[9px] uppercase border-blue-100 text-blue-600 bg-blue-50/30 truncate block text-center max-w-[80px]">
-                            {c.tipoVehiculo.split(' ')[0]}
+                          <Badge variant="outline" className="font-black text-[8px] uppercase border-slate-200 text-slate-600 bg-slate-50 truncate block text-center max-w-[90px]">
+                            {c.tipoVehiculo?.split(' ')[0] || 'Auto'}
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell className="px-3 py-2 text-center align-middle">
-                        {getStatusBadge(c.estado)}
+
+                      <TableCell className="px-3 py-4 text-center align-middle">
+                        <Badge className={cn(
+                          "text-[9px] font-black uppercase px-2 py-0.5",
+                          c.estado === 'requiere_revision_manual' ? "bg-rose-100 text-rose-700 animate-pulse" : 
+                          c.estado === 'pendiente' ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-600"
+                        )}>
+                          {c.estado === 'requiere_revision_manual' ? 'RIESGO' : c.estado}
+                        </Badge>
                       </TableCell>
-                      <TableCell className="px-3 py-2 text-right align-middle">
+
+                      <TableCell className="px-3 py-4 text-right align-middle">
                         <div className="flex items-center justify-end gap-1">
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            className="h-7 w-7 lg:w-auto lg:h-8 rounded-lg font-bold text-[10px] uppercase p-0 lg:px-3"
+                            className="h-8 w-8 lg:w-auto rounded-xl font-black text-[10px] uppercase p-0 lg:px-4 border-slate-200"
                             onClick={() => router.push(`/dashboard/whatsapp-bandeja?jid=${c.jid}`)}
-                            title="Responder"
                           >
                             <MessageSquare className="h-3 w-3 lg:mr-1.5" />
                             <span className="hidden lg:inline">Responder</span>
@@ -244,26 +272,32 @@ export default function CotizacionesPage() {
                           
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg">
-                                <MoreHorizontal className="h-3 w-3" />
+                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl">
+                                <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl shadow-xl">
-                              {c._tipo === 'cotizacion' && (
-                                <>
-                                  <DropdownMenuItem 
-                                    className="rounded-lg font-bold text-xs py-2.5 text-green-600 bg-green-50/50 mb-1"
-                                    onClick={() => router.push(`/dashboard/servicios?nombre=${encodeURIComponent(displayName)}&telefono=${cleanPhone}&origen=${encodeURIComponent(c.lugarRecogida)}&destino=${encodeURIComponent(c.destino)}&fecha=${c.fechaServicio}&hora=${c.horaRecogida}`)}
-                                  >
-                                    <PlusCircle className="mr-2 h-4 w-4" /> Crear Servicio
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                </>
+                              {c._tipo === 'pasajeros' && (
+                                <DropdownMenuItem 
+                                  className="rounded-lg font-bold text-xs py-2.5 text-green-600 bg-green-50/50 mb-1"
+                                  onClick={() => router.push(`/dashboard/servicios?nombre=${encodeURIComponent(displayName)}&telefono=${cleanPhone}&origen=${encodeURIComponent(c.lugarRecogida)}&destino=${encodeURIComponent(c.destino)}&fecha=${c.fechaServicio}&hora=${c.horaRecogida}`)}
+                                >
+                                  <PlusCircle className="mr-2 h-4 w-4" /> Crear Servicio
+                                </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem onClick={() => handleUpdateStatus(c.id, c.jid, c.telefono, c._tipo === 'asesor' ? 'atendido' : 'contactado', c._tipo)} className="rounded-lg font-bold text-xs py-2.5">
-                                <CheckCircle2 className="mr-2 h-4 w-4 text-blue-500" /> {c._tipo === 'asesor' ? 'Marcar Atendido' : 'Marcar Contactado'}
+                              {c._tipo === 'custodia' && (
+                                <DropdownMenuItem 
+                                  className="rounded-lg font-black text-xs py-2.5 text-orange-600 bg-orange-50/50 mb-1"
+                                  onClick={() => router.push(`/dashboard/custodia/envios`)}
+                                >
+                                  <ShieldCheck className="mr-2 h-4 w-4" /> Revisar Riesgo
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleUpdateStatus(c, 'atendido')} className="rounded-lg font-bold text-xs py-2.5">
+                                <CheckCircle2 className="mr-2 h-4 w-4 text-blue-500" /> Marcar Atendido
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleUpdateStatus(c.id, c.jid, c.telefono, 'descartado', c._tipo)} className="rounded-lg font-bold text-xs py-2.5 text-red-600">
+                              <DropdownMenuItem onClick={() => handleUpdateStatus(c, 'descartado')} className="rounded-lg font-bold text-xs py-2.5 text-red-600">
                                 <XCircle className="mr-2 h-4 w-4" /> Descartar
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -278,6 +312,10 @@ export default function CotizacionesPage() {
           </div>
         )}
       </Card>
+      
+      <footer className="mt-8 text-center">
+        <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.4em]">Bandeja de Control Nova v5.0 — Multicore Architecture</p>
+      </footer>
     </div>
   );
 }
