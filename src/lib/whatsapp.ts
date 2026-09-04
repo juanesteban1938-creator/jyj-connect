@@ -22,14 +22,23 @@ export async function enviarNotificacionServicio(servicio: {
 }) {
   try {
     const rawValue = servicio.clienteTelefono;
-    const phoneStr = (rawValue !== null && rawValue !== undefined) ? String(rawValue) : '';
+    const phoneStr = (rawValue !== null && rawValue !== undefined) ? String(rawValue).trim() : '';
+    
+    // Detectar si el usuario ya incluyó un prefijo internacional con el símbolo +
+    const hasExplicitPrefix = phoneStr.startsWith('+');
     let telefono = phoneStr.replace(/\D/g, '');
 
     if (!telefono || telefono.length < 7) {
       return { success: false, error: 'Teléfono del cliente inválido o vacío' };
     }
 
-    if (!telefono.startsWith('57')) {
+    /**
+     * LÓGICA DE PREFIJO INTERNACIONAL INTELIGENTE
+     * 1. Si el usuario puso '+' (ej: +1305...), el replace dejó '1305...', lo usamos tal cual.
+     * 2. Si el número tiene 10 dígitos (estándar Colombia local) y no empieza por 1 (USA) ni 57 (CO),
+     *    le agregamos el 57 por defecto para mantener la compatibilidad con ingresos rápidos.
+     */
+    if (!hasExplicitPrefix && telefono.length === 10 && !telefono.startsWith('57') && !telefono.startsWith('1')) {
       telefono = '57' + telefono;
     }
 

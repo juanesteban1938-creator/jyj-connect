@@ -137,7 +137,6 @@ function WhatsAppBandejaContent() {
           c.telefono?.replace(/\D/g, '').includes(phoneRawSearch)
         );
 
-        // Bug 1: Buscar nombre en la colección de conversaciones
         const nombreConv = messages
           .filter(m => m.jid === msg.jid && m.nombre && m.nombre !== rawPhone)
           .find(m => m.nombre)?.nombre;
@@ -148,10 +147,23 @@ function WhatsAppBandejaContent() {
                            nombreConv;
 
         const digits = rawPhone.replace(/\D/g, '');
-        const colombianDigits = digits.slice(-10);
-        const phoneDisplay = colombianDigits.length === 10
-            ? '+57 ' + colombianDigits.slice(0,3) + ' ' + colombianDigits.slice(3,6) + ' ' + colombianDigits.slice(6)
-            : '+' + rawPhone;
+        let phoneDisplay = '';
+
+        /**
+         * Lógica de visualización de número inteligente (USA vs Colombia vs Otros)
+         */
+        if (digits.length === 11 && digits.startsWith('1')) {
+          // USA Format: +1 (XXX) XXX-XXXX
+          phoneDisplay = `+1 (${digits.slice(1,4)}) ${digits.slice(4,7)}-${digits.slice(7)}`;
+        } else if (digits.length >= 12 && digits.startsWith('57')) {
+          // Colombia Format: +57 XXX XXX XXXX
+          phoneDisplay = `+57 ${digits.slice(2,5)} ${digits.slice(5,8)} ${digits.slice(8)}`;
+        } else if (digits.length === 10) {
+          // Asumir Colombia si no tiene prefijo pero tiene 10 dígitos
+          phoneDisplay = `+57 ${digits.slice(0,3)} ${digits.slice(3,6)} ${digits.slice(6)}`;
+        } else {
+          phoneDisplay = '+' + digits;
+        }
 
         groups[msg.jid] = {
           jid: msg.jid,
@@ -233,7 +245,6 @@ function WhatsAppBandejaContent() {
     }
   };
 
-  // Bug 2: Envío de fotos y documentos
   const handleEnviarArchivo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !selectedJid) return;
@@ -436,10 +447,9 @@ function WhatsAppBandejaContent() {
               })}
             </div>
 
-            {/* Input de Respuesta (Bug 3: Textarea multilínea) */}
+            {/* Input de Respuesta */}
             <footer className="p-3 sm:p-4 bg-white border-t">
               <div className="flex items-center gap-2 sm:gap-3 bg-slate-50 p-1.5 sm:p-2 rounded-2xl border">
-                {/* Bug 2: Botón de adjuntar */}
                 <div className="px-1">
                   <input 
                     type="file" 
