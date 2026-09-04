@@ -31,10 +31,9 @@ export interface Envio {
   vehiculo: 'Moto' | 'Auto' | 'Van';
   descripcion: string;
   valorDeclarado: number;
-  valorDeclaradoReal?: number; // El valor real si se usó el mínimo
+  valorDeclaradoReal?: number;
   fueValorDeclaradoOmitido: boolean;
   kmEstimados: number;
-  // Campos calculados
   costoBaseLogistico: number;
   primaRiesgo: number;
   cargoCustodia: number;
@@ -43,8 +42,11 @@ export interface Envio {
   planClasificacion: 'Esencial' | 'Seguro' | 'Corporativo';
   requiereRevisionManual: boolean;
   estado: 'programado' | 'en_transito' | 'entregado' | 'cancelado' | 'requiere_revision_manual';
-  // Asignación de personal
   conductorId?: string;
   conductorNombre?: string;
+  security_pin?: string; // PIN de 4 dígitos para entrega
+  fotoRecoleccionUrl?: string;
+  fotoEntregaUrl?: string;
   createdAt: any;
+  updatedAt?: any;
 }
