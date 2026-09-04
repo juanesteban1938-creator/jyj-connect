@@ -198,6 +198,9 @@ export default function ServiciosPage() {
     const puntosRecogidaStrings = formData.puntosRecogida.map(p => p.address);
     const puntosDestinoStrings = formData.puntosDestino.map(p => p.address);
 
+    // Unificación de prefijo y número
+    const telefonoCompleto = `${formData.prefijoTelefono}${formData.telefonoCliente.replace(/\D/g, '')}`;
+
     const payload: Servicio = {
       id: servicioId,
       consecutivo: selected?.consecutivo || `JJ-${servicios.length + 1001}`,
@@ -207,7 +210,7 @@ export default function ServiciosPage() {
       destino: puntosDestinoStrings[puntosDestinoStrings.length - 1] || '',
       puntosRecogida: puntosRecogidaStrings,
       puntosDestino: puntosDestinoStrings,
-      telefonoCliente: formData.telefonoCliente,
+      telefonoCliente: telefonoCompleto,
       emailCliente: formData.emailCliente,
       fecha: formData.fechaRecogida.toISOString(),
       hora: formData.horaRecogida,
@@ -238,7 +241,7 @@ export default function ServiciosPage() {
             nombre: formData.nombreCliente,
             razonSocial: formData.nombreCliente,
             nit: formData.nitCliente,
-            telefono: formData.telefonoCliente,
+            telefono: telefonoCompleto,
             email: formData.emailCliente,
             updatedAt: new Date().toISOString()
           }, { merge: true });

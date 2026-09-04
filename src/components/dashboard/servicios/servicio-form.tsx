@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { User, Briefcase, MapPin, Clock, Loader2, DollarSign, Mail, Calendar as CalendarIcon, Plus, Trash2 } from 'lucide-react';
+import { User, Briefcase, MapPin, Clock, Loader2, DollarSign, Mail, Calendar as CalendarIcon, Plus, Trash2, Globe } from 'lucide-react';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { format, parseISO } from 'date-fns';
@@ -35,9 +35,19 @@ const addressSchema = z.object({
   address: z.string().min(1, 'La dirección es requerida'),
 });
 
+const países = [
+  { code: '+57', label: '🇨🇴 +57', name: 'Colombia' },
+  { code: '+1', label: '🇺🇸 +1', name: 'EE.UU. / Canadá' },
+  { code: '+507', label: '🇵🇦 +507', name: 'Panamá' },
+  { code: '+52', label: '🇲🇽 +52', name: 'México' },
+  { code: '+58', label: '🇻🇪 +58', name: 'Venezuela' },
+  { code: '+34', label: '🇪🇸 +34', name: 'España' },
+];
+
 const formSchema = z.object({
     nombreCliente: z.string().min(1, 'El nombre es requerido'),
     nitCliente: z.string().min(1, 'El NIT es requerido'),
+    prefijoTelefono: z.string().default('+57'),
     telefonoCliente: z.string().min(1, 'El teléfono es requerido'),
     emailCliente: z.string().email('El correo no es válido').optional().or(z.literal('')),
     
@@ -81,6 +91,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
     defaultValues: {
       nombreCliente: '',
       nitCliente: '',
+      prefijoTelefono: '+57',
       telefonoCliente: '',
       emailCliente: '',
       esConductorNoRegistrado: false,
@@ -120,10 +131,23 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
         const pr = servicio.puntosRecogida?.map(a => ({ address: a })) || [{ address: servicio.origen || '' }];
         const pd = servicio.puntosDestino?.map(a => ({ address: a })) || [{ address: servicio.destino || '' }];
 
+        // Lógica para separar prefijo del número
+        let prefijoEncontrado = '+57';
+        let numeroLimpio = servicio.telefonoCliente || '';
+        
+        for (const p of países) {
+            if (numeroLimpio.startsWith(p.code)) {
+                prefijoEncontrado = p.code;
+                numeroLimpio = numeroLimpio.replace(p.code, '');
+                break;
+            }
+        }
+
         form.reset({
             nombreCliente: servicio.clienteNombre || servicio.cliente,
             nitCliente: servicio.nitCliente || '',
-            telefonoCliente: servicio.telefonoCliente || '',
+            prefijoTelefono: prefijoEncontrado,
+            telefonoCliente: numeroLimpio,
             emailCliente: servicio.emailCliente || '',
             fechaRecogida: servicio.fecha ? parseISO(servicio.fecha) : new Date(),
             horaRecogida: servicio.hora || '',
@@ -196,13 +220,39 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                             <FormMessage />
                         </FormItem>
                     )} />
-                    <FormField name="telefonoCliente" control={form.control} render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Teléfono de Contacto</FormLabel>
-                            <FormControl><Input placeholder="300 123 4567" {...field} className="w-full" /></FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
+                    
+                    <FormItem className="sm:col-span-1">
+                        <FormLabel>Teléfono de Contacto</FormLabel>
+                        <div className="flex gap-2">
+                            <FormField name="prefijoTelefono" control={form.control} render={({ field }) => (
+                                <FormItem className="w-[110px] shrink-0">
+                                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger className="h-10 bg-slate-50 border-slate-200">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {países.map(p => (
+                                                <SelectItem key={p.code} value={p.code} className="text-xs font-bold">
+                                                    {p.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </FormItem>
+                            )} />
+                            <FormField name="telefonoCliente" control={form.control} render={({ field }) => (
+                                <FormItem className="flex-1">
+                                    <FormControl>
+                                        <Input placeholder="300 123 4567" {...field} className="w-full" />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        </div>
+                    </FormItem>
+
                     <FormField name="emailCliente" control={form.control} render={({ field }) => (
                         <FormItem className="sm:col-span-2">
                             <FormLabel>Correo Electrónico (Para envío de CxC)</FormLabel>
