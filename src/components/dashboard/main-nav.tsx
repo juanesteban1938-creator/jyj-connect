@@ -11,15 +11,14 @@ import {
   BookText,
   Users2,
   MessageSquare,
-  ClipboardList,
   BarChart2,
   MapPin,
-  CreditCard,
   FileText,
   ShieldCheck,
   Package,
   Settings2,
   Calculator,
+  Zap,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -31,9 +30,8 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
 } from '@/components/ui/sidebar';
-import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, where, doc } from 'firebase/firestore';
-import { useMemo } from 'react';
+import { useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import type { UsuarioPanel } from '@/lib/custodia-types';
 
 export function MainNav() {
@@ -78,7 +76,8 @@ export function MainNav() {
 
   const sistemaItems = [
     { id: 'gps', href: '/dashboard/gps', label: 'Seguimiento GPS', icon: MapPin },
-    { id: 'whatsapp', href: '/dashboard/whatsapp-bandeja', label: 'Bandeja Nova', icon: MessageSquare },
+    { id: 'whatsapp_bandeja', href: '/dashboard/whatsapp-bandeja', label: 'Bandeja Nova', icon: MessageSquare },
+    { id: 'whatsapp_status', href: '/dashboard/whatsapp-status', label: 'Estado de Nova', icon: Zap },
     { id: 'usuarios', href: '/dashboard/seguridad/usuarios', label: 'Usuarios y Accesos', icon: ShieldCheck },
   ];
 

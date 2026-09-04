@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -25,6 +24,9 @@ const MODULOS = [
   { id: 'contabilidad', label: 'Finanzas - Libro Mayor' },
   { id: 'custodia_envios', label: 'Custodia - Envíos' },
   { id: 'custodia_config', label: 'Custodia - Configuración' },
+  { id: 'whatsapp_bandeja', label: 'Bandeja Nova' },
+  { id: 'whatsapp_status', label: 'Estado de Nova' },
+  { id: 'gps', label: 'Seguimiento GPS' },
 ];
 
 export default function GestionUsuariosPage() {
@@ -47,8 +49,6 @@ export default function GestionUsuariosPage() {
     if (!newUser.email || !newUser.nombre) return;
     setIsSaving(true);
     try {
-      // Nota: En una app real, aquí se llamaría a una Cloud Function para crear el usuario en Auth
-      // Por ahora, registramos el perfil en Firestore vinculándolo por email
       const userId = newUser.email.replace(/\W/g, '_');
       const docRef = doc(db, 'usuarios_panel', userId);
       
