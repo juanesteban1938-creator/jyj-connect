@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -105,15 +104,27 @@ export function EnvioForm({ envio, onSave, isSaving, onCancel }: EnvioFormProps)
 
   useEffect(() => {
     if (envio) {
+      // Detección mejorada de prefijo
       let prefijoEncontrado = '+57';
       let numeroLimpio = envio.telefonoCliente || '';
       
-      for (const p of países) {
-          if (numeroLimpio.startsWith(p.code)) {
-              prefijoEncontrado = p.code;
-              numeroLimpio = numeroLimpio.replace(p.code, '');
-              break;
-          }
+      if (numeroLimpio.startsWith('+')) {
+        for (const p of países) {
+            if (numeroLimpio.startsWith(p.code)) {
+                prefijoEncontrado = p.code;
+                numeroLimpio = numeroLimpio.substring(p.code.length);
+                break;
+            }
+        }
+      } else {
+        for (const p of países) {
+            const digits = p.code.replace('+', '');
+            if (numeroLimpio.startsWith(digits) && numeroLimpio.length > 10) {
+                prefijoEncontrado = p.code;
+                numeroLimpio = numeroLimpio.substring(digits.length);
+                break;
+            }
+        }
       }
 
       form.reset({
@@ -223,8 +234,13 @@ export function EnvioForm({ envio, onSave, isSaving, onCancel }: EnvioFormProps)
                     <div className="flex gap-2">
                       <FormField name="prefijoTelefono" control={form.control} render={({ field }) => (
                         <FormItem className="w-[100px] shrink-0">
-                          <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
-                            <FormControl><SelectTrigger className="h-11 rounded-xl bg-slate-50"><SelectValue /></SelectTrigger></FormControl>
+                          <Select 
+                            key={field.value}
+                            onValueChange={field.onChange} 
+                            value={field.value} 
+                            defaultValue={field.value}
+                          >
+                            <FormControl><SelectTrigger className="h-11 rounded-xl bg-slate-50"><SelectValue placeholder="+57" /></SelectTrigger></FormControl>
                             <SelectContent>{países.map(p => <SelectItem key={p.code} value={p.code}>{p.label}</SelectItem>)}</SelectContent>
                           </Select>
                         </FormItem>

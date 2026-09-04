@@ -131,15 +131,27 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
         const pr = servicio.puntosRecogida?.map(a => ({ address: a })) || [{ address: servicio.origen || '' }];
         const pd = servicio.puntosDestino?.map(a => ({ address: a })) || [{ address: servicio.destino || '' }];
 
-        // Lógica para separar prefijo del número
+        // Lógica de detección de prefijo robusta
         let prefijoEncontrado = '+57';
         let numeroLimpio = servicio.telefonoCliente || '';
         
-        for (const p of países) {
-            if (numeroLimpio.startsWith(p.code)) {
-                prefijoEncontrado = p.code;
-                numeroLimpio = numeroLimpio.replace(p.code, '');
-                break;
+        if (numeroLimpio.startsWith('+')) {
+            for (const p of países) {
+                if (numeroLimpio.startsWith(p.code)) {
+                    prefijoEncontrado = p.code;
+                    numeroLimpio = numeroLimpio.substring(p.code.length);
+                    break;
+                }
+            }
+        } else {
+            // Manejo de casos legacy o sin símbolo +
+            for (const p of países) {
+                const digits = p.code.replace('+', '');
+                if (numeroLimpio.startsWith(digits) && numeroLimpio.length > 10) {
+                    prefijoEncontrado = p.code;
+                    numeroLimpio = numeroLimpio.substring(digits.length);
+                    break;
+                }
             }
         }
 
@@ -157,7 +169,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
             metodoPago: servicio.metodoPago || 'Facturacion',
             valorServicio: servicio.valorServicio || 0,
             costoOperacion: servicio.costoOperacion || 0,
-            estadoPago: servicio.estadoPago as any || 'Pendiente',
+            estadoPago: (servicio.estadoPago === 'Pending' ? 'Pendiente' : servicio.estadoPago) as any || 'Pendiente',
             anticipo: servicio.anticipo || 0,
             esConductorNoRegistrado: !conductorMatched,
             conductorId: conductorMatched?.id || '',
@@ -226,10 +238,15 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                         <div className="flex gap-2">
                             <FormField name="prefijoTelefono" control={form.control} render={({ field }) => (
                                 <FormItem className="w-[110px] shrink-0">
-                                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                                    <Select 
+                                      key={field.value} // Forzar re-render cuando el valor cambia asíncronamente
+                                      onValueChange={field.onChange} 
+                                      value={field.value} 
+                                      defaultValue={field.value}
+                                    >
                                         <FormControl>
                                             <SelectTrigger className="h-10 bg-slate-50 border-slate-200">
-                                                <SelectValue />
+                                                <SelectValue placeholder="+57" />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
