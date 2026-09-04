@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -6,7 +7,7 @@ import { collection, query, orderBy, doc, setDoc, serverTimestamp, updateDoc } f
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
-import { PlusCircle, Package, Search, DollarSign, ShieldCheck, Truck, Activity } from 'lucide-react';
+import { PlusCircle, Package, Search, DollarSign, ShieldCheck, Truck, Activity, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { EnvioForm } from '@/components/dashboard/custodia/envio-form';
@@ -39,7 +40,6 @@ export default function EnvioCustodiaPage() {
 
   const { data: envios, isLoading } = useCollection<Envio>(enviosQuery);
 
-  // Lógica Matemática Estricta con Reduce
   const stats = useMemo(() => {
     if (!envios) return { total: 0, fondo: 0, costos: 0, activos: 0 };
     return envios.reduce((acc, e) => {
@@ -58,20 +58,23 @@ export default function EnvioCustodiaPage() {
   const handleSaveEnvio = async (data: any) => {
     setIsSaving(true);
     try {
-      const newId = `CUST-${Date.now()}`;
-      const docRef = doc(db!, 'envios', newId);
+      const esNuevo = !selectedEnvio;
+      const id = esNuevo ? `CUST-${Date.now()}` : selectedEnvio.id;
+      const docRef = doc(db!, 'envios', id);
       
       const payload = {
         ...data,
-        id: newId,
-        consecutivo: `#ENV-${(envios?.length || 0) + 1001}`,
-        estado: data.requiereRevisionManual ? 'requiere_revision_manual' : 'programado',
-        createdAt: serverTimestamp(),
+        id,
+        consecutivo: esNuevo ? `#ENV-${(envios?.length || 0) + 1001}` : selectedEnvio.consecutivo,
+        estado: esNuevo ? (data.requiereRevisionManual ? 'requiere_revision_manual' : 'programado') : selectedEnvio.estado,
+        createdAt: esNuevo ? serverTimestamp() : selectedEnvio.createdAt,
+        updatedAt: serverTimestamp(),
       };
 
-      await setDoc(docRef, payload);
-      toast({ title: "Envío Registrado", description: "La logística de custodia ha sido iniciada exitosamente." });
+      await setDoc(docRef, payload, { merge: true });
+      toast({ title: esNuevo ? "Envío Registrado" : "Envío Actualizado", description: "La logística de custodia ha sido sincronizada exitosamente." });
       setIsFormOpen(false);
+      setSelectedEnvio(null);
     } catch (e) {
       toast({ variant: "destructive", title: "Error", description: "No se pudo procesar el registro." });
     } finally {
@@ -92,8 +95,9 @@ export default function EnvioCustodiaPage() {
 
   const filteredEnvios = envios?.filter(e => 
     e.consecutivo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    e.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    e.destino.toLowerCase().includes(searchTerm.toLowerCase())
+    (e.descripcion || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (e.destino || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (e.clienteNombre || '').toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
   const KPICard = ({ title, value, icon: Icon, colorClass }: any) => (
@@ -122,7 +126,7 @@ export default function EnvioCustodiaPage() {
           <p className="text-slate-500 text-sm font-medium mt-1">Gestión integral de envíos blindados y transporte de valores.</p>
         </div>
         
-        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <Dialog open={isFormOpen} onOpenChange={(o) => { setIsFormOpen(o); if(!o) setSelectedEnvio(null); }}>
           <DialogTrigger asChild>
             <Button className="bg-orange-500 hover:bg-orange-600 text-white font-black uppercase text-xs h-12 px-8 rounded-2xl shadow-xl shadow-orange-200 transition-all active:scale-95">
               <PlusCircle className="h-5 w-5 mr-2" /> Nuevo Envío Blindado
@@ -130,38 +134,17 @@ export default function EnvioCustodiaPage() {
           </DialogTrigger>
           <DialogContent className="max-w-[90vw] sm:max-w-5xl lg:max-w-6xl rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl bg-slate-50">
             <div className="p-0 max-h-[90vh] overflow-y-auto">
-              <EnvioForm onSave={handleSaveEnvio} isSaving={isSaving} onCancel={() => setIsFormOpen(false)} />
+              <EnvioForm envio={selectedEnvio} onSave={handleSaveEnvio} isSaving={isSaving} onCancel={() => setIsFormOpen(false)} />
             </div>
           </DialogContent>
         </Dialog>
       </header>
 
-      {/* KPI GRID - PIXEL PERFECT REPLICA */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <KPICard 
-          title="Total Recaudado" 
-          value={currencyFormatter.format(stats.total)} 
-          icon={DollarSign} 
-          colorClass="bg-blue-500 text-blue-600"
-        />
-        <KPICard 
-          title="Fondo de Custodia" 
-          value={currencyFormatter.format(stats.fondo)} 
-          icon={ShieldCheck} 
-          colorClass="bg-emerald-500 text-emerald-600"
-        />
-        <KPICard 
-          title="Costos Operativos" 
-          value={currencyFormatter.format(stats.costos)} 
-          icon={Truck} 
-          colorClass="bg-orange-500 text-orange-600"
-        />
-        <KPICard 
-          title="Envíos Activos" 
-          value={`${stats.activos} OPS.`} 
-          icon={Activity} 
-          colorClass="bg-indigo-500 text-indigo-600"
-        />
+        <KPICard title="Total Recaudado" value={currencyFormatter.format(stats.total)} icon={DollarSign} colorClass="bg-blue-500 text-blue-600" />
+        <KPICard title="Fondo de Custodia" value={currencyFormatter.format(stats.fondo)} icon={ShieldCheck} colorClass="bg-emerald-500 text-emerald-600" />
+        <KPICard title="Costos Operativos" value={currencyFormatter.format(stats.costos)} icon={Truck} colorClass="bg-orange-500 text-orange-600" />
+        <KPICard title="Envíos Activos" value={`${stats.activos} OPS.`} icon={Activity} colorClass="bg-indigo-500 text-indigo-600" />
       </div>
 
       <Card className="rounded-[2rem] border-none shadow-sm overflow-hidden bg-white">
@@ -173,7 +156,7 @@ export default function EnvioCustodiaPage() {
             <div className="relative max-w-sm w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input 
-                placeholder="Buscar por ID o descripción..." 
+                placeholder="Buscar por ID, cliente o descripción..." 
                 className="pl-9 h-11 bg-white border-slate-200 rounded-xl focus:ring-orange-500 transition-all text-xs"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
@@ -186,6 +169,7 @@ export default function EnvioCustodiaPage() {
           data={filteredEnvios} 
           isLoading={isLoading} 
           onAsignar={(envio) => { setSelectedEnvio(envio); setIsAssignModalOpen(true); }}
+          onEditar={(envio) => { setSelectedEnvio(envio); setIsFormOpen(true); }}
           onCancelar={handleCancelar}
         />
       </Card>

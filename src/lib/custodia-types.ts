@@ -49,4 +49,9 @@ export interface Envio {
   fotoEntregaUrl?: string;
   createdAt: any;
   updatedAt?: any;
+  // Nuevos campos de cliente
+  clienteNombre?: string;
+  nitCliente?: string;
+  telefonoCliente?: string;
+  emailCliente?: string;
 }

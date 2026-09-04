@@ -22,7 +22,9 @@ import {
   XCircle,
   AlertTriangle,
   ArrowRight,
-  UserCheck
+  UserCheck,
+  Edit,
+  Phone
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -44,10 +46,11 @@ interface Props {
   data: Envio[];
   isLoading: boolean;
   onAsignar: (envio: Envio) => void;
+  onEditar: (envio: Envio) => void;
   onCancelar: (id: string) => void;
 }
 
-export function EnviosTable({ data, isLoading, onAsignar, onCancelar }: Props) {
+export function EnviosTable({ data, isLoading, onAsignar, onEditar, onCancelar }: Props) {
   
   const getStatusBadge = (estado: Envio['estado']) => {
     switch (estado) {
@@ -59,6 +62,8 @@ export function EnviosTable({ data, isLoading, onAsignar, onCancelar }: Props) {
         return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 uppercase text-[9px] font-black">Entregado</Badge>;
       case 'requiere_revision_manual':
         return <Badge className="bg-rose-100 text-rose-700 border-rose-200 uppercase text-[9px] font-black animate-pulse">Revisión Manual</Badge>;
+      case 'cancelado':
+        return <Badge variant="outline" className="bg-slate-50 text-slate-400 border-slate-200 uppercase text-[9px] font-black">Cancelado</Badge>;
       default:
         return <Badge variant="outline" className="uppercase text-[9px] font-black">{estado}</Badge>;
     }
@@ -70,10 +75,10 @@ export function EnviosTable({ data, isLoading, onAsignar, onCancelar }: Props) {
         <TableHeader className="bg-slate-50/50">
           <TableRow className="border-b border-slate-100">
             <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400">ID / Consecutivo</TableHead>
+            <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400">Cliente</TableHead>
             <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400">Fecha y Hora</TableHead>
             <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400">Ruta de Custodia</TableHead>
             <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400">Conductor</TableHead>
-            <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400 text-right">Valor Declarado</TableHead>
             <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400 text-right">Tarifa Total</TableHead>
             <TableHead className="p-5 font-black text-[10px] uppercase text-slate-400 text-center">Estado</TableHead>
             <TableHead className="w-[50px] p-5"></TableHead>
@@ -95,6 +100,17 @@ export function EnviosTable({ data, isLoading, onAsignar, onCancelar }: Props) {
                 
                 <TableCell className="p-5">
                   <div className="flex flex-col">
+                    <span className="text-xs font-black text-slate-800 uppercase truncate max-w-[150px]">
+                      {envio.clienteNombre || 'Cliente S/N'}
+                    </span>
+                    <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
+                      <Phone className="h-2.5 w-2.5" /> {envio.telefonoCliente || 'Sin teléfono'}
+                    </span>
+                  </div>
+                </TableCell>
+
+                <TableCell className="p-5">
+                  <div className="flex flex-col">
                     <span className="text-xs font-black text-slate-700 uppercase">{envio.fecha}</span>
                     <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
                       <Clock className="h-3 w-3" /> {envio.hora}
@@ -103,12 +119,10 @@ export function EnviosTable({ data, isLoading, onAsignar, onCancelar }: Props) {
                 </TableCell>
 
                 <TableCell className="p-5">
-                  <div className="flex items-center gap-2 max-w-[200px]">
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-[10px] font-black text-slate-800 truncate" title={envio.origen}>{envio.origen}</span>
-                      <ArrowRight className="h-2 w-2 text-slate-300 my-0.5" />
-                      <span className="text-[10px] font-black text-slate-500 truncate" title={envio.destino}>{envio.destino}</span>
-                    </div>
+                  <div className="flex flex-col min-w-0 max-w-[180px]">
+                    <span className="text-[10px] font-black text-slate-800 truncate" title={envio.origen}>{envio.origen}</span>
+                    <ArrowRight className="h-2 w-2 text-slate-300 my-0.5" />
+                    <span className="text-[10px] font-black text-slate-500 truncate" title={envio.destino}>{envio.destino}</span>
                   </div>
                 </TableCell>
 
@@ -118,7 +132,7 @@ export function EnviosTable({ data, isLoading, onAsignar, onCancelar }: Props) {
                       <div className="h-8 w-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-black">
                         {envio.conductorNombre.substring(0, 2).toUpperCase()}
                       </div>
-                      <span className="text-xs font-bold text-slate-700 uppercase truncate max-w-[120px]">
+                      <span className="text-xs font-bold text-slate-700 uppercase truncate max-w-[100px]">
                         {envio.conductorNombre}
                       </span>
                     </div>
@@ -127,17 +141,11 @@ export function EnviosTable({ data, isLoading, onAsignar, onCancelar }: Props) {
                       variant="outline" 
                       size="sm" 
                       onClick={() => onAsignar(envio)}
-                      className="h-8 rounded-lg border-dashed border-orange-300 text-orange-600 hover:bg-orange-50 text-[10px] font-black uppercase px-3 animate-pulse"
+                      className="h-8 rounded-lg border-dashed border-orange-300 text-orange-600 hover:bg-orange-50 text-[10px] font-black uppercase px-3"
                     >
                       <UserPlus className="h-3 w-3 mr-1.5" /> Sin Asignar
                     </Button>
                   )}
-                </TableCell>
-
-                <TableCell className="p-5 text-right">
-                  <span className="text-xs font-bold text-slate-500">
-                    {currencyFormatter.format(envio.valorDeclarado)}
-                  </span>
                 </TableCell>
 
                 <TableCell className="p-5 text-right">
@@ -158,8 +166,8 @@ export function EnviosTable({ data, isLoading, onAsignar, onCancelar }: Props) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-52 p-2 rounded-xl shadow-xl border-slate-100">
-                      <DropdownMenuItem className="rounded-lg font-bold text-xs py-2.5">
-                        <Eye className="mr-2 h-4 w-4 text-slate-400" /> Ver Detalles
+                      <DropdownMenuItem onClick={() => onEditar(envio)} className="rounded-lg font-bold text-xs py-2.5">
+                        <Edit className="mr-2 h-4 w-4 text-slate-400" /> Editar Registro
                       </DropdownMenuItem>
                       {!envio.conductorId && (
                         <DropdownMenuItem onClick={() => onAsignar(envio)} className="rounded-lg font-bold text-xs py-2.5 text-orange-600 bg-orange-50/50">
