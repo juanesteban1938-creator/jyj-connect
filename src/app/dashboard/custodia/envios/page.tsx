@@ -126,18 +126,26 @@ export default function EnvioCustodiaPage() {
           <p className="text-slate-500 text-sm font-medium mt-1">Gestión integral de envíos blindados y transporte de valores.</p>
         </div>
         
-        <Dialog open={isFormOpen} onOpenChange={(o) => { setIsFormOpen(o); if(!o) setSelectedEnvio(null); }}>
-          <DialogTrigger asChild>
-            <Button className="bg-orange-500 hover:bg-orange-600 text-white font-black uppercase text-xs h-12 px-8 rounded-2xl shadow-xl shadow-orange-200 transition-all active:scale-95">
-              <PlusCircle className="h-5 w-5 mr-2" /> Nuevo Envío Blindado
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-[90vw] sm:max-w-5xl lg:max-w-6xl rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl bg-slate-50">
-            <div className="p-0 max-h-[90vh] overflow-y-auto">
-              <EnvioForm envio={selectedEnvio} onSave={handleSaveEnvio} isSaving={isSaving} onCancel={() => setIsFormOpen(false)} />
-            </div>
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" asChild className="h-12 px-6 rounded-2xl font-black uppercase text-[10px] border-slate-200 text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
+            <a href="/conductor/envio/preview" target="_blank" rel="noopener noreferrer">
+              🔍 Simulador App Conductor
+            </a>
+          </Button>
+
+          <Dialog open={isFormOpen} onOpenChange={(o) => { setIsFormOpen(o); if(!o) setSelectedEnvio(null); }}>
+            <DialogTrigger asChild>
+              <Button className="bg-orange-500 hover:bg-orange-600 text-white font-black uppercase text-xs h-12 px-8 rounded-2xl shadow-xl shadow-orange-200 transition-all active:scale-95">
+                <PlusCircle className="h-5 w-5 mr-2" /> Nuevo Envío Blindado
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-[90vw] sm:max-w-5xl lg:max-w-6xl rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl bg-slate-50">
+              <div className="p-0 max-h-[90vh] overflow-y-auto">
+                <EnvioForm envio={selectedEnvio} onSave={handleSaveEnvio} isSaving={isSaving} onCancel={() => setIsFormOpen(false)} />
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
