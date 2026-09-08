@@ -32,6 +32,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import type { Envio } from '@/lib/custodia-types';
 import { cn } from '@/lib/utils';
@@ -254,7 +255,7 @@ export default function ConductorEnvioCustodiaPage() {
                       <p className="text-[10px] font-medium text-slate-400 uppercase italic">Entrega: {envio.nombre_remitente}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[9px] font-black uppercase text-rose-600 tracking-widest leading-none">Punto de Entrega</p>
+                      <p className="text-[9px] font-black uppercase text-rose-600 tracking-widest none">Punto de Entrega</p>
                       <p className="text-xs font-bold text-slate-800 leading-tight">{envio.destino}</p>
                       <p className="text-[10px] font-medium text-slate-400 uppercase italic">Recibe: {envio.nombre_recibe}</p>
                     </div>
@@ -392,7 +393,7 @@ export default function ConductorEnvioCustodiaPage() {
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* BOTÓN FLOTANTE: FINALIZAR */}
       <div className="absolute bottom-8 left-6 right-8 z-20">
