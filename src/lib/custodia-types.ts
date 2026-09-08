@@ -49,9 +49,12 @@ export interface Envio {
   fotoEntregaUrl?: string;
   createdAt: any;
   updatedAt?: any;
-  // Nuevos campos de cliente
+  // Campos de cliente
   clienteNombre?: string;
   nitCliente?: string;
   telefonoCliente?: string;
   emailCliente?: string;
+  // Nuevos campos de manifiesto
+  nombre_remitente?: string;
+  nombre_recibe?: string;
 }
