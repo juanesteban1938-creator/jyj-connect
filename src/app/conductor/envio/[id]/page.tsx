@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -45,6 +44,24 @@ const mapStyles = [
   { "featureType": "water", "elementType": "all", "stylers": [{ "color": "#cad2d3" }, { "visibility": "on" }] }
 ];
 
+// ── MOCK DATA PARA PRUEBAS ────────────────────────────────────────────────
+const MOCK_ENVIO: Partial<Envio> = {
+  id: 'preview',
+  consecutivo: '#PRV-9999',
+  origen: "Calle 100 # 15-20, Bogotá",
+  destino: "Cra 7 # 72-41, Bogotá",
+  descripcion: "Laptop Dell XPS 15 y Documentos Confidenciales",
+  valorDeclarado: 4500000,
+  security_pin: "1234",
+  estado: 'en_transito',
+  clienteNombre: 'Cliente de Prueba Nova',
+};
+
+const MOCK_COORDS = {
+  origen: { lat: 4.6853, lng: -74.0531 },
+  destino: { lat: 4.6565, lng: -74.0573 }
+};
+
 export default function ConductorEnvioCustodiaPage() {
   const params = useParams();
   const id = params?.id as string;
@@ -52,7 +69,11 @@ export default function ConductorEnvioCustodiaPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [currentPos, setCurrentPos] = useState<google.maps.LatLngLiteral | null>(null);
+  const isPreview = id === 'preview';
+
+  const [currentPos, setCurrentPos] = useState<google.maps.LatLngLiteral | null>(
+    isPreview ? MOCK_COORDS.origen : null
+  );
   const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
   const [eta, setEta] = useState<string | null>(null);
   const [pin, setPin] = useState(['', '', '', '']);
@@ -66,10 +87,17 @@ export default function ConductorEnvioCustodiaPage() {
     libraries: LIBRARIES
   });
 
-  const envioRef = useMemoFirebase(() => id ? doc(db, 'envios', id) : null, [db, id]);
-  const { data: envio, isLoading: loadingEnvio } = useDoc<Envio>(envioRef);
+  // 1. Referencia a Firestore (Solo si no es preview)
+  const envioRef = useMemoFirebase(() => 
+    (!isPreview && id) ? doc(db, 'envios', id) : null, 
+  [db, id, isPreview]);
 
-  // 1. Wake Lock para evitar reposo y pérdida de GPS en iOS/Android
+  const { data: firestoreEnvio, isLoading: loadingEnvio } = useDoc<Envio>(envioRef);
+
+  // Unificamos el objeto de envío (Firestore o Mock)
+  const envio = isPreview ? MOCK_ENVIO as Envio : firestoreEnvio;
+
+  // 2. Wake Lock para evitar reposo
   useEffect(() => {
     let wakeLock: any = null;
     const requestWakeLock = async () => {
@@ -83,16 +111,15 @@ export default function ConductorEnvioCustodiaPage() {
     return () => { if (wakeLock) wakeLock.release().catch(() => {}); };
   }, []);
 
-  // 2. Seguimiento de posición activa
+  // 3. Seguimiento de posición activa (Solo si NO es preview)
   useEffect(() => {
-    if (!id || !db || !envio) return;
+    if (isPreview || !id || !db || !envio) return;
 
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const newPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setCurrentPos(newPos);
         
-        // Actualizar coordenadas en el documento del envío para el radar de J&J Custodia
         if (envioRef) {
           updateDoc(envioRef, {
             lastLat: newPos.lat,
@@ -110,21 +137,19 @@ export default function ConductorEnvioCustodiaPage() {
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [id, db, envio, envioRef]);
+  }, [id, db, envio, envioRef, isPreview]);
 
-  // 3. Callback para cálculo de ruta dinámica
+  // 4. Callback para cálculo de ruta
   const directionsCallback = useCallback((result: google.maps.DirectionsResult | null, status: google.maps.DirectionsStatus) => {
     if (status === 'OK' && result) {
       setDirections(result);
       const route = result.routes[0];
       if (route && route.legs[0]) {
-        // ETA considerando tráfico Best Guess
         setEta(route.legs[0].duration_in_traffic?.text || route.legs[0].duration?.text || 'Calculando...');
       }
     }
   }, []);
 
-  // 4. Validación de PIN de Seguridad J&J
   const handlePinChange = (index: number, value: string) => {
     if (!/[0-9]/.test(value) && value !== '') return;
     const newPin = [...pin];
@@ -132,34 +157,48 @@ export default function ConductorEnvioCustodiaPage() {
     setPin(newPin);
 
     if (value !== '' && index < 3) {
-      document.getElementById(`pin-${index + 1}`)?.focus();
+      const nextInput = document.getElementById(`pin-${index + 1}`);
+      if (nextInput) nextInput.focus();
     }
 
     const fullPin = newPin.join('');
     if (fullPin.length === 4) {
-      if (fullPin === (envio?.security_pin || '1234')) {
+      const correctPin = envio?.security_pin || '1234';
+      if (fullPin === correctPin) {
         setIsPinValid(true);
         toast({ title: "PIN Verificado", description: "Protocolo de seguridad superado." });
       } else {
         toast({ variant: "destructive", title: "PIN Inválido", description: "Código de entrega incorrecto." });
         setPin(['', '', '', '']);
-        document.getElementById('pin-0')?.focus();
+        const firstInput = document.getElementById('pin-0');
+        if (firstInput) firstInput.focus();
       }
     }
   };
 
   const handleFinalize = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files?.[0] || !envioRef) return;
+    if (!e.target.files?.[0]) return;
     setIsFinalizing(true);
+    
+    if (isPreview) {
+      setTimeout(() => {
+        toast({ title: "Modo Simulador", description: "Envío finalizado exitosamente (Simulado)." });
+        setIsFinalizing(false);
+        router.push('/dashboard/custodia/envios');
+      }, 1500);
+      return;
+    }
+
     try {
-      // Simulación de entrega exitosa
-      await updateDoc(envioRef, {
-        estado: 'entregado',
-        fechaEntrega: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-      toast({ title: "Servicio Finalizado", description: "Envío entregado con éxito." });
-      router.push('/dashboard/custodia/envios');
+      if (envioRef) {
+        await updateDoc(envioRef, {
+          estado: 'entregado',
+          fechaEntrega: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        toast({ title: "Servicio Finalizado", description: "Envío entregado con éxito." });
+        router.push('/dashboard/custodia/envios');
+      }
     } catch (err) {
       toast({ variant: "destructive", title: "Error", description: "No se pudo cerrar el servicio." });
     } finally {
@@ -167,14 +206,14 @@ export default function ConductorEnvioCustodiaPage() {
     }
   };
 
-  if (loadingEnvio || !isLoaded) return (
+  if ((loadingEnvio && !isPreview) || !isLoaded) return (
     <div className="h-screen flex flex-col items-center justify-center bg-[#F3F4F6]">
       <Loader2 className="h-10 w-10 animate-spin text-[#1F3864] mb-4" />
       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Consola de Navegación Nova...</p>
     </div>
   );
 
-  if (!envio) return (
+  if (!envio && !isPreview) return (
     <div className="h-screen flex flex-col items-center justify-center p-8 text-center bg-[#F3F4F6]">
       <AlertTriangle className="h-16 w-16 text-rose-500 mb-4" />
       <h1 className="text-xl font-black uppercase text-[#1F3864]">Envío no encontrado</h1>
@@ -184,11 +223,11 @@ export default function ConductorEnvioCustodiaPage() {
 
   return (
     <div className="h-screen w-full flex flex-col bg-white overflow-hidden">
-      {/* SECCIÓN SUPERIOR: GOOGLE MAPS TÁCTICO */}
+      {/* SECCIÓN SUPERIOR: GOOGLE MAPS */}
       <div className="h-[60vh] sm:h-[65vh] relative">
         <GoogleMap
           mapContainerStyle={{ width: '100%', height: '100%' }}
-          center={currentPos || { lat: 4.6097, lng: -74.0817 }}
+          center={currentPos || MOCK_COORDS.origen}
           zoom={15}
           options={{
             disableDefaultUI: true,
@@ -196,36 +235,32 @@ export default function ConductorEnvioCustodiaPage() {
           }}
         >
           <TrafficLayer />
-          {currentPos && (
-            <DirectionsService
-              options={{
-                origin: currentPos,
-                destination: envio.destino,
-                travelMode: google.maps.TravelMode.DRIVING,
-                provideRouteAlternatives: true,
-                drivingOptions: {
-                  departureTime: new Date(),
-                  trafficModel: google.maps.TrafficModel.BEST_GUESS
-                }
-              }}
-              callback={directionsCallback}
-            />
-          )}
+          <DirectionsService
+            options={{
+              origin: currentPos || MOCK_COORDS.origen,
+              destination: envio.destino,
+              travelMode: google.maps.TravelMode.DRIVING,
+              provideRouteAlternatives: true,
+              drivingOptions: {
+                departureTime: new Date(),
+                trafficModel: google.maps.TrafficModel.BEST_GUESS
+              }
+            }}
+            callback={directionsCallback}
+          />
           {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: true }} />}
           
-          {currentPos && (
-            <Marker 
-              position={currentPos} 
-              icon={{
-                path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-                scale: 6,
-                fillColor: "#1F3864",
-                fillOpacity: 1,
-                strokeWeight: 2,
-                strokeColor: "#FFFFFF"
-              }}
-            />
-          )}
+          <Marker 
+            position={currentPos || MOCK_COORDS.origen} 
+            icon={{
+              path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+              scale: 6,
+              fillColor: "#1F3864",
+              fillOpacity: 1,
+              strokeWeight: 2,
+              strokeColor: "#FFFFFF"
+            }}
+          />
         </GoogleMap>
 
         {/* ETA FLOATING CARD */}
@@ -245,9 +280,17 @@ export default function ConductorEnvioCustodiaPage() {
             </div>
           </div>
         )}
+
+        {isPreview && (
+          <div className="absolute top-24 left-6 z-10">
+            <Badge className="bg-orange-500 text-white font-black uppercase text-[10px] px-4 py-1 rounded-full shadow-lg">
+              Modo Simulador
+            </Badge>
+          </div>
+        )}
       </div>
 
-      {/* SECCIÓN INFERIOR: PANEL OPERATIVO (BOTTOM SHEET) */}
+      {/* SECCIÓN INFERIOR: PANEL OPERATIVO */}
       <div className="flex-1 bg-white border-t rounded-t-[3rem] shadow-[0_-20px_50px_rgba(0,0,0,0.1)] z-20 px-8 pt-8 pb-10 flex flex-col">
         <div className="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-6 shrink-0" />
         
@@ -260,7 +303,7 @@ export default function ConductorEnvioCustodiaPage() {
               </div>
               <div className="text-right">
                 <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Valor Declarado</p>
-                <p className="text-lg font-mono font-bold text-[#B8860B]">$ {envio.valorDeclarado.toLocaleString('es-CO')}</p>
+                <p className="text-lg font-mono font-bold text-[#B8860B]">$ {(envio.valorDeclarado || 0).toLocaleString('es-CO')}</p>
               </div>
             </header>
 
@@ -294,6 +337,7 @@ export default function ConductorEnvioCustodiaPage() {
                     ))}
                   </div>
                   <p className="text-[9px] text-slate-400 font-medium text-center uppercase tracking-tighter">Solicite el código de 4 dígitos al destinatario.</p>
+                  {isPreview && <p className="text-[10px] text-orange-500 font-black text-center uppercase">PIN de Prueba: 1234</p>}
                 </div>
               ) : (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
