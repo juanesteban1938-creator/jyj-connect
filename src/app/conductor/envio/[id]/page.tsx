@@ -20,10 +20,9 @@ import {
   Loader2, 
   AlertTriangle,
   Clock,
-  CheckCircle2,
   Lock,
-  MapPin,
-  ChevronRight
+  ShieldAlert,
+  ChevronDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -70,6 +69,7 @@ export default function ConductorEnvioCustodiaPage() {
   const { toast } = useToast();
 
   const isPreview = id === 'preview';
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   const [currentPos, setCurrentPos] = useState<google.maps.LatLngLiteral | null>(
     isPreview ? MOCK_COORDS.origen : null
@@ -81,9 +81,9 @@ export default function ConductorEnvioCustodiaPage() {
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { isLoaded } = useJsApiLoader({
+  const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
+    googleMapsApiKey: apiKey || '',
     libraries: LIBRARIES
   });
 
@@ -99,6 +99,7 @@ export default function ConductorEnvioCustodiaPage() {
 
   // 2. Wake Lock para evitar reposo
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     let wakeLock: any = null;
     const requestWakeLock = async () => {
       try {
@@ -206,6 +207,22 @@ export default function ConductorEnvioCustodiaPage() {
     }
   };
 
+  // Validaciones de Carga y Errores de API
+  if (!apiKey || apiKey === 'tu_clave_aqui' || loadError) {
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50 p-8 text-center">
+        <ShieldAlert className="h-16 w-16 text-rose-500 mb-4" />
+        <h3 className="text-lg font-black uppercase text-slate-800 mb-2">Error de Configuración</h3>
+        <p className="text-sm text-slate-500 max-w-md mb-6">
+          La clave de Google Maps Platform no es válida o no tiene habilitado el Directions API.
+        </p>
+        <div className="bg-slate-100 p-4 rounded-xl border border-slate-200 text-[10px] font-mono text-slate-600">
+          Verifica: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        </div>
+      </div>
+    );
+  }
+
   if ((loadingEnvio && !isPreview) || !isLoaded) return (
     <div className="h-screen flex flex-col items-center justify-center bg-[#F3F4F6]">
       <Loader2 className="h-10 w-10 animate-spin text-[#1F3864] mb-4" />
@@ -239,11 +256,11 @@ export default function ConductorEnvioCustodiaPage() {
             options={{
               origin: currentPos || MOCK_COORDS.origen,
               destination: envio.destino,
-              travelMode: google.maps.TravelMode.DRIVING,
+              travelMode: 'DRIVING' as any,
               provideRouteAlternatives: true,
               drivingOptions: {
                 departureTime: new Date(),
-                trafficModel: google.maps.TrafficModel.BEST_GUESS
+                trafficModel: 'bestguess' as any
               }
             }}
             callback={directionsCallback}
@@ -253,7 +270,7 @@ export default function ConductorEnvioCustodiaPage() {
           <Marker 
             position={currentPos || MOCK_COORDS.origen} 
             icon={{
-              path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+              path: 0, // SymbolPath.FORWARD_CLOSED_ARROW
               scale: 6,
               fillColor: "#1F3864",
               fillOpacity: 1,
@@ -273,7 +290,7 @@ export default function ConductorEnvioCustodiaPage() {
                 </div>
                 <div>
                   <p className="text-[8px] font-black uppercase text-slate-400 mb-0.5">Llegada Estimada</p>
-                  <p className="text-lg font-black text-slate-800 leading-none">{eta}</p>
+                  <p className="text-lg font-black text-slate-800 leading-none font-mono">{eta}</p>
                 </div>
               </div>
               <Badge className="bg-emerald-500 text-white font-black uppercase text-[8px]">En Ruta</Badge>
@@ -291,10 +308,10 @@ export default function ConductorEnvioCustodiaPage() {
       </div>
 
       {/* SECCIÓN INFERIOR: PANEL OPERATIVO */}
-      <div className="flex-1 bg-white border-t rounded-t-[3rem] shadow-[0_-20px_50px_rgba(0,0,0,0.1)] z-20 px-8 pt-8 pb-10 flex flex-col">
-        <div className="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-6 shrink-0" />
+      <div className="flex-1 bg-white border-t rounded-t-[3rem] shadow-[0_-20px_50px_rgba(0,0,0,0.1)] z-20 px-8 pt-6 pb-10 flex flex-col">
+        <div className="w-12 h-1 bg-slate-100 rounded-full mx-auto mb-6 shrink-0" />
         
-        <ScrollArea className="flex-1">
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
           <div className="space-y-6 pb-6">
             <header className="flex justify-between items-start">
               <div className="space-y-1">
@@ -373,7 +390,7 @@ export default function ConductorEnvioCustodiaPage() {
               )}
             </div>
           </div>
-        </ScrollArea>
+        </div>
       </div>
 
       {error && (
@@ -384,7 +401,3 @@ export default function ConductorEnvioCustodiaPage() {
     </div>
   );
 }
-
-const ScrollArea = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-  <div className={cn("overflow-y-auto", className)}>{children}</div>
-);
