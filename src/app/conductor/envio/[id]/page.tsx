@@ -22,7 +22,8 @@ import {
   Clock,
   Lock,
   ShieldAlert,
-  ChevronDown
+  ChevronDown,
+  Map as MapIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -75,7 +76,7 @@ export default function ConductorEnvioCustodiaPage() {
     isPreview ? MOCK_COORDS.origen : null
   );
   const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
-  const [eta, setEta] = useState<string | null>(null);
+  const [eta, setEta] = useState<string | null>(isPreview ? '12 min' : null);
   const [pin, setPin] = useState(['', '', '', '']);
   const [isPinValid, setIsPinValid] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
@@ -207,8 +208,8 @@ export default function ConductorEnvioCustodiaPage() {
     }
   };
 
-  // Validaciones de Carga y Errores de API
-  if (!apiKey || apiKey === 'tu_clave_aqui' || loadError) {
+  // Validaciones de Carga y Errores de API (Omitidas en Preview)
+  if (!isPreview && (!apiKey || apiKey === 'tu_clave_aqui' || loadError)) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50 p-8 text-center">
         <ShieldAlert className="h-16 w-16 text-rose-500 mb-4" />
@@ -223,7 +224,7 @@ export default function ConductorEnvioCustodiaPage() {
     );
   }
 
-  if ((loadingEnvio && !isPreview) || !isLoaded) return (
+  if (!isPreview && ((loadingEnvio && !isPreview) || !isLoaded)) return (
     <div className="h-screen flex flex-col items-center justify-center bg-[#F3F4F6]">
       <Loader2 className="h-10 w-10 animate-spin text-[#1F3864] mb-4" />
       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Consola de Navegación Nova...</p>
@@ -240,45 +241,55 @@ export default function ConductorEnvioCustodiaPage() {
 
   return (
     <div className="h-screen w-full flex flex-col bg-white overflow-hidden">
-      {/* SECCIÓN SUPERIOR: GOOGLE MAPS */}
+      {/* SECCIÓN SUPERIOR: GOOGLE MAPS / PLACEHOLDER */}
       <div className="h-[60vh] sm:h-[65vh] relative">
-        <GoogleMap
-          mapContainerStyle={{ width: '100%', height: '100%' }}
-          center={currentPos || MOCK_COORDS.origen}
-          zoom={15}
-          options={{
-            disableDefaultUI: true,
-            styles: mapStyles
-          }}
-        >
-          <TrafficLayer />
-          <DirectionsService
+        {isPreview ? (
+          <div className="w-full h-full bg-slate-200 flex flex-col items-center justify-center text-slate-500 gap-4">
+             <div className="p-6 rounded-full bg-slate-300 animate-pulse">
+                <MapIcon className="h-12 w-12 text-slate-400" />
+             </div>
+             <p className="text-xl font-black uppercase tracking-tight">🗺️ Mapa Simulado (Modo Preview)</p>
+             <p className="text-[10px] font-bold uppercase opacity-60">Dirección: {envio.destino}</p>
+          </div>
+        ) : (
+          <GoogleMap
+            mapContainerStyle={{ width: '100%', height: '100%' }}
+            center={currentPos || MOCK_COORDS.origen}
+            zoom={15}
             options={{
-              origin: currentPos || MOCK_COORDS.origen,
-              destination: envio.destino,
-              travelMode: 'DRIVING' as any,
-              provideRouteAlternatives: true,
-              drivingOptions: {
-                departureTime: new Date(),
-                trafficModel: 'bestguess' as any
-              }
+              disableDefaultUI: true,
+              styles: mapStyles
             }}
-            callback={directionsCallback}
-          />
-          {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: true }} />}
-          
-          <Marker 
-            position={currentPos || MOCK_COORDS.origen} 
-            icon={{
-              path: 0, // SymbolPath.FORWARD_CLOSED_ARROW
-              scale: 6,
-              fillColor: "#1F3864",
-              fillOpacity: 1,
-              strokeWeight: 2,
-              strokeColor: "#FFFFFF"
-            }}
-          />
-        </GoogleMap>
+          >
+            <TrafficLayer />
+            <DirectionsService
+              options={{
+                origin: currentPos || MOCK_COORDS.origen,
+                destination: envio.destino,
+                travelMode: 'DRIVING' as any,
+                provideRouteAlternatives: true,
+                drivingOptions: {
+                  departureTime: new Date(),
+                  trafficModel: 'bestguess' as any
+                }
+              }}
+              callback={directionsCallback}
+            />
+            {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: true }} />}
+            
+            <Marker 
+              position={currentPos || MOCK_COORDS.origen} 
+              icon={{
+                path: 0, // SymbolPath.FORWARD_CLOSED_ARROW
+                scale: 6,
+                fillColor: "#1F3864",
+                fillOpacity: 1,
+                strokeWeight: 2,
+                strokeColor: "#FFFFFF"
+              }}
+            />
+          </GoogleMap>
+        )}
 
         {/* ETA FLOATING CARD */}
         {eta && (
