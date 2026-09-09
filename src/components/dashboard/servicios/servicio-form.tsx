@@ -125,13 +125,16 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
 
   useEffect(() => {
     if (servicio) {
-        const conductorMatched = conductores.find(c => `${c.nombres} ${c.apellidos}` === servicio.conductor);
+        // Emparejamiento por ID para mayor precisión
+        const conductorMatched = servicio.conductorId 
+            ? conductores.find(c => c.id === servicio.conductorId)
+            : conductores.find(c => `${c.nombres} ${c.apellidos}` === servicio.conductor);
+            
         const vehiculoMatched = vehiculos.find(v => v.placa === servicio.vehiculoPlaca);
 
         const pr = servicio.puntosRecogida?.map(a => ({ address: a })) || [{ address: servicio.origen || '' }];
         const pd = servicio.puntosDestino?.map(a => ({ address: a })) || [{ address: servicio.destino || '' }];
 
-        // Lógica de detección de prefijo robusta
         let prefijoEncontrado = '+57';
         let numeroLimpio = servicio.telefonoCliente || '';
         
@@ -144,7 +147,6 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                 }
             }
         } else {
-            // Manejo de casos legacy o sin símbolo +
             for (const p of países) {
                 const digits = p.code.replace('+', '');
                 if (numeroLimpio.startsWith(digits) && numeroLimpio.length > 10) {
@@ -239,7 +241,7 @@ export function ServicioForm({ servicio, onSave, onCancel, conductores, vehiculo
                             <FormField name="prefijoTelefono" control={form.control} render={({ field }) => (
                                 <FormItem className="w-[110px] shrink-0">
                                     <Select 
-                                      key={field.value} // Forzar re-render cuando el valor cambia asíncronamente
+                                      key={field.value} 
                                       onValueChange={field.onChange} 
                                       value={field.value} 
                                       defaultValue={field.value}

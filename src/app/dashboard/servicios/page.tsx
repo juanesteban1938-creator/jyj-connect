@@ -198,7 +198,6 @@ export default function ServiciosPage() {
     const puntosRecogidaStrings = formData.puntosRecogida.map(p => p.address);
     const puntosDestinoStrings = formData.puntosDestino.map(p => p.address);
 
-    // Unificación de prefijo y número
     const telefonoCompleto = `${formData.prefijoTelefono}${formData.telefonoCliente.replace(/\D/g, '')}`;
 
     const payload: Servicio = {
@@ -218,7 +217,8 @@ export default function ServiciosPage() {
       vehiculoPlaca: formData.esVehiculoNoRegistrado ? formData.vehiculoOtro : (vehiculoAsignado?.placa || ''),
       vehiculo: formData.esVehiculoNoRegistrado ? formData.vehiculoOtro : (vehiculoAsignado ? `${vehiculoAsignado.marca} ${vehiculoAsignado.linea}` : ''),
       conductor: formData.esConductorNoRegistrado ? formData.conductorOtro : (conductorAsignado ? `${conductorAsignado.nombres} ${conductorAsignado.apellidos}` : 'No asignado'),
-      conductorTelefono: formData.esConductorNoRegistrado ? formData.conductorOtro : (conductorAsignado?.telefono || ''),
+      conductorId: formData.esConductorNoRegistrado ? '' : formData.conductorId,
+      conductorTelefono: formData.esConductorNoRegistrado ? formData.conductorTelefonoOtro : (conductorAsignado?.telefono || ''),
       estado: selected?.estado || 'Programado',
       valorServicio: Number(formData.valorServicio) || 0,
       anticipo: Number(formData.anticipo) || 0,
@@ -247,7 +247,6 @@ export default function ServiciosPage() {
           }, { merge: true });
         }
         
-        // DISPARADOR CONTABLE: Causación del servicio
         if (esNuevo) {
             generarAsientoServicio(db, payload).catch(e => console.error('Error contable:', e));
         }
