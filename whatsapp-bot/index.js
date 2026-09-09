@@ -1,7 +1,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 2.4.0 (Auto-reparación y purga de sesión nuclear)
+ * Versión: 2.5.0 (Diagnóstico Google Maps y Notificaciones en camino)
  */
 
 const express = require('express');
@@ -12,6 +12,7 @@ const admin = require('firebase-admin');
 const qrcode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
+const fetch = require('node-fetch');
 
 // Inicialización de Firebase Admin
 if (!admin.apps.length) {
@@ -27,6 +28,7 @@ app.use(cors());
 
 const port = process.env.PORT || 3001;
 const API_KEY = process.env.API_KEY || 'jj-connect-2026';
+const GOOGLE_MAPS_KEY = process.env.GOOGLE_MAPS_API_KEY || ''; // Configurada en Railway
 const AUTH_PATH = path.join(__dirname, '.wwebjs_auth');
 
 let qrCodeBase64 = ''; 
@@ -34,9 +36,50 @@ let isReady = false;
 let authStatus = 'Iniciando sistema...';
 
 /**
- * Función Nuclear: Borra los archivos físicos de la sesión
- * Esto es necesario cuando WhatsApp invalida el token pero LocalAuth intenta reusarlo.
+ * FUNCIÓN DE DIAGNÓSTICO: Consulta Google Distance Matrix
+ * Obtiene distancia y tiempo estimado considerando tráfico real.
  */
+async function getGoogleDistanceMatrix(origin, destination) {
+    try {
+        if (!GOOGLE_MAPS_KEY) throw new Error('API Key de Google Maps no configurada en el servidor.');
+
+        const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origin)}&destinations=${encodeURIComponent(destination)}&mode=driving&traffic_model=best_guess&departure_time=now&key=${GOOGLE_MAPS_KEY}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.status !== 'OK') {
+            throw {
+                status: response.status,
+                message: data.error_message || data.status,
+                origin,
+                destination
+            };
+        }
+
+        const element = data.rows[0].elements[0];
+        if (element.status !== 'OK') {
+            return { distancia: 'N/A', tiempo: 'N/A' };
+        }
+
+        return {
+            distancia: element.distance.text,
+            tiempo: element.duration_in_traffic ? element.duration_in_traffic.text : element.duration.text
+        };
+
+    } catch (error) {
+        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.error('[ERROR GOOGLE MAPS API]');
+        console.error('ESTADO:', error.status || 'FETCH_ERROR');
+        console.error('MENSAJE:', error.message || 'Error desconocido al conectar con Google');
+        console.error('ORIGEN INTENTADO:', origin);
+        console.error('DESTINO INTENTADO:', destination);
+        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
+        return { distancia: 'N/A', tiempo: 'N/A' };
+    }
+}
+
 function purgarSesionCorrupta() {
     console.log('[Nova] ⚠️ INICIANDO PURGA NUCLEAR DE SESIÓN...');
     try {
@@ -64,9 +107,6 @@ const client = new Client({
     }
 });
 
-/** 
- * MOTOR CONTABLE SIMPLIFICADO (SERVER-SIDE) 
- */
 async function registrarAsientoContable(asiento) {
     try {
         const totalDebito = asiento.movimientos.filter(m => m.tipo === 'debito').reduce((a, b) => a + b.valor, 0);
@@ -153,25 +193,6 @@ client.on('message', async (msg) => {
                     ]
                 });
 
-                if (targetService.emailCliente) {
-                    await db.collection('pagos_pendientes_correo').add({
-                        servicioId: targetService.id,
-                        emailCliente: targetService.emailCliente,
-                        consecutivo: targetService.consecutivo,
-                        clienteNombre: targetService.clienteNombre || targetService.cliente,
-                        nitCliente: targetService.nitCliente || '',
-                        fechaServicio: targetService.fecha,
-                        origen: targetService.origen || '',
-                        destino: targetService.destino || '',
-                        vehiculo: targetService.vehiculo || '',
-                        conductor: targetService.conductor || '',
-                        valorTotal: valorTotal,
-                        valorPago: saldoPendiente,
-                        pendiente: true,
-                        fecha: admin.firestore.FieldValue.serverTimestamp()
-                    });
-                }
-
                 await msg.reply(`✅ *¡PAGO RECIBIDO!* 📝\n\nHe procesado tu soporte para el servicio *${targetService.consecutivo}*.\n\n💰 *Monto:* ${new Intl.NumberFormat('es-CO', {style:'currency', currency:'COP', minimumFractionDigits: 0}).format(saldoPendiente)}\n📊 *Estado:* Totalmente Pagado.\n\nEn breve recibirás la confirmación oficial en tu correo. ¡Gracias! ✨`);
             }
         } catch (err) {
@@ -220,7 +241,6 @@ client.on('auth_failure', (msg) => {
     authStatus = 'Sesión inválida. Purgando archivos...';
     qrCodeBase64 = '';
     purgarSesionCorrupta();
-    // Reiniciar inmediatamente para generar QR
     setTimeout(() => {
         client.initialize().catch(err => console.error('[Nova] Error post-auth-failure:', err.message));
     }, 5000);
@@ -231,13 +251,9 @@ client.on('disconnected', (reason) => {
     authStatus = 'Desconectado: ' + reason; 
     console.log('[Nova] Cliente desconectado. Razón:', reason);
     qrCodeBase64 = '';
-
-    // Si la razón es cierre de sesión o fallo de credenciales, limpiar archivos
     if (reason === 'LOGOUT' || reason === 'NAVIGATION_TIMEOUT') {
         purgarSesionCorrupta();
     }
-
-    // Intentar re-inicialización limpia
     setTimeout(() => {
         console.log('[Nova] Re-inicializando cliente tras desconexión...');
         client.initialize().catch(err => console.error('[Nova] Error en re-init:', err.message));
@@ -266,15 +282,10 @@ app.post('/restart', checkApiKey, async (req, res) => {
         isReady = false;
         qrCodeBase64 = '';
         authStatus = 'Reiniciando motor...';
-        
         try { await client.logout(); } catch(e) {}
         try { await client.destroy(); } catch(e) {}
-        
-        // Purgar archivos físicos antes de re-inicializar
         purgarSesionCorrupta();
-        
         client.initialize().catch(err => console.error('[Nova] Fallo en initialize post-restart:', err.message));
-        
         res.json({ success: true, message: 'Reinicio profundo con purga de archivos iniciado.' });
     } catch (error) { 
         console.error('[Nova] Error crítico en /restart:', error.message);
@@ -286,12 +297,6 @@ app.post('/send-message', checkApiKey, async (req, res) => {
     const { jid, mensaje } = req.body;
     if (!isReady) return res.status(503).json({ error: 'Nova no conectada' });
     try { await client.sendMessage(jid, mensaje); res.json({ success: true }); } catch (error) { res.status(500).json({ error: 'Error envío.' }); }
-});
-
-app.post('/send-file', checkApiKey, async (req, res) => {
-    const { jid, fileBase64, fileName, mimeType } = req.body;
-    if (!isReady) return res.status(503).json({ error: 'Nova no conectada' });
-    try { const media = new MessageMedia(mimeType, fileBase64, fileName); await client.sendMessage(jid, media); res.json({ success: true }); } catch (error) { res.status(500).json({ error: 'Error archivo.' }); }
 });
 
 app.post('/send-service-notification', checkApiKey, async (req, res) => {
@@ -307,6 +312,29 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
         await db.collection('notificaciones_whatsapp').add({ clienteNombre: data.clienteNombre, clienteTelefono: data.clienteTelefono, tipo: 'servicio_programado', mensaje: msg, estado: 'enviado', fecha: admin.firestore.FieldValue.serverTimestamp() });
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: 'Fallo envío.' }); }
+});
+
+/**
+ * ENDPOINT: Notificación de Conductor en Camino
+ * Incluye cálculo de distancia y tiempo vía Google Maps
+ */
+app.post('/notify-driver-on-way', checkApiKey, async (req, res) => {
+    const { jid, clienteNombre, origen, conductorNombre, placa, conductorLat, conductorLng } = req.body;
+    if (!isReady) return res.status(503).json({ error: 'Nova no conectada' });
+
+    try {
+        const conductorPos = `${conductorLat},${conductorLng}`;
+        // Obtener datos reales de Google Maps con el nuevo diagnóstico
+        const mapsData = await getGoogleDistanceMatrix(conductorPos, origen);
+
+        const mensaje = `🚐 *¡TU CONDUCTOR VA EN CAMINO!* 🏁\n\nHola *${clienteNombre}*, te informamos que *${conductorNombre}* ya se dirige hacia tu ubicación.\n\n📍 *Recogida en:* ${origen}\n🚐 *Vehículo:* ${placa}\n\n━━━━━━━━━━━━━━━━\n📏 *Distancia:* ${mapsData.distancia}\n⏳ *Tiempo Estimado:* ${mapsData.tiempo}\n━━━━━━━━━━━━━━━━\n\n_Nova Assistant - J&J Connect_`;
+
+        await client.sendMessage(jid, mensaje);
+        res.json({ success: true, maps: mapsData });
+    } catch (error) {
+        console.error('[Nova Notify] Error:', error.message);
+        res.status(500).json({ error: 'Fallo al enviar notificación de seguimiento.' });
+    }
 });
 
 app.listen(port, '0.0.0.0', () => {
