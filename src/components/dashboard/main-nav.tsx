@@ -64,7 +64,7 @@ export function MainNav() {
 
   const finanzasItems = [
     { id: 'analitica', href: '/dashboard/analitica', label: 'Analítica', icon: BarChart2 },
-    { id: 'rentabilidad', href: '/dashboard/rentabilidad', label: 'Rentabilidad', icon: PieChart },
+    { id: 'rentabilidad', href: '/dashboard/finanzas/rentabilidad', label: 'Rentabilidad', icon: PieChart },
     { id: 'facturacion', href: '/dashboard/facturacion', label: 'Facturación', icon: BookText },
     { id: 'contabilidad', href: '/dashboard/contabilidad', label: 'Contabilidad', icon: FileText },
   ];
@@ -73,7 +73,6 @@ export function MainNav() {
     { id: 'custodia_envios', href: '/dashboard/custodia/envios', label: 'Envíos Blindados', icon: Package },
     { id: 'custodia_cotizador', href: '/dashboard/custodia/cotizador', label: 'Cotizador de Envío', icon: Calculator },
     { id: 'custodia_parametros', href: '/dashboard/custodia/parametros', label: 'Ajuste de Tarifas', icon: Layers },
-    { id: 'custodia_config', href: '/dashboard/custodia/configuracion', label: 'Parámetros Operativos', icon: Settings2 },
   ];
 
   const sistemaItems = [
