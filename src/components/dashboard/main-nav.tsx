@@ -19,6 +19,7 @@ import {
   Settings2,
   Calculator,
   Zap,
+  Layers
 } from 'lucide-react';
 import {
   Sidebar,
@@ -71,7 +72,8 @@ export function MainNav() {
   const custodiaItems = [
     { id: 'custodia_envios', href: '/dashboard/custodia/envios', label: 'Envíos Blindados', icon: Package },
     { id: 'custodia_cotizador', href: '/dashboard/custodia/cotizador', label: 'Cotizador de Envío', icon: Calculator },
-    { id: 'custodia_config', href: '/dashboard/custodia/configuracion', label: 'Parámetros Tarifarios', icon: Settings2 },
+    { id: 'custodia_parametros', href: '/dashboard/custodia/parametros', label: 'Ajuste de Tarifas', icon: Layers },
+    { id: 'custodia_config', href: '/dashboard/custodia/configuracion', label: 'Parámetros Operativos', icon: Settings2 },
   ];
 
   const sistemaItems = [
