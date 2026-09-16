@@ -2,8 +2,8 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 3.2.0 (Ultra-Robust Firestore Auth)
- * Solución: Persistencia atómica y generación forzada de QR.
+ * Versión: 3.3.0 (Robust Reconnection & QR Flow)
+ * Solución: Reintentos infinitos y persistencia atómica en Firestore.
  */
 
 const { 
@@ -15,6 +15,7 @@ const {
     proto,
     initAuthState
 } = require('@whiskeysockets/baileys');
+const { Boom } = require('@hapi/boom');
 const express = require('express');
 const cors = require('cors');
 const puppeteer = require('puppeteer');
@@ -48,8 +49,7 @@ let connectionStatus = 'initializing';
 const logger = pino({ level: 'silent' });
 
 /**
- * ADAPTADOR DE FIREBASE PARA BAILEYS (Nivel Producción)
- * Emula un sistema de archivos en la nube para persistir llaves de cifrado.
+ * ADAPTADOR DE FIREBASE PARA BAILEYS
  */
 async function getFirestoreAuth() {
     const writeData = async (data, id) => {
@@ -84,7 +84,6 @@ async function getFirestoreAuth() {
         } catch (e) {}
     };
 
-    // Cargar credenciales guardadas o inicializar nuevas
     const creds = await readData('creds') || initAuthState().creds;
 
     return {
@@ -148,7 +147,7 @@ async function generateServiceCard(data) {
 
 // ── CONEXIÓN AL SOCKET DE WHATSAPP ──
 async function connectToWhatsApp() {
-    console.log('[Nova] 🔄 Sincronizando credenciales con Firestore...');
+    console.log('[Nova] 🔄 Iniciando motor Baileys...');
     const { state, saveCreds } = await getFirestoreAuth();
     const { version } = await fetchLatestBaileysVersion();
 
@@ -167,30 +166,40 @@ async function connectToWhatsApp() {
         
         if (qr) {
             qrCodeBase64 = await qrcode.toDataURL(qr);
-            console.log('[Nova] 📲 Código QR generado exitosamente.');
+            console.log('[Nova] 📲 NUEVO CÓDIGO QR GENERADO. Escanea desde el panel.');
         }
 
         if (connection === 'close') {
-            const reason = lastDisconnect?.error?.output?.statusCode;
-            const shouldReconnect = reason !== DisconnectReason.loggedOut;
+            const statusCode = (lastDisconnect.error instanceof Boom) 
+                ? lastDisconnect.error.output.statusCode 
+                : lastDisconnect.error?.code;
+
+            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
             
-            console.log(`[Nova] ⚠️ Conexión cerrada. Razón: ${reason}. ¿Reconectar?: ${shouldReconnect}`);
+            console.log(`[Nova] ⚠️ Conexión cerrada. Razón: ${statusCode}. ¿Reconectar?: ${shouldReconnect}`);
             
             if (shouldReconnect) {
+                // Reintento automático infinito para errores de red o servidor
                 setTimeout(connectToWhatsApp, 5000);
             } else {
-                console.log('[Nova] ❌ Sesión revocada. Purgando datos de Firestore...');
-                const docs = await authCollection.listDocuments();
-                await Promise.all(docs.map(d => d.delete()));
+                console.log('[Nova] ❌ Sesión revocada por el usuario. Limpiando Firestore...');
+                try {
+                    const snapshot = await authCollection.get();
+                    const batch = db.batch();
+                    snapshot.docs.forEach(doc => batch.delete(doc.ref));
+                    await batch.commit();
+                } catch (e) {
+                    console.error('[Purge Error]:', e.message);
+                }
                 connectionStatus = 'logged_out';
                 qrCodeBase64 = '';
-                // No matamos el proceso para permitir un nuevo ciclo de escaneo
-                setTimeout(connectToWhatsApp, 2000);
+                // Permitir nuevo ciclo de vinculación
+                setTimeout(connectToWhatsApp, 3000);
             }
         } else if (connection === 'open') {
             qrCodeBase64 = '';
             connectionStatus = 'connected';
-            console.log('[Nova] ✅ NOVA ONLINE. Conexión establecida y segura.');
+            console.log('[Nova] ✅ NOVA ONLINE. Sesión establecida exitosamente.');
         }
     });
 
@@ -205,7 +214,7 @@ async function connectToWhatsApp() {
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
         const name = msg.pushName || jid.split('@')[0];
 
-        // Registro de conversación para el panel
+        // Registro en historial
         await db.collection('conversaciones').add({
             jid,
             cuerpo: text,
@@ -214,10 +223,6 @@ async function connectToWhatsApp() {
             nombre: name,
             fecha: admin.firestore.FieldValue.serverTimestamp()
         });
-
-        if (text.toLowerCase().includes('cotizar') || text.toLowerCase().includes('valor')) {
-            await sock.sendMessage(jid, { text: '¡Hola! 👋 Soy *Nova*. Para darte una tarifa exacta necesito: origen, destino y valor declarado de la carga.' });
-        }
     });
 }
 
@@ -234,7 +239,7 @@ app.get('/status', checkApiKey, (req, res) => res.json({
 
 app.get('/qr', checkApiKey, (req, res) => {
     if (connectionStatus === 'connected') return res.json({ connected: true });
-    if (!qrCodeBase64) return res.status(202).json({ error: 'Generando QR... espera 10 segundos.' });
+    if (!qrCodeBase64) return res.status(202).json({ error: 'Generando QR... espera unos segundos.' });
     res.json({ qr: qrCodeBase64 }); 
 });
 
@@ -270,11 +275,17 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
 });
 
 app.post('/restart', checkApiKey, async (req, res) => {
-    console.log('[Nova] ⚠️ Solicitud de purga de sesión recibida.');
-    const docs = await authCollection.listDocuments();
-    await Promise.all(docs.map(d => d.delete()));
-    res.json({ message: 'Sistema purgado. Reiniciando...' });
-    process.exit(0);
+    console.log('[Nova] ⚠️ Solicitud de reinicio y purga recibida.');
+    try {
+        const snapshot = await authCollection.get();
+        const batch = db.batch();
+        snapshot.docs.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+        res.json({ message: 'Sistema purgado. Reiniciando proceso...' });
+        process.exit(0);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 app.listen(port, '0.0.0.0', () => {
