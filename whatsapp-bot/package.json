@@ -7,13 +7,14 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "whatsapp-web.js": "latest",
+    "@whiskeysockets/baileys": "^6.5.0",
     "express": "latest",
     "qrcode": "latest",
     "cors": "latest",
     "puppeteer": "latest",
     "node-cron": "latest",
     "node-fetch": "^2.6.7",
-    "firebase-admin": "latest"
+    "firebase-admin": "latest",
+    "pino": "^8.14.1"
   }
 }
