@@ -1,9 +1,8 @@
-
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 3.6.0 (Priority Healthcheck Patch)
- * Solución: /health es ahora la primera ruta registrada para evitar 404 en Railway.
+ * Versión: 3.8.0 (Railway Robustness Update)
+ * Propósito: Solución definitiva a la persistencia y generación de QR.
  */
 
 const { 
@@ -38,11 +37,9 @@ const app = express();
 
 /**
  * 🚨 PRIORIDAD ABSOLUTA: Healthcheck para Railway
- * Debe estar antes de CUALQUIER middleware para evitar interceptaciones (404).
  */
 app.get('/health', (req, res) => res.status(200).send('OK'));
 
-// Middlewares estándar
 app.use(express.json());
 app.use(cors());
 
@@ -92,7 +89,8 @@ async function getFirestoreAuth() {
         } catch (e) {}
     };
 
-    const creds = await readData('creds') || initAuthState().creds;
+    const credsData = await readData('creds');
+    const creds = credsData || initAuthState().creds;
 
     return {
         state: {
@@ -126,71 +124,38 @@ async function getFirestoreAuth() {
     };
 }
 
-// ── LÓGICA DE NEGOCIO Y NOTIFICACIONES ──
-
-async function getGoogleDistanceMatrix(origin, destination) {
-    try {
-        const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origin)}&destinations=${encodeURIComponent(destination)}&mode=driving&key=${GOOGLE_MAPS_KEY}`;
-        const res = await fetch(url);
-        const data = await res.json();
-
-        if (data.status !== 'OK') {
-            console.error('[ERROR GOOGLE MAPS API]', {
-                status: data.status,
-                message: data.error_message || 'Error desconocido en la respuesta de Google',
-                origin,
-                destination
-            });
-            return { distance: 'N/A', duration: 'N/A' };
-        }
-
-        const element = data.rows[0].elements[0];
-        if (element.status !== 'OK') {
-            console.error('[ERROR GOOGLE MAPS API]', {
-                status: element.status,
-                message: 'No se pudo calcular la ruta entre estos puntos.',
-                origin,
-                destination
-            });
-            return { distance: 'N/A', duration: 'N/A' };
-        }
-
-        return {
-            distance: element.distance.text,
-            duration: element.duration.text
-        };
-    } catch (error) {
-        console.error('[ERROR GOOGLE MAPS API]', {
-            status: error.response?.status || '500',
-            message: error.message,
-            origin,
-            destination
-        });
-        return { distance: 'N/A', duration: 'N/A' };
-    }
-}
-
+// ── GENERACIÓN DE IMÁGENES (PUPPETEER) ──
 async function generateServiceCard(data) {
     let browser;
     try {
         browser = await puppeteer.launch({ 
             headless: 'new', 
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] 
+            args: [
+                '--no-sandbox', 
+                '--disable-setuid-sandbox', 
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--disable-gpu',
+                '--no-first-run',
+                '--no-zygote',
+                '--single-process'
+            ] 
         });
         const page = await browser.newPage();
-        const html = `<html><head><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet"><style>body { font-family: 'Poppins', sans-serif; margin: 0; background: #fff; width: 600px; height: 800px; }.card { width: 560px; height: 760px; margin: 20px; border-radius: 30px; background: #1a1a1a; color: white; position: relative; overflow: hidden; }.header { background: #f97316; padding: 40px; text-align: center; }.logo { font-size: 32px; font-weight: bold; letter-spacing: 2px; }.content { padding: 40px; }.info-box { background: #333; padding: 20px; border-radius: 20px; margin-bottom: 20px; }.label { color: #f97316; font-size: 14px; text-transform: uppercase; font-weight: bold; }.value { font-size: 20px; margin-top: 5px; }.footer { position: absolute; bottom: 40px; width: 100%; text-align: center; color: #666; font-size: 12px; }</style></head><body><div class="card"><div class="header"><div class="logo">J&J CONNECT</div><div style="font-size: 14px; opacity: 0.8;">PROGRAMACIÓN DE SERVICIO</div></div><div class="content"><div class="info-box"><div class="label">🗓️ Fecha y Hora</div><div class="value">${data.fecha} - ${data.hora}</div></div><div class="info-box"><div class="label">📍 Origen</div><div class="value">${data.origen}</div></div><div class="info-box"><div class="label">🏁 Destino</div><div class="value">${data.destino}</div></div><div class="info-box"><div class="label">🚐 Vehículo y Conductor</div><div class="value">Placa: ${data.placa} / ${data.conductor}</div></div></div><div class="footer">Nova Assistant - J&J</div></div></body></html>`;
+        const html = `<html><head><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet"><style>body { font-family: 'Poppins', sans-serif; margin: 0; background: #fff; width: 600px; height: 800px; }.card { width: 560px; height: 760px; margin: 20px; border-radius: 40px; background: #0f172a; color: white; position: relative; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); }.header { background: #f97316; padding: 50px 40px; text-align: center; }.logo { font-size: 38px; font-weight: 900; letter-spacing: -1px; text-transform: uppercase; }.content { padding: 40px; }.info-box { background: rgba(255,255,255,0.05); padding: 25px; border-radius: 25px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }.label { color: #f97316; font-size: 12px; text-transform: uppercase; font-weight: 900; letter-spacing: 2px; margin-bottom: 8px; }.value { font-size: 22px; font-weight: bold; line-height: 1.2; }.footer { position: absolute; bottom: 40px; width: 100%; text-align: center; color: rgba(255,255,255,0.3); font-size: 10px; font-weight: bold; letter-spacing: 4px; text-transform: uppercase; }</style></head><body><div class="card"><div class="header"><div class="logo">J&J Connect</div><div style="font-size: 12px; font-weight: 900; margin-top: 5px; opacity: 0.8; letter-spacing: 2px;">CONFIRMACIÓN DE SERVICIO</div></div><div class="content"><div class="info-box"><div class="label">📍 Recogida</div><div class="value">${data.origen}</div></div><div class="info-box"><div class="label">🏁 Destino</div><div class="value">${data.destino}</div></div><div class="info-box"><div class="label">📅 Programación</div><div class="value">${data.fecha} — ${data.hora}</div></div><div class="info-box"><div class="label">🚐 Unidad Asignada</div><div class="value">${data.placa} / ${data.conductor}</div></div></div><div class="footer">Nova AI Assistant — v3.8</div></div></body></html>`;
         await page.setViewport({ width: 600, height: 800 });
-        await page.setContent(html);
+        await page.setContent(html, { waitUntil: 'networkidle0' });
         const buffer = await page.screenshot({ type: 'png' });
         await browser.close();
         return buffer;
     } catch (err) {
         if (browser) await browser.close();
+        console.error('[Card Gen Error]:', err.message);
         throw err;
     }
 }
 
-// ── CONEXIÓN AL SOCKET DE WHATSAPP (Baileys) ──
+// ── CONEXIÓN AL SOCKET DE WHATSAPP ──
 async function connectToWhatsApp() {
     console.log('[Nova] 🔄 Iniciando motor Baileys...');
     const { state, saveCreds } = await getFirestoreAuth();
@@ -203,7 +168,7 @@ async function connectToWhatsApp() {
         printQRInTerminal: true,
         markOnlineOnConnect: true,
         browser: ['Nova J&J', 'Chrome', '1.0.0'],
-        getMessage: async (key) => { return { conversation: 'Mensaje recuperado por Nova' } }
+        getMessage: async () => ({ conversation: 'Mensaje recuperado' })
     });
 
     sock.ev.on('connection.update', async (update) => {
@@ -211,7 +176,8 @@ async function connectToWhatsApp() {
         
         if (qr) {
             qrCodeBase64 = await qrcode.toDataURL(qr);
-            console.log('[Nova] 📲 CÓDIGO QR GENERADO.');
+            connectionStatus = 'waiting_qr';
+            console.log('[Nova] 📲 NUEVO CÓDIGO QR DISPONIBLE.');
         }
 
         if (connection === 'close') {
@@ -220,19 +186,16 @@ async function connectToWhatsApp() {
                 : lastDisconnect.error?.code;
 
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-            
-            console.log(`[Nova] ⚠️ Conexión cerrada. Reconectando: ${shouldReconnect}`);
+            console.log(`[Nova] ⚠️ Conexión cerrada (${statusCode}). Reconectando: ${shouldReconnect}`);
             
             if (shouldReconnect) {
                 setTimeout(connectToWhatsApp, 5000);
             } else {
-                console.log('[Nova] ❌ Sesión cerrada permanentemente.');
-                try {
-                    const snapshot = await authCollection.get();
-                    const batch = db.batch();
-                    snapshot.docs.forEach(doc => batch.delete(doc.ref));
-                    await batch.commit();
-                } catch (e) {}
+                console.log('[Nova] ❌ Sesión cerrada permanentemente. Purgando Firestore...');
+                const snapshot = await authCollection.get();
+                const batch = db.batch();
+                snapshot.docs.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
                 connectionStatus = 'logged_out';
                 qrCodeBase64 = '';
                 setTimeout(connectToWhatsApp, 5000);
@@ -240,7 +203,7 @@ async function connectToWhatsApp() {
         } else if (connection === 'open') {
             qrCodeBase64 = '';
             connectionStatus = 'connected';
-            console.log('[Nova] ✅ NOVA ONLINE.');
+            console.log('[Nova] ✅ SISTEMA ONLINE Y VINCULADO.');
         }
     });
 
@@ -279,20 +242,8 @@ app.get('/status', checkApiKey, (req, res) => res.json({
 
 app.get('/qr', checkApiKey, (req, res) => {
     if (connectionStatus === 'connected') return res.json({ connected: true });
-    if (!qrCodeBase64) return res.status(202).json({ error: 'Generando QR...' });
+    if (!qrCodeBase64) return res.status(202).json({ error: 'Generando...' });
     res.json({ qr: qrCodeBase64 }); 
-});
-
-app.post('/send-message', checkApiKey, async (req, res) => {
-    const { jid, mensaje } = req.body;
-    if (connectionStatus !== 'connected') return res.status(503).json({ error: 'Nova desconectada' });
-    try {
-        const cleanJid = jid.includes('@') ? jid : `${jid}@s.whatsapp.net`;
-        await sock.sendMessage(cleanJid, { text: mensaje });
-        res.json({ success: true });
-    } catch (error) { 
-        res.status(500).json({ error: 'Fallo envío: ' + error.message }); 
-    }
 });
 
 app.post('/send-service-notification', checkApiKey, async (req, res) => {
@@ -304,12 +255,20 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
         
         await sock.sendMessage(jid, { 
             image: imageBuffer, 
-            caption: `¡Hola, *${data.clienteNombre}*! 👋 Soy *Nova*.\n\nTu servicio ha sido programado con éxito.\n\n¡Gracias por elegir J&J! 🚐💨` 
+            caption: `¡Hola, *${data.clienteNombre}*! 👋 Soy *Nova*.\n\nTu servicio ha sido programado con éxito. He adjuntado tu ficha de viaje.\n\n¡Gracias por elegir J&J! 🚐💨` 
         });
         
+        await db.collection('notificaciones_whatsapp').add({
+            clienteNombre: data.clienteNombre,
+            clienteTelefono: data.clienteTelefono,
+            fecha: admin.firestore.FieldValue.serverTimestamp(),
+            estado: 'enviado',
+            tipo: 'Confirmación de Servicio'
+        });
+
         res.json({ success: true });
     } catch (error) { 
-        console.error(error);
+        console.error('[Notification Error]:', error.message);
         res.status(500).json({ error: 'Fallo envío notificación' }); 
     }
 });
@@ -320,6 +279,7 @@ app.post('/restart', checkApiKey, async (req, res) => {
         const batch = db.batch();
         snapshot.docs.forEach(doc => batch.delete(doc.ref));
         await batch.commit();
+        console.log('[Nova] 🔄 Reinicio forzado solicitado.');
         res.json({ message: 'Reiniciando...' });
         process.exit(0);
     } catch (e) {
@@ -327,7 +287,6 @@ app.post('/restart', checkApiKey, async (req, res) => {
     }
 });
 
-// ── LANZAMIENTO DEL SERVIDOR ──
 app.listen(PORT, '0.0.0.0', () => { 
     console.log('Nova Engine activo en puerto', PORT); 
     connectToWhatsApp();

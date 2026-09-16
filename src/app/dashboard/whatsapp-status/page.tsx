@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { RefreshCw, CheckCircle2, AlertCircle, PhoneIncoming, XCircle, Power, Loader2, Info } from 'lucide-react';
+import { RefreshCw, CheckCircle2, AlertCircle, PhoneIncoming, XCircle, Power, Loader2, Info, Zap } from 'lucide-react';
 import { obtenerEstadoNova, obtenerQRNova } from '@/lib/whatsapp';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
@@ -44,30 +44,25 @@ export default function WhatsAppStatusPage() {
       setStatus(data);
       
       if (data && data.connected === false) {
-        // Intentar obtener el QR si no está conectado
         const qrRes = await obtenerQRNova();
         if (qrRes && qrRes.qr) {
           setQrCode(qrRes.qr);
           setRetryCount(0);
-        } else if (qrRes && qrRes.error?.includes('202')) {
-          // El servidor está procesando el navegador
-          setRetryCount(prev => prev + 1);
         } else {
-          setQrCode(null);
+          if (!qrCode) setRetryCount(prev => prev + 1);
         }
       } else {
         setQrCode(null);
       }
     } catch (err: any) {
-      console.error('[Nova Status Page] Error:', err);
-      setStatus({ connected: false, error: 'Servidor de Nova fuera de línea o cargando.' });
+      setStatus({ connected: false, error: 'Nova Engine desconectada.' });
     } finally {
       if (isManual) setIsRefreshing(false);
     }
-  }, []);
+  }, [qrCode]);
 
   const handleRestart = async () => {
-    if (!confirm('¿Deseas reiniciar el motor de Nova? Esto limpiará la sesión corrupta en Railway y generará un QR nuevo.')) return;
+    if (!confirm('¿Deseas reiniciar el motor de Nova? Se cerrará la sesión actual y se purgarán los datos de conexión.')) return;
     setIsLoading(true);
     setQrCode(null);
     setRetryCount(0);
@@ -77,13 +72,13 @@ export default function WhatsAppStatusPage() {
         headers: { 'x-api-key': 'jj-connect-2026' }
       });
       if (response.ok) {
-        toast({ title: "Reinicio solicitado", description: "Espera unos segundos a que el servidor de Railway responda." });
-        setTimeout(() => checkStatus(), 5000);
+        toast({ title: "Nova Reiniciada", description: "Espera unos segundos para obtener un nuevo QR." });
+        setTimeout(() => checkStatus(), 8000);
       } else {
-        throw new Error('No se pudo contactar con Railway');
+        throw new Error('No se pudo contactar con el motor.');
       }
     } catch (e) {
-      toast({ variant: "destructive", title: "Error", description: "Verifica que la app en Railway esté encendida." });
+      toast({ variant: "destructive", title: "Error", description: "Verifica la conexión con Railway." });
     } finally {
       setIsLoading(false);
     }
@@ -91,19 +86,8 @@ export default function WhatsAppStatusPage() {
 
   useEffect(() => {
     checkStatus();
-    
-    const tick = () => {
-      checkStatus();
-      // Polling cada 5 segundos si no está conectado para detectar el QR rápido
-      const delay = (status?.connected) ? 30000 : 5000;
-      intervalRef.current = setTimeout(tick, delay);
-    };
-
-    const timer = setTimeout(tick, 5000);
-    return () => {
-      if (intervalRef.current) clearTimeout(intervalRef.current);
-      clearTimeout(timer);
-    };
+    const interval = setInterval(() => checkStatus(), status?.connected ? 30000 : 8000);
+    return () => clearInterval(interval);
   }, [checkStatus, status?.connected]);
 
   return (
@@ -113,7 +97,7 @@ export default function WhatsAppStatusPage() {
             <div className="h-8 w-1 bg-orange-500 rounded-full" />
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight uppercase">Estado de Nova</h1>
         </div>
-        <p className="text-slate-500 text-sm font-medium mb-8">Gestión de enlace WhatsApp y bitácora de notificaciones automáticas.</p>
+        <p className="text-slate-500 text-sm font-medium mb-8">Centro de control y diagnóstico para el enlace de WhatsApp.</p>
       </header>
 
       <div className="grid gap-6 md:grid-cols-2 mb-8">
@@ -121,9 +105,9 @@ export default function WhatsAppStatusPage() {
           <CardHeader className="bg-slate-50/50 border-b p-6">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-lg font-black uppercase tracking-tight">Conexión en Vivo</CardTitle>
+                <CardTitle className="text-lg font-black uppercase tracking-tight">Conexión Global</CardTitle>
                 <CardDescription className="text-[10px] font-bold uppercase text-slate-400 mt-1">
-                    {status?.status || 'Sincronizando estado...'}
+                    {status?.connected ? 'Sincronizado' : 'Buscando enlace...'}
                 </CardDescription>
               </div>
               <div className="flex gap-2">
@@ -132,8 +116,7 @@ export default function WhatsAppStatusPage() {
                     size="icon" 
                     onClick={handleRestart} 
                     disabled={isLoading}
-                    title="Reiniciar Sesión"
-                    className="h-10 w-10 rounded-xl text-red-600 border-red-100 hover:bg-red-50 hover:text-red-700 shadow-sm"
+                    className="h-10 w-10 rounded-xl text-red-600 border-red-100 hover:bg-red-50 shadow-sm"
                 >
                     {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Power className="h-5 w-5" />}
                 </Button>
@@ -153,24 +136,18 @@ export default function WhatsAppStatusPage() {
             <div className="flex items-center justify-center p-12 bg-slate-50 rounded-[2rem] border border-dashed border-slate-200">
               {status?.connected === true ? (
                 <div className="text-center animate-in fade-in zoom-in duration-500">
-                  <div className="relative inline-block mb-6">
-                    <CheckCircle2 className="h-20 w-20 text-emerald-500" />
-                    <span className="absolute top-0 right-0 flex h-4 w-4">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500"></span>
-                    </span>
-                  </div>
-                  <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">Sistema Operativo</h3>
-                  <p className="text-xs text-slate-500 font-medium max-w-[250px] mx-auto leading-relaxed">Nova está vinculada correctamente y procesando mensajes en tiempo real.</p>
+                  <CheckCircle2 className="h-20 w-20 text-emerald-500 mx-auto mb-6" />
+                  <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">Sistema Online</h3>
+                  <p className="text-xs text-slate-500 font-medium max-w-[250px] mx-auto leading-relaxed">Nova está procesando notificaciones y mensajes en tiempo real.</p>
                 </div>
               ) : (
-                <div className="text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="text-center">
                   <AlertCircle className="h-20 w-20 text-orange-500 mx-auto mb-6 opacity-40" />
-                  <Badge variant="destructive" className="bg-orange-100 text-orange-700 hover:bg-orange-100 border-orange-200 font-black uppercase text-[10px] px-4 py-1 rounded-full mb-4 shadow-sm">
+                  <Badge variant="destructive" className="bg-orange-100 text-orange-700 font-black uppercase text-[10px] px-4 py-1 rounded-full mb-4">
                     Desconectada
                   </Badge>
                   <p className="text-xs text-slate-500 font-medium max-w-[280px] mx-auto leading-relaxed">
-                    {status?.error || 'La comunicación con WhatsApp se ha interrumpido. Es necesario vincular el dispositivo nuevamente.'}
+                    {status?.error || 'Sin respuesta del motor central. Intenta refrescar o reiniciar el enlace.'}
                   </p>
                 </div>
               )}
@@ -182,39 +159,28 @@ export default function WhatsAppStatusPage() {
           <Card className="rounded-3xl shadow-xl border-none overflow-hidden bg-white border-2 border-orange-500/20">
             <CardHeader className="bg-orange-500 text-white p-6">
               <CardTitle className="text-lg font-black uppercase tracking-tight">Vincular Nova</CardTitle>
-              <CardDescription className="text-[10px] font-bold uppercase text-orange-100 mt-1">Escanea desde WhatsApp &gt; Dispositivos vinculados</CardDescription>
+              <CardDescription className="text-[10px] font-bold uppercase text-orange-100 mt-1">Sincroniza tu dispositivo móvil</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col items-center justify-center p-10 h-full min-h-[350px]">
               {qrCode ? (
-                <div className="relative p-6 bg-white border-4 border-slate-100 rounded-[2.5rem] shadow-2xl animate-in zoom-in-95 duration-500">
-                  <Image 
-                    src={qrCode} 
-                    alt="QR Code" 
-                    width={280} 
-                    height={280} 
-                    className="rounded-xl"
-                    unoptimized
-                  />
-                  <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] font-black uppercase px-4 py-1.5 rounded-full whitespace-nowrap shadow-xl">
-                    Código de un solo uso
+                <div className="text-center space-y-6 animate-in zoom-in-95 duration-500">
+                  <div className="relative p-4 bg-white border-4 border-slate-50 rounded-[2rem] shadow-2xl">
+                    <Image src={qrCode} alt="QR Code" width={240} height={240} className="rounded-lg" unoptimized />
                   </div>
+                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Abre WhatsApp > Dispositivos vinculados</p>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center text-center space-y-6">
-                  <div className="h-24 w-24 bg-slate-100 rounded-[2rem] flex items-center justify-center animate-pulse">
-                    <PhoneIncoming className="h-12 w-12 text-slate-300" />
+                <div className="text-center space-y-6">
+                  <div className="h-20 w-20 bg-slate-100 rounded-3xl flex items-center justify-center animate-pulse mx-auto">
+                    <Zap className="h-10 w-10 text-slate-300" />
                   </div>
                   <div>
-                    <p className="text-sm font-black text-slate-800 uppercase tracking-tight">
-                        {retryCount > 2 ? 'Lanzando Navegador...' : 'Esperando Respuesta...'}
-                    </p>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-1 max-w-[200px] mx-auto">
-                        Esto puede tardar hasta 30 segundos debido a los límites de memoria.
-                    </p>
+                    <p className="text-sm font-black text-slate-800 uppercase">Generando enlace...</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Este proceso puede tardar unos segundos</p>
                   </div>
-                  <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl border border-blue-100">
+                  <div className="flex items-center justify-center gap-2 text-blue-600">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-[9px] font-black uppercase">Pooling activo</span>
+                    <span className="text-[9px] font-black uppercase">Pooling Nova v3.6</span>
                   </div>
                 </div>
               )}
@@ -225,22 +191,22 @@ export default function WhatsAppStatusPage() {
 
       <Card className="rounded-3xl shadow-sm border-none overflow-hidden bg-white">
         <CardHeader className="bg-slate-50/50 border-b p-6">
-            <CardTitle className="text-lg font-black uppercase tracking-tight">Bitácora Nova</CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Últimos envíos registrados en el sistema</CardDescription>
+            <CardTitle className="text-lg font-black uppercase tracking-tight">Bitácora de Salida</CardTitle>
+            <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Notificaciones automáticas recientes</CardDescription>
         </CardHeader>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader className="bg-slate-50/30">
               <TableRow className="border-b border-slate-100">
-                <TableHead className="p-5 font-black text-[10px] text-slate-400 uppercase">Fecha y Hora</TableHead>
+                <TableHead className="p-5 font-black text-[10px] text-slate-400 uppercase">Fecha/Hora</TableHead>
                 <TableHead className="p-5 font-black text-[10px] text-slate-400 uppercase">Destinatario</TableHead>
-                <TableHead className="p-5 font-black text-[10px] text-slate-400 uppercase">Tipo de Mensaje</TableHead>
+                <TableHead className="p-5 font-black text-[10px] text-slate-400 uppercase">Tipo</TableHead>
                 <TableHead className="p-5 font-black text-[10px] text-slate-400 uppercase text-center">Estado</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {logs?.map((log: any) => (
-                <TableRow key={log.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-50 last:border-0">
+                <TableRow key={log.id} className="hover:bg-slate-50/50 border-b last:border-0">
                   <TableCell className="p-5">
                       <div className="flex flex-col">
                         <span className="text-xs font-black text-slate-700">{log.fecha ? format(log.fecha.toDate(), 'dd MMM yy') : '...'}</span>
@@ -249,43 +215,29 @@ export default function WhatsAppStatusPage() {
                   </TableCell>
                   <TableCell className="p-5">
                     <div className="flex flex-col">
-                        <span className="text-sm font-black text-slate-800 uppercase truncate max-w-[180px]">{log.clienteNombre || 'Usuario WhatsApp'}</span>
+                        <span className="text-sm font-black text-slate-800 uppercase">{log.clienteNombre || 'Cliente'}</span>
                         <span className="text-[10px] font-bold text-slate-400">+{log.clienteTelefono}</span>
                     </div>
                   </TableCell>
                   <TableCell className="p-5">
-                    <Badge variant="outline" className="text-[9px] font-black uppercase border-slate-200 text-slate-500 bg-slate-50">
-                      {log.tipo || 'Notificación'}
+                    <Badge variant="outline" className="text-[9px] font-black uppercase border-slate-200 text-slate-400 bg-slate-50">
+                      {log.tipo || 'Servicio'}
                     </Badge>
                   </TableCell>
                   <TableCell className="p-5 text-center">
-                    {log.estado === 'enviado' ? (
-                      <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-emerald-100 font-black text-[9px] uppercase px-3 py-0.5 rounded-md">
-                        <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> ENVIADO
-                      </Badge>
-                    ) : (
-                      <Badge variant="destructive" className="bg-rose-50 text-rose-700 hover:bg-rose-50 border-rose-100 font-black text-[9px] uppercase px-3 py-0.5 rounded-md">
-                        <XCircle className="mr-1.5 h-3.5 w-3.5" /> ERROR
-                      </Badge>
-                    )}
+                    <Badge className={cn("text-[9px] font-black uppercase px-3 py-1 rounded-md", log.estado === 'enviado' ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-rose-50 text-rose-700 border-rose-100")}>
+                      {log.estado === 'enviado' ? 'EXITOSO' : 'FALLIDO'}
+                    </Badge>
                   </TableCell>
                 </TableRow>
               ))}
               {logsLoading && (
-                <TableRow>
-                  <TableCell colSpan={4} className="p-20 text-center">
-                      <Loader2 className="h-8 w-8 animate-spin text-orange-500 mx-auto" />
-                  </TableCell>
-                </TableRow>
+                <TableRow><TableCell colSpan={4} className="p-20 text-center"><Loader2 className="h-8 w-8 animate-spin text-orange-500 mx-auto" /></TableCell></TableRow>
               )}
             </TableBody>
           </Table>
         </div>
       </Card>
-      
-      <footer className="mt-12 text-center pb-8">
-        <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.4em]">Engine: Nova Bridge v2.3.2 — J&J Connect</p>
-      </footer>
     </div>
   );
 }

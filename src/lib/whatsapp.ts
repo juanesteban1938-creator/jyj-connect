@@ -24,7 +24,6 @@ export async function enviarNotificacionServicio(servicio: {
     const rawValue = servicio.clienteTelefono;
     const phoneStr = (rawValue !== null && rawValue !== undefined) ? String(rawValue).trim() : '';
     
-    // Detectar si el usuario ya incluyó un prefijo internacional con el símbolo +
     const hasExplicitPrefix = phoneStr.startsWith('+');
     let telefono = phoneStr.replace(/\D/g, '');
 
@@ -32,12 +31,6 @@ export async function enviarNotificacionServicio(servicio: {
       return { success: false, error: 'Teléfono del cliente inválido o vacío' };
     }
 
-    /**
-     * LÓGICA DE PREFIJO INTERNACIONAL INTELIGENTE
-     * 1. Si el usuario puso '+' (ej: +1305...), el replace dejó '1305...', lo usamos tal cual.
-     * 2. Si el número tiene 10 dígitos (estándar Colombia local) y no empieza por 1 (USA) ni 57 (CO),
-     *    le agregamos el 57 por defecto para mantener la compatibilidad con ingresos rápidos.
-     */
     if (!hasExplicitPrefix && telefono.length === 10 && !telefono.startsWith('57') && !telefono.startsWith('1')) {
       telefono = '57' + telefono;
     }
@@ -61,12 +54,14 @@ export async function enviarNotificacionServicio(servicio: {
       }),
     });
 
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Error en el servidor de Nova');
+    if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || 'Error en el servidor de Nova');
+    }
     
     return { success: true };
   } catch (error: any) {
-    console.error('[Nova] Error en Bridge:', error.message);
+    // No lanzamos error fatal, devolvemos error controlado para el UI
     return { success: false, error: error.message };
   }
 }
@@ -75,17 +70,17 @@ export async function obtenerEstadoNova() {
   try {
     const response = await fetch(`${WHATSAPP_BOT_URL}/status`, {
       headers: { 'x-api-key': API_KEY },
+      signal: AbortSignal.timeout(5000) // Timeout para evitar colgar el UI
     });
     
     if (!response.ok) {
-        return { connected: false };
+        return { connected: false, error: 'Servidor no responde' };
     }
     
-    const data = await response.json();
-    return data; // Devuelve { connected: boolean }
+    return await response.json();
   } catch (error) {
-    console.error('[Nova Status] Error de conexión:', error);
-    return { connected: false };
+    // Error silencioso para el sistema de polling
+    return { connected: false, error: 'Bot fuera de línea' };
   }
 }
 
@@ -93,12 +88,14 @@ export async function obtenerQRNova() {
   try {
     const response = await fetch(`${WHATSAPP_BOT_URL}/qr`, {
       headers: { 'x-api-key': API_KEY },
+      signal: AbortSignal.timeout(10000)
     });
     
+    if (response.status === 202) return { error: 'Generando...' };
     if (!response.ok) return { error: 'No disponible' };
     
-    return await response.json(); // Devuelve { qr: 'base64...' } o { connected: true }
+    return await response.json();
   } catch {
-    return { error: 'No disponible' };
+    return { error: 'Error de red al obtener QR' };
   }
 }

@@ -9,62 +9,45 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
-        exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid)) ||
-        request.auth.token.email == 'transportes.especialesjyj@gmail.com'
+        request.auth.token.email == 'transportes.especialesjyj@gmail.com' ||
+        exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid))
       );
     }
 
-    /** @description Configuración General de Sistema */
-    match /configuracion/{id} {
+    /** @description Acceso Total Administrador */
+    match /{document=**} {
       allow read, write: if isAdmin();
     }
 
-    /** @description Perfiles de Usuario y Roles */
+    /** @description Perfiles de Usuario (Lectura básica para sesión) */
     match /usuarios_panel/{userId} {
       allow get: if isSignedIn();
       allow list, write: if isAdmin();
     }
 
-    /** @description Configuración de Custodia */
-    match /configuracion_custodia/{id} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    /** @description Envíos Blindados */
+    /** @description Envíos y Servicios (Públicos para Trackers) */
     match /envios/{id} {
-      allow read, write: if isSignedIn();
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+    
+    match /services/{serviceId} {
+      allow get: if true;
+      allow read, write: if isAdmin();
     }
 
-    /** @description Operación Pasajeros (Intacto) */
-    match /adminUsers/{userId} {
-      allow get: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
-      allow list, create, update, delete: if isAdmin();
-    }
-    match /conductores/{id} { allow read, write: if isAdmin(); }
-    match /vehiculos/{id} { allow read, write: if isAdmin(); }
-    match /clientes/{id} { allow read, write: if isAdmin(); }
-    match /services/{serviceId} {
-      allow read, write: if isAdmin();
-      allow get: if true; 
-    }
-    match /asientos_contables/{id} {
-      allow read: if isAdmin();
-      allow create: if isAdmin();
-      allow update, delete: if false; 
-    }
-    match /cierres_fiscales/{id} {
-      allow read, write: if isAdmin();
-    }
-    match /cotizaciones/{id} { allow read, write: if isAdmin(); }
-    match /solicitudes_asesor/{id} { allow read, write: if isAdmin(); }
-    match /pagos_aplicados/{id} { allow read, write: if isAdmin(); }
-    match /transacciones/{id} { allow read, write: if isAdmin(); }
     match /ubicaciones_gps/{serviceId} {
       allow get, list: if isAdmin();
       allow write: if true; 
     }
-    match /conversaciones/{id} { allow read, write: if isAdmin(); }
-    match /notificaciones_whatsapp/{id} { allow read, write: if isAdmin(); }
+    
+    match /conversaciones/{id} {
+      allow read, write: if isAdmin();
+    }
+    
+    match /notificaciones_whatsapp/{id} {
+      allow read: if isAdmin();
+      allow write: if true;
+    }
   }
 }
