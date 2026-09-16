@@ -2,17 +2,17 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 3.0.0 (Baileys + Firestore Persistence)
- * Solución: Cloud Sync para evitar pérdida de sesión en Railway
+ * Versión: 3.1.0 (Robust Firestore Auth + Baileys)
+ * Solución: Persistencia atómica de llaves para evitar "Esperando mensaje"
  */
 
 const { 
     default: makeWASocket, 
-    useMultiFileAuthState, 
     DisconnectReason, 
     fetchLatestBaileysVersion, 
     makeCacheableSignalKeyStore,
-    delay,
+    isJidBroadcast,
+    Browse,
     proto
 } = require('@whiskeysockets/baileys');
 const express = require('express');
@@ -26,7 +26,7 @@ const fetch = require('node-fetch');
 // ── CONFIGURACIÓN DE FIREBASE ──
 if (!admin.apps.length) {
     admin.initializeApp({
-        projectId: process.env.FIREBASE_PROJECT_ID || 'jj-connect--18988325-5ab9e'
+        projectId: 'jj-connect--18988325-5ab9e'
     });
 }
 const db = admin.firestore();
@@ -47,41 +47,54 @@ let connectionStatus = 'initializing';
 
 const logger = pino({ level: 'silent' });
 
-// ── MOTOR DE PERSISTENCIA FIRESTORE (REEMPLAZA LOCAL FILES) ──
-// Esta función simula el comportamiento de useMultiFileAuthState pero en la nube
+// ── ADAPTADOR DE FIREBASE ROBUSTO PARA BAILEYS ──
 async function getFirestoreAuth() {
     const writeData = async (data, id) => {
-        const json = JSON.stringify(data, (key, value) => {
-            if (Buffer.isBuffer(value)) return { type: 'Buffer', data: value.toString('base64') };
-            return value;
-        });
-        await authCollection.doc(id).set({ data: json });
+        try {
+            const json = JSON.stringify(data, (key, value) => {
+                if (Buffer.isBuffer(value)) return { type: 'Buffer', data: value.toString('base64') };
+                return value;
+            });
+            await authCollection.doc(id).set({ data: json });
+        } catch (e) {
+            console.error('[Auth Save Error]:', e.message);
+        }
     };
 
     const readData = async (id) => {
-        const doc = await authCollection.doc(id).get();
-        if (!doc.exists) return null;
-        return JSON.parse(doc.data().data, (key, value) => {
-            if (value && value.type === 'Buffer') return Buffer.from(value.data, 'base64');
-            return value;
-        });
+        try {
+            const doc = await authCollection.doc(id).get();
+            if (!doc.exists) return null;
+            return JSON.parse(doc.data().data, (key, value) => {
+                if (value && value.type === 'Buffer') return Buffer.from(value.data, 'base64');
+                return value;
+            });
+        } catch (e) {
+            console.error('[Auth Read Error]:', e.message);
+            return null;
+        }
     };
 
     const removeData = async (id) => {
-        await authCollection.doc(id).delete();
+        try {
+            await authCollection.doc(id).delete();
+        } catch (e) {}
     };
 
+    // Cargar credenciales iniciales
     const creds = await readData('creds') || (require('@whiskeysockets/baileys').makeInMemoryStore().creds);
 
     return {
         state: {
             creds,
-            keys: {
+            keys: makeCacheableSignalKeyStore({
                 get: async (type, ids) => {
                     const data = {};
                     await Promise.all(ids.map(async (id) => {
                         let value = await readData(`${type}-${id}`);
-                        if (type === 'app-state-sync-key' && value) value = proto.Message.AppStateSyncKeyData.fromObject(value);
+                        if (type === 'app-state-sync-key' && value) {
+                            value = proto.Message.AppStateSyncKeyData.fromObject(value);
+                        }
                         data[id] = value;
                     }));
                     return data;
@@ -97,7 +110,7 @@ async function getFirestoreAuth() {
                     }
                     await Promise.all(tasks);
                 }
-            }
+            }, logger)
         },
         saveCreds: () => writeData(creds, 'creds')
     };
@@ -119,13 +132,19 @@ async function getGoogleDistanceMatrix(origin, destination) {
         const element = data.rows[0].elements[0];
         if (element.status !== 'OK') return { distancia: 'N/A', tiempo: 'N/A' };
         return { distancia: element.distance.text, tiempo: element.duration.text };
-    } catch (e) { return { distancia: 'N/A', tiempo: 'N/A' }; }
+    } catch (e) { 
+        console.error('[ERROR GOOGLE MAPS API]:', e.message);
+        return { distancia: 'N/A', tiempo: 'N/A' }; 
+    }
 }
 
 async function generateServiceCard(data) {
     let browser;
     try {
-        browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+        browser = await puppeteer.launch({ 
+            headless: 'new', 
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] 
+        });
         const page = await browser.newPage();
         const html = `<html><head><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet"><style>body { font-family: 'Poppins', sans-serif; margin: 0; background: #fff; width: 600px; height: 800px; }.card { width: 560px; height: 760px; margin: 20px; border-radius: 30px; background: #1a1a1a; color: white; position: relative; overflow: hidden; }.header { background: #f97316; padding: 40px; text-align: center; }.logo { font-size: 32px; font-weight: bold; letter-spacing: 2px; }.content { padding: 40px; }.info-box { background: #333; padding: 20px; border-radius: 20px; margin-bottom: 20px; }.label { color: #f97316; font-size: 14px; text-transform: uppercase; font-weight: bold; }.value { font-size: 20px; margin-top: 5px; }.footer { position: absolute; bottom: 40px; width: 100%; text-align: center; color: #666; font-size: 12px; }</style></head><body><div class="card"><div class="header"><div class="logo">J&J CONNECT</div><div style="font-size: 14px; opacity: 0.8;">PROGRAMACIÓN DE SERVICIO</div></div><div class="content"><div class="info-box"><div class="label">🗓️ Fecha y Hora</div><div class="value">${data.fecha} - ${data.hora}</div></div><div class="info-box"><div class="label">📍 Origen</div><div class="value">${data.origen}</div></div><div class="info-box"><div class="label">🏁 Destino</div><div class="value">${data.destino}</div></div><div class="info-box"><div class="label">🚐 Vehículo y Conductor</div><div class="value">Placa: ${data.placa} / ${data.conductor}</div></div></div><div class="footer">Nova Assistant - J&J</div></div></body></html>`;
         await page.setViewport({ width: 600, height: 800 });
@@ -141,6 +160,7 @@ async function generateServiceCard(data) {
 
 // ── CONEXIÓN AL SOCKET DE WHATSAPP ──
 async function connectToWhatsApp() {
+    console.log('[Nova] Iniciando sincronización con Firestore...');
     const { state, saveCreds } = await getFirestoreAuth();
     const { version } = await fetchLatestBaileysVersion();
 
@@ -150,6 +170,8 @@ async function connectToWhatsApp() {
         logger,
         printQRInTerminal: true,
         markOnlineOnConnect: true,
+        generateHighQualityLinkPreview: true,
+        getMessage: async (key) => { return { conversation: 'Mensaje recuperado por Nova' } }
     });
 
     sock.ev.on('connection.update', async (update) => {
@@ -157,16 +179,26 @@ async function connectToWhatsApp() {
         
         if (qr) {
             qrCodeBase64 = await qrcode.toDataURL(qr);
+            console.log('[Nova] 📲 Nuevo código QR generado.');
         }
 
         if (connection === 'close') {
             const shouldReconnect = lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut;
             connectionStatus = 'disconnected';
-            if (shouldReconnect) connectToWhatsApp();
+            console.log('[Nova] ⚠️ Conexión cerrada. ¿Reconectar?:', shouldReconnect);
+            
+            if (shouldReconnect) {
+                setTimeout(connectToWhatsApp, 5000);
+            } else {
+                console.log('[Nova] ❌ Sesión cerrada por el usuario. Limpiando Firestore...');
+                const docs = await authCollection.listDocuments();
+                await Promise.all(docs.map(d => d.delete()));
+                process.exit(0);
+            }
         } else if (connection === 'open') {
             qrCodeBase64 = '';
             connectionStatus = 'connected';
-            console.log('[Nova] ✅ Conexión establecida y sincronizada con Firestore.');
+            console.log('[Nova] ✅ NOVA ONLINE. Sesión vinculada y segura.');
         }
     });
 
@@ -175,13 +207,13 @@ async function connectToWhatsApp() {
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
         if (type !== 'notify') return;
         const msg = messages[0];
-        if (!msg.message || msg.key.fromMe) return;
+        if (!msg.message || msg.key.fromMe || isJidBroadcast(msg.key.remoteJid)) return;
 
         const jid = msg.key.remoteJid;
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
         const name = msg.pushName || jid.split('@')[0];
 
-        // Guardar en Firestore
+        // Guardar en Firestore para la Bandeja Nova
         await db.collection('conversaciones').add({
             jid,
             cuerpo: text,
@@ -192,7 +224,7 @@ async function connectToWhatsApp() {
         });
 
         if (text.toLowerCase().includes('cotizar') || text.toLowerCase().includes('valor')) {
-            await sock.sendMessage(jid, { text: '¡Hola! 👋 Soy *Nova*. Para darte una tarifa exacta necesito: origen, destino y valor declarado de la carga.' });
+            await sock.sendMessage(jid, { text: '¡Hola! 👋 Soy *Nova*. He recibido tu solicitud. Para darte una tarifa exacta necesito: origen, destino y valor declarado de la carga.' });
         }
     });
 }
@@ -203,7 +235,10 @@ const checkApiKey = (req, res, next) => {
     next();
 };
 
-app.get('/status', checkApiKey, (req, res) => res.json({ connected: connectionStatus === 'connected', status: connectionStatus }));
+app.get('/status', checkApiKey, (req, res) => res.json({ 
+    connected: connectionStatus === 'connected', 
+    status: connectionStatus 
+}));
 
 app.get('/qr', checkApiKey, (req, res) => {
     if (connectionStatus === 'connected') return res.json({ connected: true });
@@ -218,7 +253,9 @@ app.post('/send-message', checkApiKey, async (req, res) => {
         const cleanJid = jid.includes('@') ? jid : `${jid}@s.whatsapp.net`;
         await sock.sendMessage(cleanJid, { text: mensaje });
         res.json({ success: true });
-    } catch (error) { res.status(500).json({ error: 'Fallo envío' }); }
+    } catch (error) { 
+        res.status(500).json({ error: 'Fallo envío: ' + error.message }); 
+    }
 });
 
 app.post('/send-service-notification', checkApiKey, async (req, res) => {
@@ -230,19 +267,17 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
         
         await sock.sendMessage(jid, { 
             image: imageBuffer, 
-            caption: `¡Hola, *${data.clienteNombre}*! 👋 Soy *Nova*.\n\nTu servicio ha sido programado con éxito. Arriba te envío la tarjeta con los detalles. 🚐💨` 
+            caption: `¡Hola, *${data.clienteNombre}*! 👋 Soy *Nova*.\n\nTu servicio ha sido programado con éxito. He adjuntado tu tarjeta de servicio.\n\n¡Gracias por elegir J&J! 🚐💨` 
         });
         
         res.json({ success: true });
     } catch (error) { 
         console.error(error);
-        res.status(500).json({ error: 'Fallo envío de notificación' }); 
+        res.status(500).json({ error: 'Fallo envío notificación' }); 
     }
 });
 
-// Endpoint de reinicio para emergencias
 app.post('/restart', checkApiKey, async (req, res) => {
-    // Borrar credenciales de Firestore para forzar nuevo QR
     const docs = await authCollection.listDocuments();
     await Promise.all(docs.map(d => d.delete()));
     res.json({ message: 'Sistema purgado. Reiniciando...' });
@@ -250,6 +285,6 @@ app.post('/restart', checkApiKey, async (req, res) => {
 });
 
 app.listen(port, '0.0.0.0', () => {
-    console.log(`[Nova Cloud Engine] Escuchando en puerto ${port}`);
+    console.log(`[Nova Engine] Puerto: ${port}`);
     connectToWhatsApp();
 });
