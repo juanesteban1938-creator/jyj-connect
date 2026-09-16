@@ -2,8 +2,8 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 3.5.0 (Railway Network Compatibility Patch)
- * Solución: Escucha en 0.0.0.0 y puerto dinámico para pasar el Healthcheck.
+ * Versión: 3.6.0 (Priority Healthcheck Patch)
+ * Solución: /health es ahora la primera ruta registrada para evitar 404 en Railway.
  */
 
 const { 
@@ -33,13 +33,18 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 const authCollection = db.collection('whatsapp_auth_session');
 
-// ── CONFIGURACIÓN DE EXPRESS ──
+// ── INICIALIZACIÓN DE EXPRESS ──
 const app = express();
+
+/**
+ * 🚨 PRIORIDAD ABSOLUTA: Healthcheck para Railway
+ * Debe estar antes de CUALQUIER middleware para evitar interceptaciones (404).
+ */
+app.get('/health', (req, res) => res.status(200).send('OK'));
+
+// Middlewares estándar
 app.use(express.json());
 app.use(cors());
-
-// Healthcheck para Railway (Debe estar antes del listen)
-app.get('/health', (req, res) => res.status(200).send('OK'));
 
 const PORT = process.env.PORT || 3001;
 const API_KEY = process.env.API_KEY || 'jj-connect-2026';
@@ -52,7 +57,7 @@ let connectionStatus = 'initializing';
 const logger = pino({ level: 'silent' });
 
 /**
- * ADAPTADOR DE FIREBASE PARA BAILEYS
+ * ADAPTADOR DE FIREBASE PARA BAILEYS (Nube Atómica)
  */
 async function getFirestoreAuth() {
     const writeData = async (data, id) => {
@@ -185,9 +190,9 @@ async function generateServiceCard(data) {
     }
 }
 
-// ── CONEXIÓN AL SOCKET DE WHATSAPP ──
+// ── CONEXIÓN AL SOCKET DE WHATSAPP (Baileys) ──
 async function connectToWhatsApp() {
-    console.log('[Nova] 🔄 Iniciando motor Baileys con persistencia Cloud...');
+    console.log('[Nova] 🔄 Iniciando motor Baileys...');
     const { state, saveCreds } = await getFirestoreAuth();
     const { version } = await fetchLatestBaileysVersion();
 
@@ -206,7 +211,7 @@ async function connectToWhatsApp() {
         
         if (qr) {
             qrCodeBase64 = await qrcode.toDataURL(qr);
-            console.log('[Nova] 📲 NUEVO CÓDIGO QR GENERADO. Escanea desde el panel.');
+            console.log('[Nova] 📲 CÓDIGO QR GENERADO.');
         }
 
         if (connection === 'close') {
@@ -216,20 +221,18 @@ async function connectToWhatsApp() {
 
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
             
-            console.log(`[Nova] ⚠️ Conexión cerrada. Razón: ${statusCode}. Reconectando: ${shouldReconnect}`);
+            console.log(`[Nova] ⚠️ Conexión cerrada. Reconectando: ${shouldReconnect}`);
             
             if (shouldReconnect) {
                 setTimeout(connectToWhatsApp, 5000);
             } else {
-                console.log('[Nova] ❌ Sesión cerrada permanentemente. Limpiando Firestore...');
+                console.log('[Nova] ❌ Sesión cerrada permanentemente.');
                 try {
                     const snapshot = await authCollection.get();
                     const batch = db.batch();
                     snapshot.docs.forEach(doc => batch.delete(doc.ref));
                     await batch.commit();
-                } catch (e) {
-                    console.error('[Purge Error]:', e.message);
-                }
+                } catch (e) {}
                 connectionStatus = 'logged_out';
                 qrCodeBase64 = '';
                 setTimeout(connectToWhatsApp, 5000);
@@ -237,7 +240,7 @@ async function connectToWhatsApp() {
         } else if (connection === 'open') {
             qrCodeBase64 = '';
             connectionStatus = 'connected';
-            console.log('[Nova] ✅ NOVA ONLINE. Sesión cargada desde Firestore.');
+            console.log('[Nova] ✅ NOVA ONLINE.');
         }
     });
 
@@ -252,7 +255,6 @@ async function connectToWhatsApp() {
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
         const name = msg.pushName || jid.split('@')[0];
 
-        // Registro en historial para el panel administrativo
         await db.collection('conversaciones').add({
             jid,
             cuerpo: text,
@@ -313,21 +315,20 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
 });
 
 app.post('/restart', checkApiKey, async (req, res) => {
-    console.log('[Nova] ⚠️ Solicitud de reinicio y purga recibida.');
     try {
         const snapshot = await authCollection.get();
         const batch = db.batch();
         snapshot.docs.forEach(doc => batch.delete(doc.ref));
         await batch.commit();
-        res.json({ message: 'Sistema purgado. Reiniciando proceso...' });
+        res.json({ message: 'Reiniciando...' });
         process.exit(0);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
 
-// ── INICIALIZACIÓN DE SERVIDOR ──
+// ── LANZAMIENTO DEL SERVIDOR ──
 app.listen(PORT, '0.0.0.0', () => { 
-    console.log('Servidor Express activo en puerto', PORT); 
+    console.log('Nova Engine activo en puerto', PORT); 
     connectToWhatsApp();
 });
