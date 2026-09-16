@@ -2,7 +2,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 3.4.0 (Enhanced Cloud Persistence)
+ * Versión: 3.4.1 (Stability & Healthcheck Patch)
  * Solución: Persistencia atómica en Firestore y manejo de reconexión robusto.
  */
 
@@ -37,6 +37,9 @@ const authCollection = db.collection('whatsapp_auth_session');
 const app = express();
 app.use(express.json());
 app.use(cors());
+
+// Healthcheck para Railway
+app.get('/health', (req, res) => res.status(200).send('OK'));
 
 const port = process.env.PORT || 3001;
 const API_KEY = process.env.API_KEY || 'jj-connect-2026';
