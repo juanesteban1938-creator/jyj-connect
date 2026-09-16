@@ -2,8 +2,8 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 3.3.0 (Robust Reconnection & QR Flow)
- * Solución: Reintentos infinitos y persistencia atómica en Firestore.
+ * Versión: 3.4.0 (Enhanced Cloud Persistence)
+ * Solución: Persistencia atómica en Firestore y manejo de reconexión robusto.
  */
 
 const { 
@@ -50,6 +50,7 @@ const logger = pino({ level: 'silent' });
 
 /**
  * ADAPTADOR DE FIREBASE PARA BAILEYS
+ * Lee y guarda el estado de autenticación en la nube.
  */
 async function getFirestoreAuth() {
     const writeData = async (data, id) => {
@@ -118,12 +119,49 @@ async function getFirestoreAuth() {
     };
 }
 
-// ── LÓGICA DE NEGOCIO ──
-const currencyFormatter = new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    minimumFractionDigits: 0,
-});
+// ── LÓGICA DE NEGOCIO Y NOTIFICACIONES ──
+
+async function getGoogleDistanceMatrix(origin, destination) {
+    try {
+        const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origin)}&destinations=${encodeURIComponent(destination)}&mode=driving&key=${GOOGLE_MAPS_KEY}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.status !== 'OK') {
+            console.error('[ERROR GOOGLE MAPS API]', {
+                status: data.status,
+                message: data.error_message || 'Error desconocido en la respuesta de Google',
+                origin,
+                destination
+            });
+            return { distance: 'N/A', duration: 'N/A' };
+        }
+
+        const element = data.rows[0].elements[0];
+        if (element.status !== 'OK') {
+            console.error('[ERROR GOOGLE MAPS API]', {
+                status: element.status,
+                message: 'No se pudo calcular la ruta entre estos puntos.',
+                origin,
+                destination
+            });
+            return { distance: 'N/A', duration: 'N/A' };
+        }
+
+        return {
+            distance: element.distance.text,
+            duration: element.duration.text
+        };
+    } catch (error) {
+        console.error('[ERROR GOOGLE MAPS API]', {
+            status: error.response?.status || '500',
+            message: error.message,
+            origin,
+            destination
+        });
+        return { distance: 'N/A', duration: 'N/A' };
+    }
+}
 
 async function generateServiceCard(data) {
     let browser;
@@ -147,7 +185,7 @@ async function generateServiceCard(data) {
 
 // ── CONEXIÓN AL SOCKET DE WHATSAPP ──
 async function connectToWhatsApp() {
-    console.log('[Nova] 🔄 Iniciando motor Baileys...');
+    console.log('[Nova] 🔄 Iniciando motor Baileys con persistencia Cloud...');
     const { state, saveCreds } = await getFirestoreAuth();
     const { version } = await fetchLatestBaileysVersion();
 
@@ -176,13 +214,12 @@ async function connectToWhatsApp() {
 
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
             
-            console.log(`[Nova] ⚠️ Conexión cerrada. Razón: ${statusCode}. ¿Reconectar?: ${shouldReconnect}`);
+            console.log(`[Nova] ⚠️ Conexión cerrada. Razón: ${statusCode}. Reconectando: ${shouldReconnect}`);
             
             if (shouldReconnect) {
-                // Reintento automático infinito para errores de red o servidor
                 setTimeout(connectToWhatsApp, 5000);
             } else {
-                console.log('[Nova] ❌ Sesión revocada por el usuario. Limpiando Firestore...');
+                console.log('[Nova] ❌ Sesión cerrada permanentemente. Limpiando Firestore...');
                 try {
                     const snapshot = await authCollection.get();
                     const batch = db.batch();
@@ -193,13 +230,12 @@ async function connectToWhatsApp() {
                 }
                 connectionStatus = 'logged_out';
                 qrCodeBase64 = '';
-                // Permitir nuevo ciclo de vinculación
-                setTimeout(connectToWhatsApp, 3000);
+                setTimeout(connectToWhatsApp, 5000);
             }
         } else if (connection === 'open') {
             qrCodeBase64 = '';
             connectionStatus = 'connected';
-            console.log('[Nova] ✅ NOVA ONLINE. Sesión establecida exitosamente.');
+            console.log('[Nova] ✅ NOVA ONLINE. Sesión cargada desde Firestore.');
         }
     });
 
@@ -214,7 +250,7 @@ async function connectToWhatsApp() {
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
         const name = msg.pushName || jid.split('@')[0];
 
-        // Registro en historial
+        // Registro en historial para el panel administrativo
         await db.collection('conversaciones').add({
             jid,
             cuerpo: text,
@@ -239,7 +275,7 @@ app.get('/status', checkApiKey, (req, res) => res.json({
 
 app.get('/qr', checkApiKey, (req, res) => {
     if (connectionStatus === 'connected') return res.json({ connected: true });
-    if (!qrCodeBase64) return res.status(202).json({ error: 'Generando QR... espera unos segundos.' });
+    if (!qrCodeBase64) return res.status(202).json({ error: 'Generando QR...' });
     res.json({ qr: qrCodeBase64 }); 
 });
 
@@ -271,6 +307,23 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
     } catch (error) { 
         console.error(error);
         res.status(500).json({ error: 'Fallo envío notificación' }); 
+    }
+});
+
+app.post('/notify-driver-on-way', checkApiKey, async (req, res) => {
+    const { jid, origin, destination, driverName, plate } = req.body;
+    if (connectionStatus !== 'connected') return res.status(503).json({ error: 'Nova desconectada' });
+
+    const matrix = await getGoogleDistanceMatrix(origin, destination);
+    
+    const message = `🚐 *TU CONDUCTOR ESTÁ EN CAMINO*\n\nHola, tu conductor *${driverName}* (Placa: ${plate}) ya se dirige hacia tu ubicación.\n\n📍 *Distancia:* ${matrix.distance}\n⏳ *Tiempo estimado:* ${matrix.duration}\n\nPrepárate para el abordaje. ¡J&J te desea un excelente viaje! 🌟`;
+
+    try {
+        const cleanJid = jid.includes('@') ? jid : `${jid}@s.whatsapp.net`;
+        await sock.sendMessage(cleanJid, { text: message });
+        res.json({ success: true, matrix });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 
