@@ -2,8 +2,8 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 3.4.1 (Stability & Healthcheck Patch)
- * Solución: Persistencia atómica en Firestore y manejo de reconexión robusto.
+ * Versión: 3.5.0 (Railway Network Compatibility Patch)
+ * Solución: Escucha en 0.0.0.0 y puerto dinámico para pasar el Healthcheck.
  */
 
 const { 
@@ -38,10 +38,10 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Healthcheck para Railway
+// Healthcheck para Railway (Debe estar antes del listen)
 app.get('/health', (req, res) => res.status(200).send('OK'));
 
-const port = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3001;
 const API_KEY = process.env.API_KEY || 'jj-connect-2026';
 const GOOGLE_MAPS_KEY = process.env.GOOGLE_MAPS_API_KEY || ''; 
 
@@ -53,7 +53,6 @@ const logger = pino({ level: 'silent' });
 
 /**
  * ADAPTADOR DE FIREBASE PARA BAILEYS
- * Lee y guarda el estado de autenticación en la nube.
  */
 async function getFirestoreAuth() {
     const writeData = async (data, id) => {
@@ -313,23 +312,6 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
     }
 });
 
-app.post('/notify-driver-on-way', checkApiKey, async (req, res) => {
-    const { jid, origin, destination, driverName, plate } = req.body;
-    if (connectionStatus !== 'connected') return res.status(503).json({ error: 'Nova desconectada' });
-
-    const matrix = await getGoogleDistanceMatrix(origin, destination);
-    
-    const message = `🚐 *TU CONDUCTOR ESTÁ EN CAMINO*\n\nHola, tu conductor *${driverName}* (Placa: ${plate}) ya se dirige hacia tu ubicación.\n\n📍 *Distancia:* ${matrix.distance}\n⏳ *Tiempo estimado:* ${matrix.duration}\n\nPrepárate para el abordaje. ¡J&J te desea un excelente viaje! 🌟`;
-
-    try {
-        const cleanJid = jid.includes('@') ? jid : `${jid}@s.whatsapp.net`;
-        await sock.sendMessage(cleanJid, { text: message });
-        res.json({ success: true, matrix });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
 app.post('/restart', checkApiKey, async (req, res) => {
     console.log('[Nova] ⚠️ Solicitud de reinicio y purga recibida.');
     try {
@@ -344,7 +326,8 @@ app.post('/restart', checkApiKey, async (req, res) => {
     }
 });
 
-app.listen(port, '0.0.0.0', () => {
-    console.log(`[Nova Engine] Escuchando en puerto: ${port}`);
+// ── INICIALIZACIÓN DE SERVIDOR ──
+app.listen(PORT, '0.0.0.0', () => { 
+    console.log('Servidor Express activo en puerto', PORT); 
     connectToWhatsApp();
 });
