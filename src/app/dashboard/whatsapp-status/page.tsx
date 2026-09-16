@@ -167,7 +167,7 @@ export default function WhatsAppStatusPage() {
                   <div className="relative p-4 bg-white border-4 border-slate-50 rounded-[2rem] shadow-2xl">
                     <Image src={qrCode} alt="QR Code" width={240} height={240} className="rounded-lg" unoptimized />
                   </div>
-                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Abre WhatsApp > Dispositivos vinculados</p>
+                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Abre WhatsApp &gt; Dispositivos vinculados</p>
                 </div>
               ) : (
                 <div className="text-center space-y-6">
