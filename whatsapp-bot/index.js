@@ -2,8 +2,8 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 3.1.0 (Robust Firestore Auth + Baileys)
- * Solución: Persistencia atómica de llaves para evitar "Esperando mensaje"
+ * Versión: 3.2.0 (Ultra-Robust Firestore Auth)
+ * Solución: Persistencia atómica y generación forzada de QR.
  */
 
 const { 
@@ -12,8 +12,8 @@ const {
     fetchLatestBaileysVersion, 
     makeCacheableSignalKeyStore,
     isJidBroadcast,
-    Browse,
-    proto
+    proto,
+    initAuthState
 } = require('@whiskeysockets/baileys');
 const express = require('express');
 const cors = require('cors');
@@ -47,7 +47,10 @@ let connectionStatus = 'initializing';
 
 const logger = pino({ level: 'silent' });
 
-// ── ADAPTADOR DE FIREBASE ROBUSTO PARA BAILEYS ──
+/**
+ * ADAPTADOR DE FIREBASE PARA BAILEYS (Nivel Producción)
+ * Emula un sistema de archivos en la nube para persistir llaves de cifrado.
+ */
 async function getFirestoreAuth() {
     const writeData = async (data, id) => {
         try {
@@ -81,8 +84,8 @@ async function getFirestoreAuth() {
         } catch (e) {}
     };
 
-    // Cargar credenciales iniciales
-    const creds = await readData('creds') || (require('@whiskeysockets/baileys').makeInMemoryStore().creds);
+    // Cargar credenciales guardadas o inicializar nuevas
+    const creds = await readData('creds') || initAuthState().creds;
 
     return {
         state: {
@@ -116,27 +119,12 @@ async function getFirestoreAuth() {
     };
 }
 
-// ── LÓGICA DE NEGOCIO (TARIFAS Y CARTAS) ──
+// ── LÓGICA DE NEGOCIO ──
 const currencyFormatter = new Intl.NumberFormat('es-CO', {
     style: 'currency',
     currency: 'COP',
     minimumFractionDigits: 0,
 });
-
-async function getGoogleDistanceMatrix(origin, destination) {
-    try {
-        if (!GOOGLE_MAPS_KEY) return { distancia: 'N/A', tiempo: 'N/A' };
-        const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origin)}&destinations=${encodeURIComponent(destination)}&mode=driving&key=${GOOGLE_MAPS_KEY}`;
-        const response = await fetch(url);
-        const data = await response.json();
-        const element = data.rows[0].elements[0];
-        if (element.status !== 'OK') return { distancia: 'N/A', tiempo: 'N/A' };
-        return { distancia: element.distance.text, tiempo: element.duration.text };
-    } catch (e) { 
-        console.error('[ERROR GOOGLE MAPS API]:', e.message);
-        return { distancia: 'N/A', tiempo: 'N/A' }; 
-    }
-}
 
 async function generateServiceCard(data) {
     let browser;
@@ -160,7 +148,7 @@ async function generateServiceCard(data) {
 
 // ── CONEXIÓN AL SOCKET DE WHATSAPP ──
 async function connectToWhatsApp() {
-    console.log('[Nova] Iniciando sincronización con Firestore...');
+    console.log('[Nova] 🔄 Sincronizando credenciales con Firestore...');
     const { state, saveCreds } = await getFirestoreAuth();
     const { version } = await fetchLatestBaileysVersion();
 
@@ -170,7 +158,7 @@ async function connectToWhatsApp() {
         logger,
         printQRInTerminal: true,
         markOnlineOnConnect: true,
-        generateHighQualityLinkPreview: true,
+        browser: ['Nova J&J', 'Chrome', '1.0.0'],
         getMessage: async (key) => { return { conversation: 'Mensaje recuperado por Nova' } }
     });
 
@@ -179,26 +167,30 @@ async function connectToWhatsApp() {
         
         if (qr) {
             qrCodeBase64 = await qrcode.toDataURL(qr);
-            console.log('[Nova] 📲 Nuevo código QR generado.');
+            console.log('[Nova] 📲 Código QR generado exitosamente.');
         }
 
         if (connection === 'close') {
-            const shouldReconnect = lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut;
-            connectionStatus = 'disconnected';
-            console.log('[Nova] ⚠️ Conexión cerrada. ¿Reconectar?:', shouldReconnect);
+            const reason = lastDisconnect?.error?.output?.statusCode;
+            const shouldReconnect = reason !== DisconnectReason.loggedOut;
+            
+            console.log(`[Nova] ⚠️ Conexión cerrada. Razón: ${reason}. ¿Reconectar?: ${shouldReconnect}`);
             
             if (shouldReconnect) {
                 setTimeout(connectToWhatsApp, 5000);
             } else {
-                console.log('[Nova] ❌ Sesión cerrada por el usuario. Limpiando Firestore...');
+                console.log('[Nova] ❌ Sesión revocada. Purgando datos de Firestore...');
                 const docs = await authCollection.listDocuments();
                 await Promise.all(docs.map(d => d.delete()));
-                process.exit(0);
+                connectionStatus = 'logged_out';
+                qrCodeBase64 = '';
+                // No matamos el proceso para permitir un nuevo ciclo de escaneo
+                setTimeout(connectToWhatsApp, 2000);
             }
         } else if (connection === 'open') {
             qrCodeBase64 = '';
             connectionStatus = 'connected';
-            console.log('[Nova] ✅ NOVA ONLINE. Sesión vinculada y segura.');
+            console.log('[Nova] ✅ NOVA ONLINE. Conexión establecida y segura.');
         }
     });
 
@@ -213,7 +205,7 @@ async function connectToWhatsApp() {
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
         const name = msg.pushName || jid.split('@')[0];
 
-        // Guardar en Firestore para la Bandeja Nova
+        // Registro de conversación para el panel
         await db.collection('conversaciones').add({
             jid,
             cuerpo: text,
@@ -224,7 +216,7 @@ async function connectToWhatsApp() {
         });
 
         if (text.toLowerCase().includes('cotizar') || text.toLowerCase().includes('valor')) {
-            await sock.sendMessage(jid, { text: '¡Hola! 👋 Soy *Nova*. He recibido tu solicitud. Para darte una tarifa exacta necesito: origen, destino y valor declarado de la carga.' });
+            await sock.sendMessage(jid, { text: '¡Hola! 👋 Soy *Nova*. Para darte una tarifa exacta necesito: origen, destino y valor declarado de la carga.' });
         }
     });
 }
@@ -242,7 +234,7 @@ app.get('/status', checkApiKey, (req, res) => res.json({
 
 app.get('/qr', checkApiKey, (req, res) => {
     if (connectionStatus === 'connected') return res.json({ connected: true });
-    if (!qrCodeBase64) return res.status(202).json({ error: 'Generando QR...' });
+    if (!qrCodeBase64) return res.status(202).json({ error: 'Generando QR... espera 10 segundos.' });
     res.json({ qr: qrCodeBase64 }); 
 });
 
@@ -267,7 +259,7 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
         
         await sock.sendMessage(jid, { 
             image: imageBuffer, 
-            caption: `¡Hola, *${data.clienteNombre}*! 👋 Soy *Nova*.\n\nTu servicio ha sido programado con éxito. He adjuntado tu tarjeta de servicio.\n\n¡Gracias por elegir J&J! 🚐💨` 
+            caption: `¡Hola, *${data.clienteNombre}*! 👋 Soy *Nova*.\n\nTu servicio ha sido programado con éxito.\n\n¡Gracias por elegir J&J! 🚐💨` 
         });
         
         res.json({ success: true });
@@ -278,6 +270,7 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
 });
 
 app.post('/restart', checkApiKey, async (req, res) => {
+    console.log('[Nova] ⚠️ Solicitud de purga de sesión recibida.');
     const docs = await authCollection.listDocuments();
     await Promise.all(docs.map(d => d.delete()));
     res.json({ message: 'Sistema purgado. Reiniciando...' });
@@ -285,6 +278,6 @@ app.post('/restart', checkApiKey, async (req, res) => {
 });
 
 app.listen(port, '0.0.0.0', () => {
-    console.log(`[Nova Engine] Puerto: ${port}`);
+    console.log(`[Nova Engine] Escuchando en puerto: ${port}`);
     connectToWhatsApp();
 });
