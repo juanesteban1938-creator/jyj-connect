@@ -1,7 +1,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 4.1.0 (Robust Boot & Memory Fallback)
+ * Versión: 4.2.0 (High Stability & Memory Optimized)
  */
 
 const { 
@@ -11,7 +11,7 @@ const {
     makeCacheableSignalKeyStore,
     isJidBroadcast,
     proto,
-    initAuthCreds // Corregido: Versión moderna de Baileys
+    initAuthCreds
 } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const express = require('express');
@@ -24,7 +24,7 @@ const pino = require('pino');
 // ── INICIALIZACIÓN DE EXPRESS ──
 const app = express();
 
-// ENDPOINT DE SALUD (Prioridad Máxima: Debe ser lo primero)
+// ENDPOINT DE SALUD (Prioridad Máxima: Requisito de Railway)
 app.get('/health', (req, res) => res.status(200).send('OK'));
 
 // Middlewares Globales
@@ -178,7 +178,11 @@ async function connectToWhatsApp() {
             logger,
             printQRInTerminal: true,
             markOnlineOnConnect: true,
-            browser: ['Nova J&J', 'Chrome', '1.0.0']
+            browser: ['Nova J&J', 'Chrome', '20.0.04'],
+            syncFullHistory: false,
+            generateHighQualityLinkPreview: false,
+            connectTimeoutMs: 60000,
+            defaultQueryTimeoutMs: 0
         });
 
         sock.ev.on('connection.update', async (update) => {
