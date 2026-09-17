@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { RefreshCw, CheckCircle2, AlertCircle, PhoneIncoming, XCircle, Power, Loader2, Info, Zap } from 'lucide-react';
-import { obtenerEstadoNova, obtenerQRNova } from '@/lib/whatsapp';
+import { obtenerEstadoNova, obtenerQRNova, WHATSAPP_BOT_URL } from '@/lib/whatsapp';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -24,7 +24,6 @@ export default function WhatsAppStatusPage() {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const logsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -48,8 +47,6 @@ export default function WhatsAppStatusPage() {
         if (qrRes && qrRes.qr) {
           setQrCode(qrRes.qr);
           setRetryCount(0);
-        } else {
-          if (!qrCode) setRetryCount(prev => prev + 1);
         }
       } else {
         setQrCode(null);
@@ -59,15 +56,14 @@ export default function WhatsAppStatusPage() {
     } finally {
       if (isManual) setIsRefreshing(false);
     }
-  }, [qrCode]);
+  }, []);
 
   const handleRestart = async () => {
     if (!confirm('¿Deseas reiniciar el motor de Nova? Se cerrará la sesión actual y se purgarán los datos de conexión.')) return;
     setIsLoading(true);
     setQrCode(null);
-    setRetryCount(0);
     try {
-      const response = await fetch('https://focused-harmony-production.up.railway.app/restart', {
+      const response = await fetch(`${WHATSAPP_BOT_URL}/restart`, {
         method: 'POST',
         headers: { 'x-api-key': 'jj-connect-2026' }
       });

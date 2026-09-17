@@ -6,7 +6,7 @@
  * Asistente: Nova
  */
 
-const WHATSAPP_BOT_URL = 'https://focused-harmony-production.up.railway.app';
+export const WHATSAPP_BOT_URL = 'https://focused-harmony-production.up.railway.app';
 const API_KEY = 'jj-connect-2026';
 
 export async function enviarNotificacionServicio(servicio: {
@@ -61,7 +61,6 @@ export async function enviarNotificacionServicio(servicio: {
     
     return { success: true };
   } catch (error: any) {
-    // No lanzamos error fatal, devolvemos error controlado para el UI
     return { success: false, error: error.message };
   }
 }
@@ -70,7 +69,7 @@ export async function obtenerEstadoNova() {
   try {
     const response = await fetch(`${WHATSAPP_BOT_URL}/status`, {
       headers: { 'x-api-key': API_KEY },
-      signal: AbortSignal.timeout(5000) // Timeout para evitar colgar el UI
+      signal: AbortSignal.timeout(5000)
     });
     
     if (!response.ok) {
@@ -79,7 +78,6 @@ export async function obtenerEstadoNova() {
     
     return await response.json();
   } catch (error) {
-    // Error silencioso para el sistema de polling
     return { connected: false, error: 'Bot fuera de línea' };
   }
 }

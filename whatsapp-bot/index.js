@@ -1,8 +1,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 3.8.0 (Railway Robustness Update)
- * Propósito: Solución definitiva a la persistencia y generación de QR.
+ * Versión: 3.9.0 (CORS & Production Connectivity)
  */
 
 const { 
@@ -21,7 +20,6 @@ const puppeteer = require('puppeteer');
 const admin = require('firebase-admin');
 const qrcode = require('qrcode');
 const pino = require('pino');
-const fetch = require('node-fetch');
 
 // ── CONFIGURACIÓN DE FIREBASE ──
 if (!admin.apps.length) {
@@ -35,17 +33,13 @@ const authCollection = db.collection('whatsapp_auth_session');
 // ── INICIALIZACIÓN DE EXPRESS ──
 const app = express();
 
-/**
- * 🚨 PRIORIDAD ABSOLUTA: Healthcheck para Railway
- */
+// Middleware de prioridad para Railway y Next.js
 app.get('/health', (req, res) => res.status(200).send('OK'));
-
+app.use(cors()); // CORS habilitado globalmente para el panel administrativo
 app.use(express.json());
-app.use(cors());
 
 const PORT = process.env.PORT || 3001;
 const API_KEY = process.env.API_KEY || 'jj-connect-2026';
-const GOOGLE_MAPS_KEY = process.env.GOOGLE_MAPS_API_KEY || ''; 
 
 let sock = null;
 let qrCodeBase64 = '';
@@ -130,19 +124,10 @@ async function generateServiceCard(data) {
     try {
         browser = await puppeteer.launch({ 
             headless: 'new', 
-            args: [
-                '--no-sandbox', 
-                '--disable-setuid-sandbox', 
-                '--disable-dev-shm-usage',
-                '--disable-accelerated-2d-canvas',
-                '--disable-gpu',
-                '--no-first-run',
-                '--no-zygote',
-                '--single-process'
-            ] 
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] 
         });
         const page = await browser.newPage();
-        const html = `<html><head><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet"><style>body { font-family: 'Poppins', sans-serif; margin: 0; background: #fff; width: 600px; height: 800px; }.card { width: 560px; height: 760px; margin: 20px; border-radius: 40px; background: #0f172a; color: white; position: relative; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); }.header { background: #f97316; padding: 50px 40px; text-align: center; }.logo { font-size: 38px; font-weight: 900; letter-spacing: -1px; text-transform: uppercase; }.content { padding: 40px; }.info-box { background: rgba(255,255,255,0.05); padding: 25px; border-radius: 25px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }.label { color: #f97316; font-size: 12px; text-transform: uppercase; font-weight: 900; letter-spacing: 2px; margin-bottom: 8px; }.value { font-size: 22px; font-weight: bold; line-height: 1.2; }.footer { position: absolute; bottom: 40px; width: 100%; text-align: center; color: rgba(255,255,255,0.3); font-size: 10px; font-weight: bold; letter-spacing: 4px; text-transform: uppercase; }</style></head><body><div class="card"><div class="header"><div class="logo">J&J Connect</div><div style="font-size: 12px; font-weight: 900; margin-top: 5px; opacity: 0.8; letter-spacing: 2px;">CONFIRMACIÓN DE SERVICIO</div></div><div class="content"><div class="info-box"><div class="label">📍 Recogida</div><div class="value">${data.origen}</div></div><div class="info-box"><div class="label">🏁 Destino</div><div class="value">${data.destino}</div></div><div class="info-box"><div class="label">📅 Programación</div><div class="value">${data.fecha} — ${data.hora}</div></div><div class="info-box"><div class="label">🚐 Unidad Asignada</div><div class="value">${data.placa} / ${data.conductor}</div></div></div><div class="footer">Nova AI Assistant — v3.8</div></div></body></html>`;
+        const html = `<html><head><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet"><style>body { font-family: 'Poppins', sans-serif; margin: 0; background: #fff; width: 600px; height: 800px; }.card { width: 560px; height: 760px; margin: 20px; border-radius: 40px; background: #0f172a; color: white; position: relative; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); }.header { background: #f97316; padding: 50px 40px; text-align: center; }.logo { font-size: 38px; font-weight: 900; letter-spacing: -1px; text-transform: uppercase; }.content { padding: 40px; }.info-box { background: rgba(255,255,255,0.05); padding: 25px; border-radius: 25px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }.label { color: #f97316; font-size: 12px; text-transform: uppercase; font-weight: 900; letter-spacing: 2px; margin-bottom: 8px; }.value { font-size: 22px; font-weight: bold; line-height: 1.2; }.footer { position: absolute; bottom: 40px; width: 100%; text-align: center; color: rgba(255,255,255,0.3); font-size: 10px; font-weight: bold; letter-spacing: 4px; text-transform: uppercase; }</style></head><body><div class="card"><div class="header"><div class="logo">J&J Connect</div><div style="font-size: 12px; font-weight: 900; margin-top: 5px; opacity: 0.8; letter-spacing: 2px;">CONFIRMACIÓN DE SERVICIO</div></div><div class="content"><div class="info-box"><div class="label">📍 Recogida</div><div class="value">${data.origen}</div></div><div class="info-box"><div class="label">🏁 Destino</div><div class="value">${data.destino}</div></div><div class="info-box"><div class="label">📅 Programación</div><div class="value">${data.fecha} — ${data.hora}</div></div><div class="info-box"><div class="label">🚐 Unidad Asignada</div><div class="value">${data.placa} / ${data.conductor}</div></div></div><div class="footer">Nova AI Assistant — v3.9</div></div></body></html>`;
         await page.setViewport({ width: 600, height: 800 });
         await page.setContent(html, { waitUntil: 'networkidle0' });
         const buffer = await page.screenshot({ type: 'png' });
@@ -167,8 +152,7 @@ async function connectToWhatsApp() {
         logger,
         printQRInTerminal: true,
         markOnlineOnConnect: true,
-        browser: ['Nova J&J', 'Chrome', '1.0.0'],
-        getMessage: async () => ({ conversation: 'Mensaje recuperado' })
+        browser: ['Nova J&J', 'Chrome', '1.0.0']
     });
 
     sock.ev.on('connection.update', async (update) => {
@@ -177,7 +161,7 @@ async function connectToWhatsApp() {
         if (qr) {
             qrCodeBase64 = await qrcode.toDataURL(qr);
             connectionStatus = 'waiting_qr';
-            console.log('[Nova] 📲 NUEVO CÓDIGO QR DISPONIBLE.');
+            console.log('[Nova] 📲 Código QR Generado.');
         }
 
         if (connection === 'close') {
@@ -186,12 +170,12 @@ async function connectToWhatsApp() {
                 : lastDisconnect.error?.code;
 
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-            console.log(`[Nova] ⚠️ Conexión cerrada (${statusCode}). Reconectando: ${shouldReconnect}`);
+            console.log(`[Nova] ⚠️ Desconectado. Reconectando: ${shouldReconnect}`);
             
             if (shouldReconnect) {
                 setTimeout(connectToWhatsApp, 5000);
             } else {
-                console.log('[Nova] ❌ Sesión cerrada permanentemente. Purgando Firestore...');
+                console.log('[Nova] ❌ Sesión purgada de la nube.');
                 const snapshot = await authCollection.get();
                 const batch = db.batch();
                 snapshot.docs.forEach(doc => batch.delete(doc.ref));
@@ -203,7 +187,7 @@ async function connectToWhatsApp() {
         } else if (connection === 'open') {
             qrCodeBase64 = '';
             connectionStatus = 'connected';
-            console.log('[Nova] ✅ SISTEMA ONLINE Y VINCULADO.');
+            console.log('[Nova] ✅ SISTEMA ONLINE.');
         }
     });
 
@@ -268,7 +252,6 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
 
         res.json({ success: true });
     } catch (error) { 
-        console.error('[Notification Error]:', error.message);
         res.status(500).json({ error: 'Fallo envío notificación' }); 
     }
 });
@@ -279,7 +262,6 @@ app.post('/restart', checkApiKey, async (req, res) => {
         const batch = db.batch();
         snapshot.docs.forEach(doc => batch.delete(doc.ref));
         await batch.commit();
-        console.log('[Nova] 🔄 Reinicio forzado solicitado.');
         res.json({ message: 'Reiniciando...' });
         process.exit(0);
     } catch (e) {
