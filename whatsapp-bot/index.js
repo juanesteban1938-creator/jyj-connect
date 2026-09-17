@@ -1,7 +1,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 5.1.0 (Silent Boot & Production Ready)
+ * Versión: 5.2.0 (Clean Production Boot)
  */
 
 const { 
@@ -22,13 +22,12 @@ const admin = require('firebase-admin');
 const qrcode = require('qrcode');
 const pino = require('pino');
 
-// ── INICIALIZACIÓN DE EXPRESS (PRIORIDAD ABSOLUTA) ──
+// ── INICIALIZACIÓN DE EXPRESS ──
 const app = express();
 
-// 1. Healthcheck inmediato para Railway
+// Healthcheck prioritario para Railway
 app.get('/health', (req, res) => res.status(200).send('OK'));
 
-// 2. Configuración de Red
 app.use(cors()); 
 app.use(express.json());
 
@@ -40,34 +39,32 @@ let qrCodeBase64 = '';
 let connectionStatus = 'initializing';
 const logger = pino({ level: 'silent' });
 
-// ── CONFIGURACIÓN DE FIREBASE CON SERVICE ACCOUNT ──
+// ── CONFIGURACIÓN DE FIREBASE ──
 let db = null;
 let authCollection = null;
 
 try {
     if (!admin.apps.length) {
-        if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
-            throw new Error('FIREBASE_SERVICE_ACCOUNT no está configurada.');
+        if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount),
+                projectId: serviceAccount.project_id
+            });
+            console.log('[Firebase] ✅ SDK Inicializado correctamente.');
+        } else {
+            console.warn('[Firebase] ⚠️ FIREBASE_SERVICE_ACCOUNT no detectada. Usando fallback de memoria.');
         }
-
-        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-        
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-            projectId: serviceAccount.project_id || 'jj-connect--18988325-5ab9e'
-        });
-        
-        console.log('[Firebase] ✅ SDK Inicializado.');
     }
     
     db = admin.firestore();
     authCollection = db.collection('whatsapp_auth_session');
 } catch (error) {
-    console.error('[Firebase] ❌ Error:', error.message);
+    console.error('[Firebase] ❌ Error crítico de inicialización:', error.message);
 }
 
 /**
- * ADAPTADOR DE AUTENTICACIÓN FIREBASE
+ * ADAPTADOR DE AUTENTICACIÓN FIREBASE (PERSISTENCIA NOVA)
  */
 async function getAuthAdapter() {
     const writeData = async (data, id) => {
@@ -78,7 +75,9 @@ async function getAuthAdapter() {
                 return value;
             });
             await authCollection.doc(id).set({ data: json, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-        } catch (e) {}
+        } catch (e) {
+            console.error(`[Auth Write Error] ID: ${id}`, e.message);
+        }
     };
 
     const readData = async (id) => {
@@ -128,7 +127,7 @@ async function getAuthAdapter() {
     };
 }
 
-// ── GENERACIÓN DE IMÁGENES (DINÁMICO - NO TOCAR) ──
+// ── GENERACIÓN DE TARJETA GRÁFICA (PUPPETEER) ──
 async function generateServiceCard(data) {
     let browser;
     try {
@@ -137,7 +136,7 @@ async function generateServiceCard(data) {
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] 
         });
         const page = await browser.newPage();
-        const html = `<html><head><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet"><style>body { font-family: 'Poppins', sans-serif; margin: 0; background: #fff; width: 600px; height: 800px; }.card { width: 560px; height: 760px; margin: 20px; border-radius: 40px; background: #0f172a; color: white; position: relative; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); }.header { background: #f97316; padding: 50px 40px; text-align: center; }.logo { font-size: 38px; font-weight: 900; letter-spacing: -1px; text-transform: uppercase; }.content { padding: 40px; }.info-box { background: rgba(255,255,255,0.05); padding: 25px; border-radius: 25px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }.label { color: #f97316; font-size: 12px; text-transform: uppercase; font-weight: 900; letter-spacing: 2px; margin-bottom: 8px; }.value { font-size: 22px; font-weight: bold; line-height: 1.2; }.footer { position: absolute; bottom: 40px; width: 100%; text-align: center; color: rgba(255,255,255,0.3); font-size: 10px; font-weight: bold; letter-spacing: 4px; text-transform: uppercase; }</style></head><body><div class="card"><div class="header"><div class="logo">J&J Connect</div><div style="font-size: 12px; font-weight: 900; margin-top: 5px; opacity: 0.8; letter-spacing: 2px;">CONFIRMACIÓN DE SERVICIO</div></div><div class="content"><div class="info-box"><div class="label">📍 Recogida</div><div class="value">${data.origen}</div></div><div class="info-box"><div class="label">🏁 Destino</div><div class="value">${data.destino}</div></div><div class="info-box"><div class="label">📅 Programación</div><div class="value">${data.fecha} — ${data.hora}</div></div><div class="info-box"><div class="label">🚐 Unidad Asignada</div><div class="value">${data.placa} / ${data.conductor}</div></div></div><div class="footer">Nova AI Assistant — v5.1</div></div></body></html>`;
+        const html = `<html><head><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet"><style>body { font-family: 'Poppins', sans-serif; margin: 0; background: #fff; width: 600px; height: 800px; }.card { width: 560px; height: 760px; margin: 20px; border-radius: 40px; background: #0f172a; color: white; position: relative; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); }.header { background: #f97316; padding: 50px 40px; text-align: center; }.logo { font-size: 38px; font-weight: 900; letter-spacing: -1px; text-transform: uppercase; }.content { padding: 40px; }.info-box { background: rgba(255,255,255,0.05); padding: 25px; border-radius: 25px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }.label { color: #f97316; font-size: 12px; text-transform: uppercase; font-weight: 900; letter-spacing: 2px; margin-bottom: 8px; }.value { font-size: 22px; font-weight: bold; line-height: 1.2; }.footer { position: absolute; bottom: 40px; width: 100%; text-align: center; color: rgba(255,255,255,0.3); font-size: 10px; font-weight: bold; letter-spacing: 4px; text-transform: uppercase; }</style></head><body><div class="card"><div class="header"><div class="logo">J&J Connect</div><div style="font-size: 12px; font-weight: 900; margin-top: 5px; opacity: 0.8; letter-spacing: 2px;">CONFIRMACIÓN DE SERVICIO</div></div><div class="content"><div class="info-box"><div class="label">📍 Recogida</div><div class="value">${data.origen}</div></div><div class="info-box"><div class="label">🏁 Destino</div><div class="value">${data.destino}</div></div><div class="info-box"><div class="label">📅 Programación</div><div class="value">${data.fecha} — ${data.hora}</div></div><div class="info-box"><div class="label">🚐 Unidad Asignada</div><div class="value">${data.placa} / ${data.conductor}</div></div></div><div class="footer">Nova AI Assistant — v5.2</div></div></body></html>`;
         await page.setViewport({ width: 600, height: 800 });
         await page.setContent(html, { waitUntil: 'networkidle0' });
         const buffer = await page.screenshot({ type: 'png' });
@@ -149,10 +148,9 @@ async function generateServiceCard(data) {
     }
 }
 
-// ── CONEXIÓN AL SOCKET ──
+// ── CONEXIÓN AL SOCKET (BAILEYS) ──
 async function connectToWhatsApp() {
     try {
-        console.log('[Nova] 🔄 Sincronizando sesión...');
         const { state, saveCreds } = await getAuthAdapter();
         const { version } = await fetchLatestBaileysVersion();
 
@@ -162,18 +160,30 @@ async function connectToWhatsApp() {
             logger,
             printQRInTerminal: true,
             browser: Browsers.macOS('Desktop'),
+            syncFullHistory: false,
             connectTimeoutMs: 60000,
-            syncFullHistory: false
+            generateHighQualityLinkPreview: false,
+            markOnlineOnConnect: true
         });
 
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
-            if (qr) { qrCodeBase64 = await qrcode.toDataURL(qr); connectionStatus = 'waiting_qr'; }
+            
+            if (qr) { 
+                qrCodeBase64 = await qrcode.toDataURL(qr); 
+                connectionStatus = 'waiting_qr'; 
+                console.log('[Nova] 📲 Código QR generado y listo para escanear.');
+            }
 
             if (connection === 'close') {
                 const statusCode = (lastDisconnect.error instanceof Boom) ? lastDisconnect.error.output.statusCode : lastDisconnect.error?.code;
                 const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-                if (shouldReconnect) { setTimeout(connectToWhatsApp, 5000); } else {
+                
+                console.log(`[Nova] Desconectado. Razón: ${statusCode}. Reconectando: ${shouldReconnect}`);
+                
+                if (shouldReconnect) { 
+                    setTimeout(connectToWhatsApp, 5000); 
+                } else {
                     if (authCollection) {
                         const snap = await authCollection.get();
                         const batch = db.batch();
@@ -181,12 +191,13 @@ async function connectToWhatsApp() {
                         await batch.commit().catch(() => {});
                     }
                     connectionStatus = 'logged_out';
+                    console.warn('[Nova] ⚠️ Sesión cerrada manualmente. Limpiando credenciales...');
                     setTimeout(connectToWhatsApp, 5000);
                 }
             } else if (connection === 'open') {
                 qrCodeBase64 = '';
                 connectionStatus = 'connected';
-                console.log('[Nova] ✅ Motor en línea. Sistema silencioso activo.');
+                console.log('[Nova] ✅ Conexión abierta y lista para comandos operativos.');
             }
         });
 
@@ -205,7 +216,10 @@ async function connectToWhatsApp() {
             }).catch(() => {});
         });
 
-    } catch (error) { setTimeout(connectToWhatsApp, 10000); }
+    } catch (error) { 
+        console.error('[Nova] Fallo en la conexión:', error.message);
+        setTimeout(connectToWhatsApp, 10000); 
+    }
 }
 
 // ── ENDPOINTS API ──
@@ -227,10 +241,16 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
         const data = req.body;
         const jid = `${data.clienteTelefono.replace(/\D/g, '')}@s.whatsapp.net`;
         const buffer = await generateServiceCard(data);
-        await sock.sendMessage(jid, { image: buffer, caption: `¡Hola, *${data.clienteNombre}*! 👋 Soy *Nova*.\n\nTu servicio ha sido programado con éxito. He adjuntado tu ficha de viaje.\n\n¡Gracias por elegir J&J! 🚐💨` });
+        await sock.sendMessage(jid, { 
+            image: buffer, 
+            caption: `¡Hola, *${data.clienteNombre}*! 👋 Soy *Nova*.\n\nTu servicio ha sido programado con éxito. He adjuntado tu ficha de viaje con los detalles del conductor y vehículo.\n\n¡Gracias por elegir J&J! 🚐💨` 
+        });
         if (db) await db.collection('notificaciones_whatsapp').add({ ...data, fecha: admin.firestore.FieldValue.serverTimestamp(), estado: 'enviado' });
         res.json({ success: true });
-    } catch (error) { res.status(500).json({ error: 'Fallo envío' }); }
+    } catch (error) { 
+        console.error('[Nova] Fallo al enviar notificación:', error);
+        res.status(500).json({ error: 'Fallo envío' }); 
+    }
 });
 
 app.post('/restart', checkApiKey, async (req, res) => {
@@ -245,9 +265,9 @@ app.post('/restart', checkApiKey, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// INICIO
+// ARRANQUE
 app.listen(PORT, '0.0.0.0', () => { 
-    console.log(`[Railway] Puerto: ${PORT}`);
-    console.log('[Nova] Encendiendo motor...');
+    console.log(`[Railway] Puerto asignado: ${PORT}`);
+    console.log('[Nova] Encendiendo motor de WhatsApp...');
     connectToWhatsApp();
 });
