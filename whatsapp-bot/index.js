@@ -1,7 +1,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
- * DEPLOY-ID: 2026-ALPHA-01
- * Versión: Crypto-Resilient Firebase Auth
+ * DEPLOY-ID: 2026-FINAL-STABLE
+ * Versión: Arquitectura Resiliente de Texto Puro
  */
 
 const { 
@@ -45,7 +45,7 @@ let authCollection = null;
 
 try {
     if (!admin.apps.length) {
-        console.log('[Firebase] 🛡️ Iniciando SDK con Cuenta de Servicio...');
+        console.log('[Firebase] 🛡️ Iniciando SDK para Persistencia...');
         const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount)
@@ -53,13 +53,13 @@ try {
     }
     db = admin.firestore();
     authCollection = db.collection('whatsapp_auth_session');
-    console.log('[Firebase] ✅ SDK Conectado');
+    console.log('[Firebase] ✅ SDK Conectado - Listo para sincronizar sesión');
 } catch (error) {
     console.error('[Firebase] ❌ Error de inicialización:', error.message);
 }
 
 /**
- * Inteligencia de Ruta y Clima (Text-Only optimized)
+ * Inteligencia de Ruta y Clima (Diseño de Texto Puro)
  */
 async function getSmartInfo(origen, destino) {
     const smartData = {
@@ -71,34 +71,28 @@ async function getSmartInfo(origen, destino) {
     };
 
     try {
-        const timeout = AbortSignal.timeout(3000);
+        const timeout = AbortSignal.timeout(3000); // 3 segundos máximo de espera
         
         if (GMAPS_KEY && origen && destino) {
             console.log('[MAPS INPUT] Origen:', origen, '| Destino:', destino);
+            
             const mapsUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origen)}&destinations=${encodeURIComponent(destino)}&key=${GMAPS_KEY}`;
             
             const mapsRes = await fetch(mapsUrl, { signal: timeout });
             const mapsJson = await mapsRes.json();
+
+            if (mapsJson.status !== 'OK' || mapsJson.rows?.[0]?.elements?.[0]?.status !== 'OK') {
+                console.error('[MAPS ERROR DETECTADO]:', JSON.stringify(mapsJson));
+                throw new Error('Google Maps devolvió un estado no válido');
+            }
+
+            const element = mapsJson.rows[0].elements[0];
+            smartData.distancia = element.distance.text;
+            smartData.tiempo = element.duration.text;
             
-            console.log('[MAPS RAW RESPONSE]:', JSON.stringify(mapsJson));
-
-            if (mapsJson.status === 'REQUEST_DENIED') {
-                throw new Error('Google Maps API REQUEST_DENIED: ' + (mapsJson.error_message || 'Check API Key/Quota'));
-            }
-
-            const element = mapsJson.rows?.[0]?.elements?.[0];
-            if (!element || element.status === 'ZERO_RESULTS') {
-                throw new Error('Google Maps ZERO_RESULTS: No se encontró ruta entre los puntos.');
-            }
-
-            if (mapsJson.status === "OK" && element.status === "OK") {
-                smartData.distancia = element.distance.text;
-                smartData.tiempo = element.duration.text;
-                
-                const durationSeconds = element.duration.value;
-                if (durationSeconds > 7200) {
-                    smartData.recomendacion = "Viaje largo, te sugerimos ropa cómoda y buena hidratación.";
-                }
+            // Lógica de recomendación por distancia
+            if (element.duration.value > 7200) { // > 2 horas
+                smartData.recomendacion = "Viaje largo, te sugerimos ropa cómoda y buena hidratación.";
             }
         }
 
@@ -115,22 +109,18 @@ async function getSmartInfo(origen, destino) {
                 if (mainWeather.includes('rain')) {
                     smartData.recomendacion = "Lleva paraguas, se esperan lluvias en tu destino.";
                 } else if (smartData.climaTemp > 28) {
-                    smartData.recomendacion = "Día soleado y caluroso, no olvides hidratarte.";
+                    smartData.recomendacion = "Día soleado y caluroso, no olvides hidratarte bien.";
                 }
             }
         }
     } catch (error) {
-        if (error.message.includes('Google Maps')) {
-            console.error('[MAPS FATAL ERROR]:', error.message);
-        } else {
-            console.error('[API ERROR] Falla en Clima/General:', error.message);
-        }
+        console.error('[API ERROR] Falla silenciosa en Maps/Clima:', error.message);
     }
     return smartData;
 }
 
 /**
- * Adaptador de Autenticación Firestore (Buffer-Safe)
+ * Adaptador de Autenticación Firestore (BufferJSON-Resilient)
  */
 async function getAuthAdapter() {
     const writeData = async (data, id) => {
@@ -161,8 +151,8 @@ async function getAuthAdapter() {
 
     let creds = await readData('creds');
     
-    if (!creds || !creds.noiseKey) {
-        console.log('[Nova] 🔑 Sesión no encontrada. Inicializando credenciales vírgenes...');
+    if (!creds) {
+        console.log('[Nova] 🔑 Generando nuevas credenciales de sesión...');
         creds = initAuthCreds();
         await writeData(creds, 'creds');
     }
@@ -203,7 +193,7 @@ async function getAuthAdapter() {
 }
 
 async function connectToWhatsApp() {
-    console.log('[Nova] 🚀 Iniciando motor de WhatsApp...');
+    console.log('[Nova] 🚀 Iniciando motor de WhatsApp (Texto Puro)...');
     try {
         const { state, saveCreds } = await getAuthAdapter();
         const { version } = await fetchLatestBaileysVersion();
@@ -214,8 +204,8 @@ async function connectToWhatsApp() {
             logger,
             browser: Browsers.macOS('Desktop'),
             syncFullHistory: false,
-            connectTimeoutMs: 60000,
             markOnlineOnConnect: true,
+            connectTimeoutMs: 60000,
             generateHighQualityLinkPreview: false
         });
 
@@ -234,20 +224,21 @@ async function connectToWhatsApp() {
             if (connection === 'close') {
                 const error = lastDisconnect?.error;
                 const statusCode = (error instanceof Boom) ? error.output.statusCode : 0;
+                
                 console.error('[CRASH REAL BAILLEYS]:', error || 'Desconexión desconocida');
 
-                if (statusCode !== DisconnectReason.loggedOut) {
-                    console.log('[Nova] 🔄 Reintentando conexión en 5s...');
-                    setTimeout(connectToWhatsApp, 5000);
-                } else {
-                    console.log('[Nova] ⚠️ Sesión cerrada manualmente. Limpiando Firebase...');
+                if (statusCode === 440 || statusCode === DisconnectReason.loggedOut) {
+                    console.log('[Nova] ⚠️ Conflicto de sesión o cierre manual. Limpiando Firebase...');
                     if (authCollection) {
                         const batch = db.batch();
                         const docs = await authCollection.get();
                         docs.forEach(d => batch.delete(d.ref));
                         await batch.commit();
                     }
-                    connectionStatus = 'logged_out';
+                    process.exit(0); // Forzar reinicio limpio en Railway
+                } else {
+                    console.log('[Nova] 🔄 Reintentando conexión en 5s...');
+                    setTimeout(connectToWhatsApp, 5000);
                 }
             } else if (connection === 'open') {
                 qrCodeBase64 = ''; 
@@ -256,6 +247,7 @@ async function connectToWhatsApp() {
             }
         });
 
+        // Inbox Listener: Registro de mensajes entrantes para la bandeja
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
             if (type !== 'notify' || !db) return;
             const msg = messages[0];
@@ -303,6 +295,7 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
         if (!phone.startsWith('57') && phone.length === 10) phone = '57' + phone;
         const jid = `${phone}@s.whatsapp.net`;
 
+        // Inteligencia Geográfica y Climática
         const smart = await getSmartInfo(d.origen, d.destino);
         
         const mensajeFormateado = `¡Hola, *${d.clienteNombre}*! 👋
@@ -311,23 +304,23 @@ Soy Nova, asistente virtual de Transportes Especiales J&J 🚐
 
 Tu servicio ha sido programado:
 ━━━━━━━━━━━━━━━━
-🗓️ Fecha: ${d.fecha}
-⏰ Hora: ${d.hora}
-📍 Origen: ${d.origen}
-🏁 Destino: ${d.destino}
-🚗 Placa: ${d.placa}
-👤 Conductor: ${d.conductor}
-📞 Contacto: ${d.telefonoConductor}
+🗓️ *Fecha:* ${d.fecha}
+⏰ *Hora:* ${d.hora}
+📍 *Origen:* ${d.origen}
+🏁 *Destino:* ${d.destino}
+🚗 *Placa:* ${d.placa}
+👤 *Conductor:* ${d.conductor}
+📞 *Contacto:* ${d.telefonoConductor}
 ━━━━━━━━━━━━━━━━
-🛣️ Distancia: ${smart.distancia}
-⏳ Tiempo est: ${smart.tiempo}
-🌤️ Clima destino: ${smart.climaEstado} (${smart.climaTemp}°C)
-💡 Sugerencia: ${smart.recomendacion}
+🛣️ *Distancia:* ${smart.distancia}
+⏳ *Tiempo est:* ${smart.tiempo}
+🌤️ *Clima destino:* ${smart.climaEstado} (${smart.climaTemp}°C)
+💡 *Sugerencia:* ${smart.recomendacion}
 
 Por favor estar listo 10 minutos antes. 🙏
 ¡Gracias por elegirnos! 🌟
 
-Transportes Especiales J&J`;
+*Transportes Especiales J&J*`;
 
         await sock.sendMessage(jid, { text: mensajeFormateado });
 
@@ -343,7 +336,7 @@ Transportes Especiales J&J`;
 
         res.json({ success: true });
     } catch (error) {
-        console.error('[Nova] Error envio:', error.message);
+        console.error('[Nova] Fallo al enviar notificación:', error.message);
         res.status(500).json({ error: 'Fallo al procesar notificación' });
     }
 });
@@ -357,6 +350,6 @@ app.post('/send-message', checkApiKey, async (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => { 
-    console.log(`[Nova Engine] [DEPLOY-ID: 2026-ALPHA-01] Activo en puerto ${PORT}`);
+    console.log(`[Nova Engine] [DEPLOY-ID: 2026-FINAL-STABLE] Activo en puerto ${PORT}`);
     connectToWhatsApp();
 });
