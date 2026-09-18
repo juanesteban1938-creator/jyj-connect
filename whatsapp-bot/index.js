@@ -74,22 +74,28 @@ async function getSmartInfo(origen, destino) {
         const timeout = AbortSignal.timeout(3000);
         
         if (GMAPS_KEY && origen && destino) {
-            // CORRECCIÓN: Codificación de URL para direcciones con numerales y espacios
+            console.log('[MAPS INPUT] Origen:', origen, '| Destino:', destino);
             const mapsUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origen)}&destinations=${encodeURIComponent(destino)}&key=${GMAPS_KEY}`;
             
             const mapsRes = await fetch(mapsUrl, { signal: timeout });
             const mapsJson = await mapsRes.json();
             
-            // RASTREO PROFUNDO: Capturar errores internos de la API (Denegación, Zero Results, etc)
-            if (mapsJson.status !== "OK" || (mapsJson.rows?.[0]?.elements?.[0]?.status !== "OK")) {
-                console.error('[MAPS DENIED]:', JSON.stringify(mapsJson));
+            console.log('[MAPS RAW RESPONSE]:', JSON.stringify(mapsJson));
+
+            if (mapsJson.status === 'REQUEST_DENIED') {
+                throw new Error('Google Maps API REQUEST_DENIED: ' + (mapsJson.error_message || 'Check API Key/Quota'));
             }
 
-            if (mapsJson.rows?.[0]?.elements?.[0]?.status === "OK") {
-                smartData.distancia = mapsJson.rows[0].elements[0].distance.text;
-                smartData.tiempo = mapsJson.rows[0].elements[0].duration.text;
+            const element = mapsJson.rows?.[0]?.elements?.[0];
+            if (!element || element.status === 'ZERO_RESULTS') {
+                throw new Error('Google Maps ZERO_RESULTS: No se encontró ruta entre los puntos.');
+            }
+
+            if (mapsJson.status === "OK" && element.status === "OK") {
+                smartData.distancia = element.distance.text;
+                smartData.tiempo = element.duration.text;
                 
-                const durationSeconds = mapsJson.rows[0].elements[0].duration.value;
+                const durationSeconds = element.duration.value;
                 if (durationSeconds > 7200) {
                     smartData.recomendacion = "Viaje largo, te sugerimos ropa cómoda y buena hidratación.";
                 }
@@ -114,7 +120,11 @@ async function getSmartInfo(origen, destino) {
             }
         }
     } catch (error) {
-        console.error('[API ERROR] Falla en Maps/Clima:', error.message);
+        if (error.message.includes('Google Maps')) {
+            console.error('[MAPS FATAL ERROR]:', error.message);
+        } else {
+            console.error('[API ERROR] Falla en Clima/General:', error.message);
+        }
     }
     return smartData;
 }
