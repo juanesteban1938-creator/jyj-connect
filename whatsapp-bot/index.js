@@ -74,10 +74,17 @@ async function getSmartInfo(origen, destino) {
         const timeout = AbortSignal.timeout(3000);
         
         if (GMAPS_KEY && origen && destino) {
+            // CORRECCIÓN: Codificación de URL para direcciones con numerales y espacios
             const mapsUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origen)}&destinations=${encodeURIComponent(destino)}&key=${GMAPS_KEY}`;
+            
             const mapsRes = await fetch(mapsUrl, { signal: timeout });
             const mapsJson = await mapsRes.json();
             
+            // RASTREO PROFUNDO: Capturar errores internos de la API (Denegación, Zero Results, etc)
+            if (mapsJson.status !== "OK" || (mapsJson.rows?.[0]?.elements?.[0]?.status !== "OK")) {
+                console.error('[MAPS DENIED]:', JSON.stringify(mapsJson));
+            }
+
             if (mapsJson.rows?.[0]?.elements?.[0]?.status === "OK") {
                 smartData.distancia = mapsJson.rows[0].elements[0].distance.text;
                 smartData.tiempo = mapsJson.rows[0].elements[0].duration.text;
@@ -119,7 +126,6 @@ async function getAuthAdapter() {
     const writeData = async (data, id) => {
         try { 
             if (!authCollection) return;
-            // OBLIGATORIO: Serialización para soportar Buffers en Firestore
             const json = JSON.stringify(data, BufferJSON.replacer);
             await authCollection.doc(id).set({ data: json }, { merge: true });
         } catch (e) { 
@@ -133,7 +139,6 @@ async function getAuthAdapter() {
             const doc = await authCollection.doc(id).get();
             if (!doc.exists) return null;
             const content = doc.data().data;
-            // OBLIGATORIO: Restauración de Buffers
             return JSON.parse(content, BufferJSON.reviver);
         } catch (e) { 
             return null; 
@@ -146,7 +151,6 @@ async function getAuthAdapter() {
 
     let creds = await readData('creds');
     
-    // Si no hay creds o están incompletas, inicializamos al vuelo
     if (!creds || !creds.noiseKey) {
         console.log('[Nova] 🔑 Sesión no encontrada. Inicializando credenciales vírgenes...');
         creds = initAuthCreds();
@@ -205,7 +209,6 @@ async function connectToWhatsApp() {
             generateHighQualityLinkPreview: false
         });
 
-        // Sincronización nativa de credenciales
         sock.ev.on('creds.update', saveCreds);
 
         sock.ev.on('connection.update', async (update) => {
@@ -243,7 +246,6 @@ async function connectToWhatsApp() {
             }
         });
 
-        // Inbox Listener
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
             if (type !== 'notify' || !db) return;
             const msg = messages[0];
