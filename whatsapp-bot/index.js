@@ -1,44 +1,42 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * DEPLOY-ID: 2026-ALPHA-01 (FORCE_CLEAN)
+ * Versión: Smart-Text Core (Sin Puppeteer)
  */
-console.log('[DEPLOY-ID: 2026-ALPHA-01]');
+
 const { 
     default: makeWASocket, 
     DisconnectReason, 
     fetchLatestBaileysVersion, 
     makeCacheableSignalKeyStore,
-    isJidBroadcast,
-    proto,
     initAuthCreds,
     Browsers
 } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const express = require('express');
 const cors = require('cors');
-const puppeteer = require('puppeteer');
 const admin = require('firebase-admin');
 const qrcode = require('qrcode');
 const pino = require('pino');
 
 const app = express();
 
-// 1. PRIORIDAD ABSOLUTA: Healthcheck para Railway
+// 1. PRIORIDAD: Healthcheck y Middlewares
 app.get('/health', (req, res) => res.status(200).send('OK'));
-
 app.use(cors()); 
 app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
 const API_KEY = process.env.API_KEY || 'jj-connect-2026';
+const GMAPS_KEY = process.env.GOOGLE_MAPS_API_KEY;
+const WEATHER_KEY = process.env.OPENWEATHER_API_KEY;
 
 let sock = null;
 let qrCodeBase64 = '';
 let connectionStatus = 'initializing';
 const logger = pino({ level: 'silent' });
 
-// ── CONFIGURACIÓN DE FIREBASE ──
+// ── CONFIGURACIÓN DE FIREBASE (PERSISTENCIA DE SESIÓN) ──
 let db = null;
 let authCollection = null;
 
@@ -51,11 +49,13 @@ try {
     }
     db = admin.firestore();
     authCollection = db.collection('whatsapp_auth_session');
-    console.log('[Firebase] SDK Conectado para Persistencia.');
 } catch (error) {
-    console.error('[Firebase] Error de inicialización:', error.message);
+    console.error('[Firebase] Fallo inicial:', error.message);
 }
 
+/**
+ * Adaptador de Autenticación Firestore para Baileys
+ */
 async function getAuthAdapter() {
     const writeData = async (data, id) => {
         try {
@@ -95,7 +95,7 @@ async function getAuthAdapter() {
                     const data = {};
                     await Promise.all(ids.map(async (id) => {
                         let value = await readData(`${type}-${id}`);
-                        if (type === 'app-state-sync-key' && value) value = proto.Message.AppStateSyncKeyData.fromObject(value);
+                        if (type === 'app-state-sync-key' && value) value = admin.proto.Message.AppStateSyncKeyData.fromObject(value);
                         data[id] = value;
                     }));
                     return data;
@@ -115,33 +115,61 @@ async function getAuthAdapter() {
     };
 }
 
-async function generateServiceCard(data) {
-    let browser;
+/**
+ * Motor de Inteligencia de Ruta y Clima con Timeout de 3s
+ */
+async function getSmartInfo(origen, destino) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+    const smartData = {
+        distancia: "Información calculada en ruta",
+        tiempo: "Información calculada en ruta",
+        climaEstado: "N/A",
+        climaTemp: "--",
+        recomendacion: "Por favor estar atento a las indicaciones del conductor."
+    };
+
     try {
-        browser = await puppeteer.launch({ 
-            headless: 'new', 
-            args: ['--no-sandbox', '--disable-setuid-sandbox'] 
-        });
-        const page = await browser.newPage();
-        const html = `<html><body style="font-family:sans-serif; background:#0f172a; color:white; padding:40px; width:500px;">
-            <h1 style="color:#f97316;">J&J Connect</h1>
-            <div style="background:rgba(255,255,255,0.05); padding:20px; border-radius:20px;">
-                <p>📍 <b>Origen:</b> ${data.origen}</p>
-                <p>🏁 <b>Destino:</b> ${data.destino}</p>
-                <p>🚐 <b>Unidad:</b> ${data.placa}</p>
-                <p>👤 <b>Conductor:</b> ${data.conductor}</p>
-            </div>
-        </body></html>`;
-        await page.setContent(html);
-        const buffer = await page.screenshot({ type: 'png' });
-        await browser.close();
-        return buffer;
+        // 1. Google Maps Data
+        if (GMAPS_KEY) {
+            const mapsRes = await fetch(`https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origen)}&destinations=${encodeURIComponent(destino)}&key=${GMAPS_KEY}`, { signal: controller.signal });
+            const mapsJson = await mapsRes.json();
+            if (mapsJson.rows?.[0]?.elements?.[0]?.status === "OK") {
+                smartData.distancia = mapsJson.rows[0].elements[0].distance.text;
+                smartData.tiempo = mapsJson.rows[0].elements[0].duration.text;
+                const durationSec = mapsJson.rows[0].elements[0].duration.value;
+                if (durationSec > 7200) smartData.recomendacion = "Viaje largo, te sugerimos ropa cómoda.";
+            }
+        }
+
+        // 2. Weather Data
+        if (WEATHER_KEY) {
+            const weatherRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(destino)}&appid=${WEATHER_KEY}&units=metric&lang=es`, { signal: controller.signal });
+            const weatherJson = await weatherRes.json();
+            if (weatherJson.main) {
+                smartData.climaTemp = Math.round(weatherJson.main.temp);
+                smartData.climaEstado = weatherJson.weather[0].description;
+                
+                if (weatherJson.weather[0].main.toLowerCase().includes('rain')) {
+                    smartData.recomendacion = "Lleva paraguas, se esperan lluvias en tu destino.";
+                } else if (smartData.climaTemp > 28) {
+                    smartData.recomendacion = "Día soleado, no olvides hidratarte.";
+                }
+            }
+        }
     } catch (err) {
-        if (browser) await browser.close();
-        throw err;
+        console.warn('[Nova] Fallo en APIs externas, usando fallback.');
+    } finally {
+        clearTimeout(timeoutId);
     }
+
+    return smartData;
 }
 
+/**
+ * Conexión Core de Baileys
+ */
 async function connectToWhatsApp() {
     try {
         const { state, saveCreds } = await getAuthAdapter();
@@ -167,7 +195,7 @@ async function connectToWhatsApp() {
             } else if (connection === 'open') {
                 qrCodeBase64 = '';
                 connectionStatus = 'connected';
-                console.log('[Nova] ✅ SISTEMA ONLINE - LISTO PARA COMANDOS');
+                console.log('[Nova] ✅ SISTEMA ONLINE');
             }
         });
 
@@ -179,6 +207,7 @@ async function connectToWhatsApp() {
             if (!msg.message || msg.key.fromMe) return;
             const jid = msg.key.remoteJid;
             const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+            
             await db.collection('conversaciones').add({
                 jid, cuerpo: text, tipo: 'entrante', leido: false,
                 nombre: msg.pushName || jid.split('@')[0],
@@ -191,29 +220,67 @@ async function connectToWhatsApp() {
     }
 }
 
+// ── ENDPOINTS DE CONTROL ──
+
 const checkApiKey = (req, res, next) => {
     if (req.headers['x-api-key'] !== API_KEY) return res.status(401).json({ error: 'No autorizado' });
     next();
 };
 
 app.get('/status', checkApiKey, (req, res) => res.json({ connected: connectionStatus === 'connected', status: connectionStatus }));
-app.get('/qr', checkApiKey, (req, res) => {
-    if (connectionStatus === 'connected') return res.json({ connected: true });
-    res.json({ qr: qrCodeBase64 }); 
-});
+app.get('/qr', checkApiKey, (req, res) => res.json({ qr: qrCodeBase64 }));
 
 app.post('/send-service-notification', checkApiKey, async (req, res) => {
     if (connectionStatus !== 'connected') return res.status(503).json({ error: 'Nova desconectada' });
+    
     try {
-        const data = req.body;
-        const jid = `${data.clienteTelefono.replace(/\D/g, '')}@s.whatsapp.net`;
-        const buffer = await generateServiceCard(data);
-        await sock.sendMessage(jid, { image: buffer, caption: `Confirmación de servicio para *${data.clienteNombre}*.` });
+        const d = req.body;
+        const jid = `${d.clienteTelefono.replace(/\D/g, '')}@s.whatsapp.net`;
+        
+        // Obtener datos inteligentes de APIs externas
+        const smart = await getSmartInfo(d.origen, d.destino);
+
+        const mensaje = `¡Hola, *${d.clienteNombre}*! 👋
+
+Soy *Nova*, asistente virtual de *Transportes Especiales J&J* 🚐
+
+Tu servicio ha sido programado:
+━━━━━━━━━━━━━━━━
+🗓️ *Fecha:* ${d.fecha}
+⏰ *Hora:* ${d.hora}
+📍 *Origen:* ${d.origen}
+🏁 *Destino:* ${d.destino}
+🚗 *Placa:* ${d.placa}
+👤 *Conductor:* ${d.conductor}
+📞 *Contacto:* ${d.telefonoConductor || 'Ver en panel'}
+━━━━━━━━━━━━━━━━
+🛣️ *Distancia:* ${smart.distancia}
+⏳ *Tiempo estimado:* ${smart.tiempo}
+🌤️ *Clima en destino:* ${smart.climaEstado} (${smart.climaTemp}°C)
+💡 *Sugerencia de Nova:* ${smart.recomendacion}
+
+Por favor estar listo 10 minutos antes. 🙏
+
+¡Gracias por elegirnos! 🌟
+*Transportes Especiales J&J*`;
+
+        await sock.sendMessage(jid, { text: mensaje });
         res.json({ success: true });
-    } catch (error) { res.status(500).json({ error: 'Fallo envío' }); }
+    } catch (error) {
+        console.error('[Nova] Error envio:', error.message);
+        res.status(500).json({ error: 'Fallo al procesar notificación' });
+    }
+});
+
+app.post('/send-message', checkApiKey, async (req, res) => {
+    if (connectionStatus !== 'connected') return res.status(503).json({ error: 'Nova desconectada' });
+    try {
+        await sock.sendMessage(req.body.jid, { text: req.body.mensaje });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.listen(PORT, '0.0.0.0', () => { 
-    console.log(`[DEPLOY-ID: 2026-ALPHA-01] Puerto: ${PORT}`);
+    console.log(`[Nova Engine] Activo en puerto ${PORT}`);
     connectToWhatsApp();
 });
