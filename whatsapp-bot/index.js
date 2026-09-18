@@ -3,7 +3,7 @@
  * Empresa: Transportes Especiales J&J
  * DEPLOY-ID: 2026-ALPHA-01 (FORCE_CLEAN)
  */
-
+console.log('[DEPLOY-ID: 2026-ALPHA-01]');
 const { 
     default: makeWASocket, 
     DisconnectReason, 
