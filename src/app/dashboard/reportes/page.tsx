@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -192,24 +191,27 @@ export default function ReportesPage() {
           { n: 1, label: "Filtros y Campos", icon: Settings2 },
           { n: 2, label: "Vincular Unidades", icon: LinkIcon },
           { n: 3, label: "Descarga Final", icon: Download },
-        ].map((p, i) => (
-          <div key={p.n} className="flex items-center flex-1 last:flex-none">
-            <div className={cn(
-              "flex items-center gap-3 transition-all",
-              paso === p.n ? "text-orange-600" : paso > p.n ? "text-emerald-500" : "text-slate-300"
-            )}>
+        ].map((p, i) => {
+          const Icon = p.icon;
+          return (
+            <div key={p.n} className="flex items-center flex-1 last:flex-none">
               <div className={cn(
-                "h-10 w-10 rounded-xl flex items-center justify-center font-black transition-all",
-                paso === p.n ? "bg-orange-500 text-white shadow-lg shadow-orange-200" : 
-                paso > p.n ? "bg-emerald-500 text-white" : "bg-slate-100"
+                "flex items-center gap-3 transition-all",
+                paso === p.n ? "text-orange-600" : paso > p.n ? "text-emerald-500" : "text-slate-300"
               )}>
-                {paso > p.n ? <CheckCircle className="h-5 w-5" /> : <p.icon className="h-5 w-5" />}
+                <div className={cn(
+                  "h-10 w-10 rounded-xl flex items-center justify-center font-black transition-all",
+                  paso === p.n ? "bg-orange-500 text-white shadow-lg shadow-orange-200" : 
+                  paso > p.n ? "bg-emerald-500 text-white" : "bg-slate-100"
+                )}>
+                  {paso > p.n ? <CheckCircle className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
+                </div>
+                <span className="hidden sm:block text-[10px] font-black uppercase tracking-widest">{p.label}</span>
               </div>
-              <span className="hidden sm:block text-[10px] font-black uppercase tracking-widest">{p.label}</span>
+              {i < 2 && <div className="flex-1 h-px bg-slate-100 mx-6" />}
             </div>
-            {i < 2 && <div className="flex-1 h-px bg-slate-100 mx-6" />}
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* ── PASO 1 ── */}

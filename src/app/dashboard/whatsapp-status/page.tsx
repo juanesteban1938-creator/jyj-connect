@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { RefreshCw, CheckCircle2, AlertCircle, PhoneIncoming, XCircle, Power, Loader2, Zap } from 'lucide-react';
+import { RefreshCw, CheckCircle2, AlertCircle, Power, Loader2, Zap } from 'lucide-react';
 import { obtenerEstadoNova, obtenerQRNova, WHATSAPP_BOT_URL } from '@/lib/whatsapp';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
