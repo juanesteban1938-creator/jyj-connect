@@ -1,7 +1,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
- * DEPLOY-ID: 2026-BETA-01
- * Versión: Crypto-Safe Auth + Firestore Sync
+ * DEPLOY-ID: 2026-ALPHA-01
+ * Versión: Crypto-Resilient Firebase Auth
  */
 
 const { 
@@ -11,7 +11,8 @@ const {
     makeCacheableSignalKeyStore,
     initAuthCreds,
     Browsers,
-    BufferJSON
+    BufferJSON,
+    proto
 } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const express = require('express');
@@ -52,9 +53,9 @@ try {
     }
     db = admin.firestore();
     authCollection = db.collection('whatsapp_auth_session');
-    console.log('[Firebase] ✅ SDK Conectado con éxito');
+    console.log('[Firebase] ✅ SDK Conectado');
 } catch (error) {
-    console.error('[Firebase] ❌ Error crítico de inicialización:', error.message);
+    console.error('[Firebase] ❌ Error de inicialización:', error.message);
 }
 
 /**
@@ -70,9 +71,11 @@ async function getSmartInfo(origen, destino) {
     };
 
     try {
+        const timeout = AbortSignal.timeout(3000);
+        
         if (GMAPS_KEY && origen && destino) {
             const mapsUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origen)}&destinations=${encodeURIComponent(destino)}&key=${GMAPS_KEY}`;
-            const mapsRes = await fetch(mapsUrl, { signal: AbortSignal.timeout(3000) });
+            const mapsRes = await fetch(mapsUrl, { signal: timeout });
             const mapsJson = await mapsRes.json();
             
             if (mapsJson.rows?.[0]?.elements?.[0]?.status === "OK") {
@@ -88,7 +91,7 @@ async function getSmartInfo(origen, destino) {
 
         if (WEATHER_KEY && destino) {
             const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(destino)}&appid=${WEATHER_KEY}&units=metric&lang=es`;
-            const weatherRes = await fetch(weatherUrl, { signal: AbortSignal.timeout(3000) });
+            const weatherRes = await fetch(weatherUrl, { signal: timeout });
             const weatherJson = await weatherRes.json();
             
             if (weatherJson.main) {
@@ -110,20 +113,17 @@ async function getSmartInfo(origen, destino) {
 }
 
 /**
- * Adaptador de Autenticación Firestore Blindado (Crypto-Resilient)
+ * Adaptador de Autenticación Firestore (Buffer-Safe)
  */
 async function getAuthAdapter() {
     const writeData = async (data, id) => {
         try { 
             if (!authCollection) return;
-            // Usamos BufferJSON para manejar correctamente las llaves binarias de Baileys
+            // OBLIGATORIO: Serialización para soportar Buffers en Firestore
             const json = JSON.stringify(data, BufferJSON.replacer);
-            await authCollection.doc(id).set({ 
-                data: json, 
-                updatedAt: admin.firestore.FieldValue.serverTimestamp() 
-            }, { merge: true });
+            await authCollection.doc(id).set({ data: json }, { merge: true });
         } catch (e) { 
-            console.error('[Auth Write Error] ID:', id, e.message); 
+            console.error('[Auth Write Error]', id, e.message); 
         }
     };
 
@@ -133,10 +133,9 @@ async function getAuthAdapter() {
             const doc = await authCollection.doc(id).get();
             if (!doc.exists) return null;
             const content = doc.data().data;
-            if (!content) return null;
+            // OBLIGATORIO: Restauración de Buffers
             return JSON.parse(content, BufferJSON.reviver);
         } catch (e) { 
-            console.error('[Auth Read Error] ID:', id, e.message);
             return null; 
         }
     };
@@ -145,12 +144,11 @@ async function getAuthAdapter() {
         try { if (authCollection) await authCollection.doc(id).delete(); } catch (e) {} 
     };
 
-    // Lectura inicial de credenciales
     let creds = await readData('creds');
     
-    // CORRECCIÓN CRÍTICA: Si no hay creds, inicializarlas correctamente con initAuthCreds()
-    if (!creds) {
-        console.log('[Nova] 🔑 Generando nuevas credenciales criptográficas...');
+    // Si no hay creds o están incompletas, inicializamos al vuelo
+    if (!creds || !creds.noiseKey) {
+        console.log('[Nova] 🔑 Sesión no encontrada. Inicializando credenciales vírgenes...');
         creds = initAuthCreds();
         await writeData(creds, 'creds');
     }
@@ -162,38 +160,39 @@ async function getAuthAdapter() {
                 get: async (type, ids) => {
                     const data = {};
                     await Promise.all(ids.map(async (id) => { 
-                        data[id] = await readData(`${type}-${id}`); 
+                        let value = await readData(`${type}-${id}`);
+                        if (type === 'app-state-sync-key' && value) {
+                            value = proto.Message.AppStateSyncKeyData.fromObject(value);
+                        }
+                        data[id] = value; 
                     }));
                     return data;
                 },
                 set: async (data) => {
+                    const tasks = [];
                     for (const cat in data) {
                         for (const id in data[cat]) {
                             const val = data[cat][id];
                             const key = `${cat}-${id}`;
-                            if (val) await writeData(val, key); 
-                            else await removeData(key);
+                            if (val) tasks.push(writeData(val, key)); 
+                            else tasks.push(removeData(key));
                         }
                     }
+                    await Promise.all(tasks);
                 }
             }, logger)
         },
         saveCreds: async () => {
-            // Este llamado lo haremos manualmente o vía el listener de sock
+            await writeData(creds, 'creds');
         }
     };
 }
 
 async function connectToWhatsApp() {
-    console.log('[Nova] 🚀 Encendiendo motor de WhatsApp...');
+    console.log('[Nova] 🚀 Iniciando motor de WhatsApp...');
     try {
-        const { state } = await getAuthAdapter();
+        const { state, saveCreds } = await getAuthAdapter();
         const { version } = await fetchLatestBaileysVersion();
-
-        // Verificación de integridad antes de inyectar
-        if (!state.creds || !state.creds.noiseKey) {
-            throw new Error('Estado de autenticación corrupto o incompleto.');
-        }
 
         sock = makeWASocket({
             version,
@@ -206,6 +205,9 @@ async function connectToWhatsApp() {
             generateHighQualityLinkPreview: false
         });
 
+        // Sincronización nativa de credenciales
+        sock.ev.on('creds.update', saveCreds);
+
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
             
@@ -213,46 +215,31 @@ async function connectToWhatsApp() {
                 qrCodeBase64 = await qrcode.toDataURL(qr); 
                 connectionStatus = 'waiting_qr'; 
                 console.log('\n[Nova] 📲 NUEVO CÓDIGO QR GENERADO:');
-                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                 qrcodeTerminal.generate(qr, { small: true });
-                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
             }
 
             if (connection === 'close') {
                 const error = lastDisconnect?.error;
                 const statusCode = (error instanceof Boom) ? error.output.statusCode : 0;
-                
                 console.error('[CRASH REAL BAILLEYS]:', error || 'Desconexión desconocida');
 
-                // Si no fue un logout manual, reintentar
-                const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-                
-                if (shouldReconnect) {
+                if (statusCode !== DisconnectReason.loggedOut) {
                     console.log('[Nova] 🔄 Reintentando conexión en 5s...');
                     setTimeout(connectToWhatsApp, 5000);
                 } else {
                     console.log('[Nova] ⚠️ Sesión cerrada manualmente. Limpiando Firebase...');
+                    if (authCollection) {
+                        const batch = db.batch();
+                        const docs = await authCollection.get();
+                        docs.forEach(d => batch.delete(d.ref));
+                        await batch.commit();
+                    }
                     connectionStatus = 'logged_out';
                 }
             } else if (connection === 'open') {
                 qrCodeBase64 = ''; 
                 connectionStatus = 'connected';
                 console.log('[Nova] ✅ SISTEMA ONLINE - LISTO PARA COMANDOS');
-            }
-        });
-
-        // Guardado automático de credenciales actualizadas
-        sock.ev.on('creds.update', async (credsUpdate) => {
-            if (authCollection) {
-                // Fusionamos las credenciales actuales con la actualización
-                const currentCreds = state.creds;
-                Object.assign(currentCreds, credsUpdate);
-                
-                const json = JSON.stringify(currentCreds, BufferJSON.replacer);
-                await authCollection.doc('creds').set({ 
-                    data: json, 
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp() 
-                }, { merge: true }).catch(e => console.error('[Creds Update Error]', e.message));
             }
         });
 
@@ -290,12 +277,6 @@ app.get('/qr', checkApiKey, (req, res) => res.json({ qr: qrCodeBase64 }));
 app.post('/restart', checkApiKey, async (req, res) => {
     try {
         if (sock) sock.logout();
-        if (authCollection) {
-            const batch = db.batch();
-            const docs = await authCollection.get();
-            docs.forEach(doc => batch.delete(doc.ref));
-            await batch.commit();
-        }
         res.json({ success: true });
         process.exit(0);
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -364,6 +345,6 @@ app.post('/send-message', checkApiKey, async (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => { 
-    console.log(`[Nova Engine] Activo en puerto ${PORT}`);
+    console.log(`[Nova Engine] [DEPLOY-ID: 2026-ALPHA-01] Activo en puerto ${PORT}`);
     connectToWhatsApp();
 });
