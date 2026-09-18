@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { RefreshCw, CheckCircle2, AlertCircle, PhoneIncoming, XCircle, Power, Loader2, Info, Zap } from 'lucide-react';
+import { RefreshCw, CheckCircle2, AlertCircle, PhoneIncoming, XCircle, Power, Loader2, Zap } from 'lucide-react';
 import { obtenerEstadoNova, obtenerQRNova, WHATSAPP_BOT_URL } from '@/lib/whatsapp';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
@@ -19,7 +19,6 @@ export default function WhatsAppStatusPage() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
   
   const firestore = useFirestore();
   const { user } = useUser();
@@ -46,7 +45,6 @@ export default function WhatsAppStatusPage() {
         const qrRes = await obtenerQRNova();
         if (qrRes && qrRes.qr) {
           setQrCode(qrRes.qr);
-          setRetryCount(0);
         }
       } else {
         setQrCode(null);
@@ -59,7 +57,7 @@ export default function WhatsAppStatusPage() {
   }, []);
 
   const handleRestart = async () => {
-    if (!confirm('¿Deseas reiniciar el motor de Nova? Se cerrará la sesión actual y se purgarán los datos de conexión.')) return;
+    if (!confirm('¿Deseas reiniciar el motor de Nova? Se cerrará la sesión actual.')) return;
     setIsLoading(true);
     setQrCode(null);
     try {
@@ -143,7 +141,7 @@ export default function WhatsAppStatusPage() {
                     Desconectada
                   </Badge>
                   <p className="text-xs text-slate-500 font-medium max-w-[280px] mx-auto leading-relaxed">
-                    {status?.error || 'Sin respuesta del motor central. Intenta refrescar o reiniciar el enlace.'}
+                    {status?.error || 'Sin respuesta del motor central.'}
                   </p>
                 </div>
               )}
@@ -161,7 +159,7 @@ export default function WhatsAppStatusPage() {
               {qrCode ? (
                 <div className="text-center space-y-6 animate-in zoom-in-95 duration-500">
                   <div className="relative p-4 bg-white border-4 border-slate-50 rounded-[2rem] shadow-2xl">
-                    <Image src={qrCode} alt="QR Code" width={240} height={240} className="rounded-lg" unoptimized />
+                    <Image src={qrCode || ''} alt="QR Code" width={240} height={240} className="rounded-lg" unoptimized />
                   </div>
                   <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Abre WhatsApp &gt; Dispositivos vinculados</p>
                 </div>
