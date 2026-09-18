@@ -1,7 +1,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: 5.2.0 (Clean Production Boot)
+ * DEPLOY-ID: 2026-ALPHA-01 (FORCE_CLEAN)
  */
 
 const { 
@@ -22,10 +22,9 @@ const admin = require('firebase-admin');
 const qrcode = require('qrcode');
 const pino = require('pino');
 
-// ── INICIALIZACIÓN DE EXPRESS ──
 const app = express();
 
-// Healthcheck prioritario para Railway
+// 1. PRIORIDAD ABSOLUTA: Healthcheck para Railway
 app.get('/health', (req, res) => res.status(200).send('OK'));
 
 app.use(cors()); 
@@ -45,27 +44,18 @@ let authCollection = null;
 
 try {
     if (!admin.apps.length) {
-        if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-            admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount),
-                projectId: serviceAccount.project_id
-            });
-            console.log('[Firebase] ✅ SDK Inicializado correctamente.');
-        } else {
-            console.warn('[Firebase] ⚠️ FIREBASE_SERVICE_ACCOUNT no detectada. Usando fallback de memoria.');
-        }
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount)
+        });
     }
-    
     db = admin.firestore();
     authCollection = db.collection('whatsapp_auth_session');
+    console.log('[Firebase] SDK Conectado para Persistencia.');
 } catch (error) {
-    console.error('[Firebase] ❌ Error crítico de inicialización:', error.message);
+    console.error('[Firebase] Error de inicialización:', error.message);
 }
 
-/**
- * ADAPTADOR DE AUTENTICACIÓN FIREBASE (PERSISTENCIA NOVA)
- */
 async function getAuthAdapter() {
     const writeData = async (data, id) => {
         try {
@@ -75,9 +65,7 @@ async function getAuthAdapter() {
                 return value;
             });
             await authCollection.doc(id).set({ data: json, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-        } catch (e) {
-            console.error(`[Auth Write Error] ID: ${id}`, e.message);
-        }
+        } catch (e) {}
     };
 
     const readData = async (id) => {
@@ -127,18 +115,24 @@ async function getAuthAdapter() {
     };
 }
 
-// ── GENERACIÓN DE TARJETA GRÁFICA (PUPPETEER) ──
 async function generateServiceCard(data) {
     let browser;
     try {
         browser = await puppeteer.launch({ 
             headless: 'new', 
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] 
+            args: ['--no-sandbox', '--disable-setuid-sandbox'] 
         });
         const page = await browser.newPage();
-        const html = `<html><head><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet"><style>body { font-family: 'Poppins', sans-serif; margin: 0; background: #fff; width: 600px; height: 800px; }.card { width: 560px; height: 760px; margin: 20px; border-radius: 40px; background: #0f172a; color: white; position: relative; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); }.header { background: #f97316; padding: 50px 40px; text-align: center; }.logo { font-size: 38px; font-weight: 900; letter-spacing: -1px; text-transform: uppercase; }.content { padding: 40px; }.info-box { background: rgba(255,255,255,0.05); padding: 25px; border-radius: 25px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }.label { color: #f97316; font-size: 12px; text-transform: uppercase; font-weight: 900; letter-spacing: 2px; margin-bottom: 8px; }.value { font-size: 22px; font-weight: bold; line-height: 1.2; }.footer { position: absolute; bottom: 40px; width: 100%; text-align: center; color: rgba(255,255,255,0.3); font-size: 10px; font-weight: bold; letter-spacing: 4px; text-transform: uppercase; }</style></head><body><div class="card"><div class="header"><div class="logo">J&J Connect</div><div style="font-size: 12px; font-weight: 900; margin-top: 5px; opacity: 0.8; letter-spacing: 2px;">CONFIRMACIÓN DE SERVICIO</div></div><div class="content"><div class="info-box"><div class="label">📍 Recogida</div><div class="value">${data.origen}</div></div><div class="info-box"><div class="label">🏁 Destino</div><div class="value">${data.destino}</div></div><div class="info-box"><div class="label">📅 Programación</div><div class="value">${data.fecha} — ${data.hora}</div></div><div class="info-box"><div class="label">🚐 Unidad Asignada</div><div class="value">${data.placa} / ${data.conductor}</div></div></div><div class="footer">Nova AI Assistant — v5.2</div></div></body></html>`;
-        await page.setViewport({ width: 600, height: 800 });
-        await page.setContent(html, { waitUntil: 'networkidle0' });
+        const html = `<html><body style="font-family:sans-serif; background:#0f172a; color:white; padding:40px; width:500px;">
+            <h1 style="color:#f97316;">J&J Connect</h1>
+            <div style="background:rgba(255,255,255,0.05); padding:20px; border-radius:20px;">
+                <p>📍 <b>Origen:</b> ${data.origen}</p>
+                <p>🏁 <b>Destino:</b> ${data.destino}</p>
+                <p>🚐 <b>Unidad:</b> ${data.placa}</p>
+                <p>👤 <b>Conductor:</b> ${data.conductor}</p>
+            </div>
+        </body></html>`;
+        await page.setContent(html);
         const buffer = await page.screenshot({ type: 'png' });
         await browser.close();
         return buffer;
@@ -148,7 +142,6 @@ async function generateServiceCard(data) {
     }
 }
 
-// ── CONEXIÓN AL SOCKET (BAILEYS) ──
 async function connectToWhatsApp() {
     try {
         const { state, saveCreds } = await getAuthAdapter();
@@ -158,46 +151,23 @@ async function connectToWhatsApp() {
             version,
             auth: state,
             logger,
-            printQRInTerminal: true,
             browser: Browsers.macOS('Desktop'),
             syncFullHistory: false,
             connectTimeoutMs: 60000,
-            generateHighQualityLinkPreview: false,
             markOnlineOnConnect: true
         });
 
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
-            
-            if (qr) { 
-                qrCodeBase64 = await qrcode.toDataURL(qr); 
-                connectionStatus = 'waiting_qr'; 
-                console.log('[Nova] 📲 Código QR generado y listo para escanear.');
-            }
-
+            if (qr) { qrCodeBase64 = await qrcode.toDataURL(qr); connectionStatus = 'waiting_qr'; }
             if (connection === 'close') {
-                const statusCode = (lastDisconnect.error instanceof Boom) ? lastDisconnect.error.output.statusCode : lastDisconnect.error?.code;
-                const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-                
-                console.log(`[Nova] Desconectado. Razón: ${statusCode}. Reconectando: ${shouldReconnect}`);
-                
-                if (shouldReconnect) { 
-                    setTimeout(connectToWhatsApp, 5000); 
-                } else {
-                    if (authCollection) {
-                        const snap = await authCollection.get();
-                        const batch = db.batch();
-                        snap.docs.forEach(d => batch.delete(d.ref));
-                        await batch.commit().catch(() => {});
-                    }
-                    connectionStatus = 'logged_out';
-                    console.warn('[Nova] ⚠️ Sesión cerrada manualmente. Limpiando credenciales...');
-                    setTimeout(connectToWhatsApp, 5000);
-                }
+                const shouldReconnect = (lastDisconnect.error instanceof Boom) ? 
+                    lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut : true;
+                if (shouldReconnect) setTimeout(connectToWhatsApp, 5000);
             } else if (connection === 'open') {
                 qrCodeBase64 = '';
                 connectionStatus = 'connected';
-                console.log('[Nova] ✅ Conexión abierta y lista para comandos operativos.');
+                console.log('[Nova] ✅ SISTEMA ONLINE - LISTO PARA COMANDOS');
             }
         });
 
@@ -206,7 +176,7 @@ async function connectToWhatsApp() {
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
             if (type !== 'notify' || !db) return;
             const msg = messages[0];
-            if (!msg.message || msg.key.fromMe || isJidBroadcast(msg.key.remoteJid)) return;
+            if (!msg.message || msg.key.fromMe) return;
             const jid = msg.key.remoteJid;
             const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
             await db.collection('conversaciones').add({
@@ -217,12 +187,10 @@ async function connectToWhatsApp() {
         });
 
     } catch (error) { 
-        console.error('[Nova] Fallo en la conexión:', error.message);
         setTimeout(connectToWhatsApp, 10000); 
     }
 }
 
-// ── ENDPOINTS API ──
 const checkApiKey = (req, res, next) => {
     if (req.headers['x-api-key'] !== API_KEY) return res.status(401).json({ error: 'No autorizado' });
     next();
@@ -231,7 +199,6 @@ const checkApiKey = (req, res, next) => {
 app.get('/status', checkApiKey, (req, res) => res.json({ connected: connectionStatus === 'connected', status: connectionStatus }));
 app.get('/qr', checkApiKey, (req, res) => {
     if (connectionStatus === 'connected') return res.json({ connected: true });
-    if (!qrCodeBase64) return res.status(202).json({ error: 'Generando...' });
     res.json({ qr: qrCodeBase64 }); 
 });
 
@@ -241,33 +208,12 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
         const data = req.body;
         const jid = `${data.clienteTelefono.replace(/\D/g, '')}@s.whatsapp.net`;
         const buffer = await generateServiceCard(data);
-        await sock.sendMessage(jid, { 
-            image: buffer, 
-            caption: `¡Hola, *${data.clienteNombre}*! 👋 Soy *Nova*.\n\nTu servicio ha sido programado con éxito. He adjuntado tu ficha de viaje con los detalles del conductor y vehículo.\n\n¡Gracias por elegir J&J! 🚐💨` 
-        });
-        if (db) await db.collection('notificaciones_whatsapp').add({ ...data, fecha: admin.firestore.FieldValue.serverTimestamp(), estado: 'enviado' });
+        await sock.sendMessage(jid, { image: buffer, caption: `Confirmación de servicio para *${data.clienteNombre}*.` });
         res.json({ success: true });
-    } catch (error) { 
-        console.error('[Nova] Fallo al enviar notificación:', error);
-        res.status(500).json({ error: 'Fallo envío' }); 
-    }
+    } catch (error) { res.status(500).json({ error: 'Fallo envío' }); }
 });
 
-app.post('/restart', checkApiKey, async (req, res) => {
-    try {
-        if (db && authCollection) {
-            const snap = await authCollection.get();
-            const batch = db.batch();
-            snap.docs.forEach(d => batch.delete(d.ref));
-            await batch.commit();
-        }
-        process.exit(0);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ARRANQUE
 app.listen(PORT, '0.0.0.0', () => { 
-    console.log(`[Railway] Puerto asignado: ${PORT}`);
-    console.log('[Nova] Encendiendo motor de WhatsApp...');
+    console.log(`[DEPLOY-ID: 2026-ALPHA-01] Puerto: ${PORT}`);
     connectToWhatsApp();
 });
