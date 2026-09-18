@@ -1,7 +1,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
- * Empresa: Transportes Especiales J&J
- * Versión: Text-Only Hybrid Core (Firestore Persistence)
+ * DEPLOY-ID: 2026-ALPHA-02
+ * Versión: Resilient Auth Core + Console QR
  */
 
 const { 
@@ -17,11 +17,12 @@ const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
 const qrcode = require('qrcode');
+const qrcodeTerminal = require('qrcode-terminal');
 const pino = require('pino');
 
 const app = express();
 
-// 1. PRIORIDAD: Healthcheck y Middlewares
+// 1. Healthcheck prioritario para Railway
 app.get('/health', (req, res) => res.status(200).send('OK'));
 app.use(cors()); 
 app.use(express.json());
@@ -42,7 +43,7 @@ let authCollection = null;
 
 try {
     if (!admin.apps.length) {
-        console.log('[Firebase] Iniciando SDK...');
+        console.log('[Firebase] 🛡️ Iniciando SDK con Cuenta de Servicio...');
         const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount)
@@ -50,13 +51,13 @@ try {
     }
     db = admin.firestore();
     authCollection = db.collection('whatsapp_auth_session');
-    console.log('[Firebase] ✅ SDK Conectado para Persistencia');
+    console.log('[Firebase] ✅ SDK Conectado con éxito');
 } catch (error) {
-    console.error('[Firebase] Fallo crítico de conexión:', error.message);
+    console.error('[Firebase] ❌ Error crítico de inicialización:', error.message);
 }
 
 /**
- * Inteligencia de Ruta y Clima (Fetch nativo + Timeout de 3s)
+ * Inteligencia de Ruta y Clima (Text-Only optimized)
  */
 async function getSmartInfo(origen, destino) {
     const smartData = {
@@ -108,7 +109,7 @@ async function getSmartInfo(origen, destino) {
 }
 
 /**
- * Adaptador de Autenticación Firestore (Baileys Persistence)
+ * Adaptador de Autenticación Firestore Blindado
  */
 async function getAuthAdapter() {
     const writeData = async (data, id) => {
@@ -122,7 +123,9 @@ async function getAuthAdapter() {
         try { if (!authCollection) return null;
             const doc = await authCollection.doc(id).get();
             if (!doc.exists) return null;
-            return JSON.parse(doc.data().data, (k, v) => (v && v.type === 'Buffer') ? Buffer.from(v.data, 'base64') : v);
+            const content = doc.data().data;
+            if (!content) return null;
+            return JSON.parse(content, (k, v) => (v && v.type === 'Buffer') ? Buffer.from(v.data, 'base64') : v);
         } catch (e) { return null; }
     };
 
@@ -131,6 +134,7 @@ async function getAuthAdapter() {
     };
 
     const credsData = await readData('creds');
+    
     return {
         state: {
             creds: credsData || initAuthCreds(),
@@ -156,7 +160,7 @@ async function getAuthAdapter() {
 }
 
 async function connectToWhatsApp() {
-    console.log('[Nova] Encendiendo motor de WhatsApp... [DEPLOY: 2026-STABLE]');
+    console.log('[Nova] 🚀 Encendiendo motor de WhatsApp...');
     try {
         const { state } = await getAuthAdapter();
         const { version } = await fetchLatestBaileysVersion();
@@ -178,18 +182,25 @@ async function connectToWhatsApp() {
             if (qr) { 
                 qrCodeBase64 = await qrcode.toDataURL(qr); 
                 connectionStatus = 'waiting_qr'; 
-                console.log('[Nova] 📲 Código QR generado. Esperando vinculación...');
+                console.log('\n[Nova] 📲 NUEVO CÓDIGO QR GENERADO:');
+                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                qrcodeTerminal.generate(qr, { small: true });
+                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
             }
 
             if (connection === 'close') {
-                const shouldReconnect = (lastDisconnect.error instanceof Boom) ? 
-                    lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut : true;
+                const error = lastDisconnect?.error;
+                const statusCode = (error instanceof Boom) ? error.output.statusCode : 0;
+                
+                console.error('[CRASH REAL BAILLEYS]:', error || 'Desconexión desconocida');
+
+                const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
                 
                 if (shouldReconnect) {
-                    console.log('[Nova] Reintentando conexión en 5s...');
+                    console.log('[Nova] 🔄 Reintentando conexión en 5s...');
                     setTimeout(connectToWhatsApp, 5000);
                 } else {
-                    console.log('[Nova] ⚠️ Sesión cerrada. Limpiando credenciales...');
+                    console.log('[Nova] ⚠️ Sesión cerrada manualmente. Limpiando Firebase...');
                     connectionStatus = 'logged_out';
                 }
             } else if (connection === 'open') {
@@ -206,7 +217,7 @@ async function connectToWhatsApp() {
             }
         });
 
-        // Inbox Listener
+        // Inbox Listener (Persistencia en Firestore)
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
             if (type !== 'notify' || !db) return;
             const msg = messages[0];
@@ -222,7 +233,7 @@ async function connectToWhatsApp() {
         });
 
     } catch (error) { 
-        console.error('[Nova] Error fatal en motor:', error.message);
+        console.error('[Nova] ❌ Error fatal en motor:', error.message);
         setTimeout(connectToWhatsApp, 10000); 
     }
 }
