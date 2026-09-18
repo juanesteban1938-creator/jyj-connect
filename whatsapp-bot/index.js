@@ -1,7 +1,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: High-Performance Text Core (Fetch-based)
+ * Versión: Text-Only Hybrid Core (Firestore Persistence)
  */
 
 const { 
@@ -42,6 +42,7 @@ let authCollection = null;
 
 try {
     if (!admin.apps.length) {
+        console.log('[Firebase] Iniciando SDK...');
         const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount)
@@ -49,8 +50,9 @@ try {
     }
     db = admin.firestore();
     authCollection = db.collection('whatsapp_auth_session');
+    console.log('[Firebase] ✅ SDK Conectado para Persistencia');
 } catch (error) {
-    console.error('[Firebase] Fallo inicial:', error.message);
+    console.error('[Firebase] Fallo crítico de conexión:', error.message);
 }
 
 /**
@@ -66,7 +68,6 @@ async function getSmartInfo(origen, destino) {
     };
 
     try {
-        // 1. Google Maps Matrix
         if (GMAPS_KEY && origen && destino) {
             const mapsUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origen)}&destinations=${encodeURIComponent(destino)}&key=${GMAPS_KEY}`;
             const mapsRes = await fetch(mapsUrl, { signal: AbortSignal.timeout(3000) });
@@ -76,7 +77,6 @@ async function getSmartInfo(origen, destino) {
                 smartData.distancia = mapsJson.rows[0].elements[0].distance.text;
                 smartData.tiempo = mapsJson.rows[0].elements[0].duration.text;
                 
-                // Sugerencia por tiempo de viaje
                 const durationSeconds = mapsJson.rows[0].elements[0].duration.value;
                 if (durationSeconds > 7200) {
                     smartData.recomendacion = "Viaje largo, te sugerimos ropa cómoda y buena hidratación.";
@@ -84,7 +84,6 @@ async function getSmartInfo(origen, destino) {
             }
         }
 
-        // 2. Clima en Destino
         if (WEATHER_KEY && destino) {
             const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(destino)}&appid=${WEATHER_KEY}&units=metric&lang=es`;
             const weatherRes = await fetch(weatherUrl, { signal: AbortSignal.timeout(3000) });
@@ -94,7 +93,6 @@ async function getSmartInfo(origen, destino) {
                 smartData.climaTemp = Math.round(weatherJson.main.temp);
                 smartData.climaEstado = weatherJson.weather[0].description;
                 
-                // Sugerencia por clima
                 const mainWeather = weatherJson.weather[0].main.toLowerCase();
                 if (mainWeather.includes('rain')) {
                     smartData.recomendacion = "Lleva paraguas, se esperan lluvias en tu destino.";
@@ -104,21 +102,22 @@ async function getSmartInfo(origen, destino) {
             }
         }
     } catch (error) {
-        console.error('[API ERROR] Falla en Maps/Clima:', error);
+        console.error('[API ERROR] Falla en Maps/Clima:', error.message);
     }
     return smartData;
 }
 
 /**
- * Adaptador de Autenticación Firestore
+ * Adaptador de Autenticación Firestore (Baileys Persistence)
  */
 async function getAuthAdapter() {
     const writeData = async (data, id) => {
         try { if (!authCollection) return;
             const json = JSON.stringify(data, (k, v) => Buffer.isBuffer(v) ? { type: 'Buffer', data: v.toString('base64') } : v);
             await authCollection.doc(id).set({ data: json, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-        } catch (e) {}
+        } catch (e) { console.error('[Auth Write Error]', e.message); }
     };
+
     const readData = async (id) => {
         try { if (!authCollection) return null;
             const doc = await authCollection.doc(id).get();
@@ -126,7 +125,10 @@ async function getAuthAdapter() {
             return JSON.parse(doc.data().data, (k, v) => (v && v.type === 'Buffer') ? Buffer.from(v.data, 'base64') : v);
         } catch (e) { return null; }
     };
-    const removeData = async (id) => { try { if (authCollection) await authCollection.doc(id).delete(); } catch (e) {} };
+
+    const removeData = async (id) => { 
+        try { if (authCollection) await authCollection.doc(id).delete(); } catch (e) {} 
+    };
 
     const credsData = await readData('creds');
     return {
@@ -154,7 +156,7 @@ async function getAuthAdapter() {
 }
 
 async function connectToWhatsApp() {
-    console.log('[Nova] Encendiendo motor de WhatsApp... [DEPLOY-ID: 2026-ALPHA-01]');
+    console.log('[Nova] Encendiendo motor de WhatsApp... [DEPLOY: 2026-STABLE]');
     try {
         const { state } = await getAuthAdapter();
         const { version } = await fetchLatestBaileysVersion();
@@ -172,17 +174,28 @@ async function connectToWhatsApp() {
 
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
-            if (qr) { qrCodeBase64 = await qrcode.toDataURL(qr); connectionStatus = 'waiting_qr'; }
+            
+            if (qr) { 
+                qrCodeBase64 = await qrcode.toDataURL(qr); 
+                connectionStatus = 'waiting_qr'; 
+                console.log('[Nova] 📲 Código QR generado. Esperando vinculación...');
+            }
+
             if (connection === 'close') {
                 const shouldReconnect = (lastDisconnect.error instanceof Boom) ? 
                     lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut : true;
+                
                 if (shouldReconnect) {
-                    console.log('[Nova] Reintentando conexión...');
+                    console.log('[Nova] Reintentando conexión en 5s...');
                     setTimeout(connectToWhatsApp, 5000);
+                } else {
+                    console.log('[Nova] ⚠️ Sesión cerrada. Limpiando credenciales...');
+                    connectionStatus = 'logged_out';
                 }
             } else if (connection === 'open') {
-                qrCodeBase64 = ''; connectionStatus = 'connected';
-                console.log('[Nova] ✅ Conexión abierta y lista para comandos');
+                qrCodeBase64 = ''; 
+                connectionStatus = 'connected';
+                console.log('[Nova] ✅ SISTEMA ONLINE - LISTO PARA COMANDOS');
             }
         });
 
@@ -193,12 +206,14 @@ async function connectToWhatsApp() {
             }
         });
 
+        // Inbox Listener
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
             if (type !== 'notify' || !db) return;
             const msg = messages[0];
             if (!msg.message || msg.key.fromMe) return;
             const jid = msg.key.remoteJid;
             const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+            
             await db.collection('conversaciones').add({
                 jid, cuerpo: text, tipo: 'entrante', leido: false,
                 nombre: msg.pushName || jid.split('@')[0],
@@ -207,10 +222,12 @@ async function connectToWhatsApp() {
         });
 
     } catch (error) { 
-        console.error('[Nova] Error fatal en motor:', error);
+        console.error('[Nova] Error fatal en motor:', error.message);
         setTimeout(connectToWhatsApp, 10000); 
     }
 }
+
+// ── ENDPOINTS DE CONTROL ──
 
 const checkApiKey = (req, res, next) => {
     if (req.headers['x-api-key'] !== API_KEY) return res.status(401).json({ error: 'No autorizado' });
@@ -239,12 +256,10 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
     
     try {
         const d = req.body;
-        // Normalización de teléfono
         let phone = String(d.clienteTelefono).replace(/\D/g, '');
         if (!phone.startsWith('57') && phone.length === 10) phone = '57' + phone;
         const jid = `${phone}@s.whatsapp.net`;
 
-        // Inteligencia de ruta y clima con manejo de errores nativo
         const smart = await getSmartInfo(d.origen, d.destino);
         
         const mensajeFormateado = `¡Hola, *${d.clienteNombre}*! 👋
@@ -273,7 +288,6 @@ Transportes Especiales J&J`;
 
         await sock.sendMessage(jid, { text: mensajeFormateado });
 
-        // Log de salida en Firestore
         if (db) {
             await db.collection('notificaciones_whatsapp').add({
                 clienteNombre: d.clienteNombre,
