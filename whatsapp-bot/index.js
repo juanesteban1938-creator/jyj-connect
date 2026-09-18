@@ -1,7 +1,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
- * DEPLOY-ID: 2026-ALPHA-02
- * Versión: Resilient Auth Core + Console QR
+ * DEPLOY-ID: 2026-BETA-01
+ * Versión: Crypto-Safe Auth + Firestore Sync
  */
 
 const { 
@@ -10,7 +10,8 @@ const {
     fetchLatestBaileysVersion, 
     makeCacheableSignalKeyStore,
     initAuthCreds,
-    Browsers
+    Browsers,
+    BufferJSON
 } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const express = require('express');
@@ -22,7 +23,7 @@ const pino = require('pino');
 
 const app = express();
 
-// 1. Healthcheck prioritario para Railway
+// Healthcheck para Railway
 app.get('/health', (req, res) => res.status(200).send('OK'));
 app.use(cors()); 
 app.use(express.json());
@@ -109,39 +110,60 @@ async function getSmartInfo(origen, destino) {
 }
 
 /**
- * Adaptador de Autenticación Firestore Blindado
+ * Adaptador de Autenticación Firestore Blindado (Crypto-Resilient)
  */
 async function getAuthAdapter() {
     const writeData = async (data, id) => {
-        try { if (!authCollection) return;
-            const json = JSON.stringify(data, (k, v) => Buffer.isBuffer(v) ? { type: 'Buffer', data: v.toString('base64') } : v);
-            await authCollection.doc(id).set({ data: json, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-        } catch (e) { console.error('[Auth Write Error]', e.message); }
+        try { 
+            if (!authCollection) return;
+            // Usamos BufferJSON para manejar correctamente las llaves binarias de Baileys
+            const json = JSON.stringify(data, BufferJSON.replacer);
+            await authCollection.doc(id).set({ 
+                data: json, 
+                updatedAt: admin.firestore.FieldValue.serverTimestamp() 
+            }, { merge: true });
+        } catch (e) { 
+            console.error('[Auth Write Error] ID:', id, e.message); 
+        }
     };
 
     const readData = async (id) => {
-        try { if (!authCollection) return null;
+        try { 
+            if (!authCollection) return null;
             const doc = await authCollection.doc(id).get();
             if (!doc.exists) return null;
             const content = doc.data().data;
             if (!content) return null;
-            return JSON.parse(content, (k, v) => (v && v.type === 'Buffer') ? Buffer.from(v.data, 'base64') : v);
-        } catch (e) { return null; }
+            return JSON.parse(content, BufferJSON.reviver);
+        } catch (e) { 
+            console.error('[Auth Read Error] ID:', id, e.message);
+            return null; 
+        }
     };
 
     const removeData = async (id) => { 
         try { if (authCollection) await authCollection.doc(id).delete(); } catch (e) {} 
     };
 
-    const credsData = await readData('creds');
+    // Lectura inicial de credenciales
+    let creds = await readData('creds');
     
+    // CORRECCIÓN CRÍTICA: Si no hay creds, inicializarlas correctamente con initAuthCreds()
+    if (!creds) {
+        console.log('[Nova] 🔑 Generando nuevas credenciales criptográficas...');
+        creds = initAuthCreds();
+        await writeData(creds, 'creds');
+    }
+
     return {
         state: {
-            creds: credsData || initAuthCreds(),
+            creds,
             keys: makeCacheableSignalKeyStore({
                 get: async (type, ids) => {
                     const data = {};
-                    await Promise.all(ids.map(async (id) => { data[id] = await readData(`${type}-${id}`); }));
+                    await Promise.all(ids.map(async (id) => { 
+                        data[id] = await readData(`${type}-${id}`); 
+                    }));
                     return data;
                 },
                 set: async (data) => {
@@ -149,13 +171,16 @@ async function getAuthAdapter() {
                         for (const id in data[cat]) {
                             const val = data[cat][id];
                             const key = `${cat}-${id}`;
-                            if (val) await writeData(val, key); else await removeData(key);
+                            if (val) await writeData(val, key); 
+                            else await removeData(key);
                         }
                     }
                 }
             }, logger)
         },
-        saveCreds: async () => { /* Manejado por sock.ev.on('creds.update') */ }
+        saveCreds: async () => {
+            // Este llamado lo haremos manualmente o vía el listener de sock
+        }
     };
 }
 
@@ -164,6 +189,11 @@ async function connectToWhatsApp() {
     try {
         const { state } = await getAuthAdapter();
         const { version } = await fetchLatestBaileysVersion();
+
+        // Verificación de integridad antes de inyectar
+        if (!state.creds || !state.creds.noiseKey) {
+            throw new Error('Estado de autenticación corrupto o incompleto.');
+        }
 
         sock = makeWASocket({
             version,
@@ -194,6 +224,7 @@ async function connectToWhatsApp() {
                 
                 console.error('[CRASH REAL BAILLEYS]:', error || 'Desconexión desconocida');
 
+                // Si no fue un logout manual, reintentar
                 const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
                 
                 if (shouldReconnect) {
@@ -210,14 +241,22 @@ async function connectToWhatsApp() {
             }
         });
 
-        sock.ev.on('creds.update', async (creds) => {
+        // Guardado automático de credenciales actualizadas
+        sock.ev.on('creds.update', async (credsUpdate) => {
             if (authCollection) {
-                const json = JSON.stringify(creds, (k, v) => Buffer.isBuffer(v) ? { type: 'Buffer', data: v.toString('base64') } : v);
-                await authCollection.doc('creds').set({ data: json, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+                // Fusionamos las credenciales actuales con la actualización
+                const currentCreds = state.creds;
+                Object.assign(currentCreds, credsUpdate);
+                
+                const json = JSON.stringify(currentCreds, BufferJSON.replacer);
+                await authCollection.doc('creds').set({ 
+                    data: json, 
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp() 
+                }, { merge: true }).catch(e => console.error('[Creds Update Error]', e.message));
             }
         });
 
-        // Inbox Listener (Persistencia en Firestore)
+        // Inbox Listener
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
             if (type !== 'notify' || !db) return;
             const msg = messages[0];
