@@ -1,7 +1,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * Empresa: Transportes Especiales J&J
- * Versión: High-Performance Image Core (Puppeteer + Baileys)
+ * Versión: High-Performance Text Core (Fetch-based)
  */
 
 const { 
@@ -18,7 +18,6 @@ const cors = require('cors');
 const admin = require('firebase-admin');
 const qrcode = require('qrcode');
 const pino = require('pino');
-const puppeteer = require('puppeteer');
 
 const app = express();
 
@@ -55,187 +54,58 @@ try {
 }
 
 /**
- * Generador de Tarjeta de Servicio con Puppeteer (Blindado para Railway)
- */
-async function generateServiceCard(data) {
-    const browser = await puppeteer.launch({
-        headless: "new",
-        args: [
-            '--no-sandbox', 
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--single-process'
-        ]
-    });
-
-    try {
-        const page = await browser.newPage();
-        await page.setViewport({ width: 800, height: 1000, deviceScaleFactor: 2 });
-
-        const htmlContent = `
-        <!DOCTYPE html>
-        <html lang="es">
-        <head>
-            <meta charset="UTF-8">
-            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&family=Noto+Color+Emoji&display=swap" rel="stylesheet">
-            <style>
-                body { 
-                    margin: 0; padding: 40px; 
-                    font-family: 'Inter', 'Noto Color Emoji', sans-serif; 
-                    background: #F3F4F6;
-                }
-                .card {
-                    background: white;
-                    border-radius: 40px;
-                    overflow: hidden;
-                    box-shadow: 0 30px 60px -12px rgba(0,0,0,0.15);
-                    border: 1px solid rgba(0,0,0,0.05);
-                }
-                .header {
-                    background: #1F3864;
-                    padding: 40px;
-                    color: white;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                }
-                .brand h1 { margin: 0; font-size: 32px; font-weight: 900; letter-spacing: -1px; }
-                .brand p { margin: 0; font-size: 10px; font-weight: 700; color: #F59E0B; text-transform: uppercase; letter-spacing: 4px; }
-                .badge {
-                    background: rgba(245, 158, 11, 0.2);
-                    color: #F59E0B;
-                    padding: 8px 16px;
-                    border-radius: 12px;
-                    font-size: 10px;
-                    font-weight: 900;
-                    text-transform: uppercase;
-                }
-                .content { padding: 40px; }
-                .route-grid { display: grid; grid-cols: 1fr; gap: 30px; margin-bottom: 40px; }
-                .point { display: flex; gap: 20px; align-items: flex-start; }
-                .dot { width: 12px; height: 12px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
-                .dot.origin { background: #10B981; border: 4px solid #D1FAE5; }
-                .dot.dest { background: #EF4444; border: 4px solid #FEE2E2; }
-                .label { font-size: 10px; font-weight: 900; color: #9CA3AF; text-transform: uppercase; margin-bottom: 4px; }
-                .val { font-size: 18px; font-weight: 700; color: #1F2937; line-height: 1.3; }
-                
-                .info-grid { 
-                    display: grid; 
-                    grid-template-columns: 1fr 1fr; 
-                    gap: 20px; 
-                    background: #F9FAFB;
-                    padding: 30px;
-                    border-radius: 24px;
-                }
-                .item-label { font-size: 9px; font-weight: 800; color: #6B7280; text-transform: uppercase; margin-bottom: 4px; }
-                .item-val { font-size: 15px; font-weight: 700; color: #111827; }
-                .footer {
-                    padding: 30px;
-                    text-align: center;
-                    background: #1F3864;
-                    color: white;
-                    font-size: 10px;
-                    font-weight: 700;
-                    text-transform: uppercase;
-                    letter-spacing: 2px;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="card">
-                <div class="header">
-                    <div class="brand">
-                        <h1>J&J CONNECT</h1>
-                        <p>Transporte Especial</p>
-                    </div>
-                    <div class="badge">Programado</div>
-                </div>
-                <div class="content">
-                    <div class="route-grid">
-                        <div class="point">
-                            <div class="dot origin"></div>
-                            <div>
-                                <div class="label">Punto de Recogida 📍</div>
-                                <div class="val">${data.origen}</div>
-                            </div>
-                        </div>
-                        <div class="point">
-                            <div class="dot dest"></div>
-                            <div>
-                                <div class="label">Punto de Destino 🏁</div>
-                                <div class="val">${data.destino}</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="info-grid">
-                        <div>
-                            <div class="item-label">🗓️ Fecha</div>
-                            <div class="item-val">${data.fecha}</div>
-                        </div>
-                        <div>
-                            <div class="item-label">⏰ Hora</div>
-                            <div class="item-val">${data.hora}</div>
-                        </div>
-                        <div>
-                            <div class="item-label">👤 Conductor</div>
-                            <div class="item-val">${data.conductor}</div>
-                        </div>
-                        <div>
-                            <div class="item-label">🚗 Placa</div>
-                            <div class="item-val">${data.placa}</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="footer">Nova Digital Assistant — J&J v2.0</div>
-            </div>
-        </body>
-        </html>
-        `;
-
-        await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-        const element = await page.$('body');
-        return await element.screenshot({ type: 'png', omitBackground: true });
-    } finally {
-        await browser.close();
-    }
-}
-
-/**
- * Inteligencia de Ruta y Clima (Timeout 3s)
+ * Inteligencia de Ruta y Clima (Fetch nativo + Timeout de 3s)
  */
 async function getSmartInfo(origen, destino) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
     const smartData = {
         distancia: "Información calculada en ruta",
         tiempo: "Información calculada en ruta",
-        climaEstado: "N/A", climaTemp: "--",
+        climaEstado: "Despejado", 
+        climaTemp: "--",
         recomendacion: "Por favor estar atento a las indicaciones del conductor."
     };
 
     try {
-        if (GMAPS_KEY) {
-            const mapsRes = await fetch(`https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origen)}&destinations=${encodeURIComponent(destino)}&key=${GMAPS_KEY}`, { signal: controller.signal });
+        // 1. Google Maps Matrix
+        if (GMAPS_KEY && origen && destino) {
+            const mapsUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origen)}&destinations=${encodeURIComponent(destino)}&key=${GMAPS_KEY}`;
+            const mapsRes = await fetch(mapsUrl, { signal: AbortSignal.timeout(3000) });
             const mapsJson = await mapsRes.json();
+            
             if (mapsJson.rows?.[0]?.elements?.[0]?.status === "OK") {
                 smartData.distancia = mapsJson.rows[0].elements[0].distance.text;
                 smartData.tiempo = mapsJson.rows[0].elements[0].duration.text;
+                
+                // Sugerencia por tiempo de viaje
+                const durationSeconds = mapsJson.rows[0].elements[0].duration.value;
+                if (durationSeconds > 7200) {
+                    smartData.recomendacion = "Viaje largo, te sugerimos ropa cómoda y buena hidratación.";
+                }
             }
         }
-        if (WEATHER_KEY) {
-            const weatherRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(destino)}&appid=${WEATHER_KEY}&units=metric&lang=es`, { signal: controller.signal });
+
+        // 2. Clima en Destino
+        if (WEATHER_KEY && destino) {
+            const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(destino)}&appid=${WEATHER_KEY}&units=metric&lang=es`;
+            const weatherRes = await fetch(weatherUrl, { signal: AbortSignal.timeout(3000) });
             const weatherJson = await weatherRes.json();
+            
             if (weatherJson.main) {
                 smartData.climaTemp = Math.round(weatherJson.main.temp);
                 smartData.climaEstado = weatherJson.weather[0].description;
-                if (weatherJson.weather[0].main.toLowerCase().includes('rain')) smartData.recomendacion = "Lleva paraguas, se esperan lluvias en tu destino.";
+                
+                // Sugerencia por clima
+                const mainWeather = weatherJson.weather[0].main.toLowerCase();
+                if (mainWeather.includes('rain')) {
+                    smartData.recomendacion = "Lleva paraguas, se esperan lluvias en tu destino.";
+                } else if (smartData.climaTemp > 28) {
+                    smartData.recomendacion = "Día soleado y caluroso, no olvides hidratarte.";
+                }
             }
         }
-    } catch (err) {} finally { clearTimeout(timeoutId); }
+    } catch (error) {
+        console.error('[API ERROR] Falla en Maps/Clima:', error);
+    }
     return smartData;
 }
 
@@ -279,14 +149,14 @@ async function getAuthAdapter() {
                 }
             }, logger)
         },
-        saveCreds: async () => { await writeData(initAuthCreds(), 'creds'); }
+        saveCreds: async () => { /* Manejado por sock.ev.on('creds.update') */ }
     };
 }
 
 async function connectToWhatsApp() {
-    console.log('[DEPLOY-ID: 2026-BETA-PUPPETEER]');
+    console.log('[Nova] Encendiendo motor de WhatsApp... [DEPLOY-ID: 2026-ALPHA-01]');
     try {
-        const { state, saveCreds } = await getAuthAdapter();
+        const { state } = await getAuthAdapter();
         const { version } = await fetchLatestBaileysVersion();
 
         sock = makeWASocket({
@@ -296,7 +166,8 @@ async function connectToWhatsApp() {
             browser: Browsers.macOS('Desktop'),
             syncFullHistory: false,
             connectTimeoutMs: 60000,
-            markOnlineOnConnect: true
+            markOnlineOnConnect: true,
+            generateHighQualityLinkPreview: false
         });
 
         sock.ev.on('connection.update', async (update) => {
@@ -305,14 +176,22 @@ async function connectToWhatsApp() {
             if (connection === 'close') {
                 const shouldReconnect = (lastDisconnect.error instanceof Boom) ? 
                     lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut : true;
-                if (shouldReconnect) setTimeout(connectToWhatsApp, 5000);
+                if (shouldReconnect) {
+                    console.log('[Nova] Reintentando conexión...');
+                    setTimeout(connectToWhatsApp, 5000);
+                }
             } else if (connection === 'open') {
                 qrCodeBase64 = ''; connectionStatus = 'connected';
-                console.log('[Nova] ✅ SISTEMA ONLINE');
+                console.log('[Nova] ✅ Conexión abierta y lista para comandos');
             }
         });
 
-        sock.ev.on('creds.update', saveCreds);
+        sock.ev.on('creds.update', async (creds) => {
+            if (authCollection) {
+                const json = JSON.stringify(creds, (k, v) => Buffer.isBuffer(v) ? { type: 'Buffer', data: v.toString('base64') } : v);
+                await authCollection.doc('creds').set({ data: json, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+            }
+        });
 
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
             if (type !== 'notify' || !db) return;
@@ -327,7 +206,10 @@ async function connectToWhatsApp() {
             }).catch(() => {});
         });
 
-    } catch (error) { setTimeout(connectToWhatsApp, 10000); }
+    } catch (error) { 
+        console.error('[Nova] Error fatal en motor:', error);
+        setTimeout(connectToWhatsApp, 10000); 
+    }
 }
 
 const checkApiKey = (req, res, next) => {
@@ -338,34 +220,69 @@ const checkApiKey = (req, res, next) => {
 app.get('/status', checkApiKey, (req, res) => res.json({ connected: connectionStatus === 'connected', status: connectionStatus }));
 app.get('/qr', checkApiKey, (req, res) => res.json({ qr: qrCodeBase64 }));
 
+app.post('/restart', checkApiKey, async (req, res) => {
+    try {
+        if (sock) sock.logout();
+        if (authCollection) {
+            const batch = db.batch();
+            const docs = await authCollection.get();
+            docs.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
+        }
+        res.json({ success: true });
+        process.exit(0);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/send-service-notification', checkApiKey, async (req, res) => {
     if (connectionStatus !== 'connected') return res.status(503).json({ error: 'Nova desconectada' });
     
     try {
         const d = req.body;
-        const jid = `${d.clienteTelefono.replace(/\D/g, '')}@s.whatsapp.net`;
+        // Normalización de teléfono
+        let phone = String(d.clienteTelefono).replace(/\D/g, '');
+        if (!phone.startsWith('57') && phone.length === 10) phone = '57' + phone;
+        const jid = `${phone}@s.whatsapp.net`;
+
+        // Inteligencia de ruta y clima con manejo de errores nativo
         const smart = await getSmartInfo(d.origen, d.destino);
         
-        // Generar Tarjeta Gráfica Dinámica
-        const imageBuffer = await generateServiceCard(d);
+        const mensajeFormateado = `¡Hola, *${d.clienteNombre}*! 👋
 
-        const mensaje = `¡Hola, *${d.clienteNombre}*! 👋
+Soy Nova, asistente virtual de Transportes Especiales J&J 🚐
 
-Soy *Nova*, asistente de *Transportes Especiales J&J* 🚐
+Tu servicio ha sido programado:
+━━━━━━━━━━━━━━━━
+🗓️ Fecha: ${d.fecha}
+⏰ Hora: ${d.hora}
+📍 Origen: ${d.origen}
+🏁 Destino: ${d.destino}
+🚗 Placa: ${d.placa}
+👤 Conductor: ${d.conductor}
+📞 Contacto: ${d.telefonoConductor}
+━━━━━━━━━━━━━━━━
+🛣️ Distancia: ${smart.distancia}
+⏳ Tiempo est: ${smart.tiempo}
+🌤️ Clima destino: ${smart.climaEstado} (${smart.climaTemp}°C)
+💡 Sugerencia: ${smart.recomendacion}
 
-Tu servicio ha sido programado con éxito. Aquí tienes los detalles:
+Por favor estar listo 10 minutos antes. 🙏
+¡Gracias por elegirnos! 🌟
 
-🛣️ *Distancia:* ${smart.distancia}
-⏳ *Tiempo est.:* ${smart.tiempo}
-🌤️ *Clima:* ${smart.climaEstado} (${smart.climaTemp}°C)
-💡 *Sugerencia:* ${smart.recomendacion}
+Transportes Especiales J&J`;
 
-Por favor estar listo 10 minutos antes. 🙏`;
+        await sock.sendMessage(jid, { text: mensajeFormateado });
 
-        await sock.sendMessage(jid, { 
-            image: imageBuffer, 
-            caption: mensaje 
-        });
+        // Log de salida en Firestore
+        if (db) {
+            await db.collection('notificaciones_whatsapp').add({
+                clienteNombre: d.clienteNombre,
+                clienteTelefono: phone,
+                tipo: 'Confirmación Servicio',
+                estado: 'enviado',
+                fecha: admin.firestore.FieldValue.serverTimestamp()
+            });
+        }
 
         res.json({ success: true });
     } catch (error) {
