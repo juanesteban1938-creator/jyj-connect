@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       secure: true,
       auth: {
         user: process.env.SMTP_USER,
-        pass: 'cymeyvdehchdnrrf',
+        pass: process.env.SMTP_PASS, // Corregido: Ahora lee la variable de entorno
       },
     });
 

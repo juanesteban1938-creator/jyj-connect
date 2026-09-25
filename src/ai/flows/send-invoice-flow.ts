@@ -14,7 +14,7 @@ export async function sendInvoice(input: SendInvoiceInput): Promise<SendInvoiceO
     secure: true, // true for 465, false for other ports
     auth: {
       user: process.env.SMTP_USER,
-      pass: 'cymeyvdehchdnrrf',
+      pass: process.env.SMTP_PASS, // Corregido: Ahora lee la variable de entorno
     },
   });
 
