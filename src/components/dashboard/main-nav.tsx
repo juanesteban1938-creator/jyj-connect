@@ -64,7 +64,7 @@ export function MainNav() {
 
   const finanzasItems = [
     { id: 'analitica', href: '/dashboard/analitica', label: 'Analítica', icon: BarChart2 },
-    { id: 'rentabilidad', href: '/dashboard/finanzas/rentabilidad', label: 'Rentabilidad', icon: PieChart },
+    { id: 'rentabilidad', href: '/dashboard/rentabilidad', label: 'Rentabilidad P&G', icon: PieChart },
     { id: 'facturacion', href: '/dashboard/facturacion', label: 'Facturación', icon: BookText },
     { id: 'contabilidad', href: '/dashboard/contabilidad', label: 'Contabilidad', icon: FileText },
   ];

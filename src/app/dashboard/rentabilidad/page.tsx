@@ -43,8 +43,7 @@ export default function RentabilidadPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
   
   const [selectedYear, setSelectedYear] = useState<string>(() => {
-    const currentYear = new Date().getFullYear();
-    return currentYear < 2026 ? '2026' : currentYear.toString();
+    return new Date().getFullYear().toString();
   });
   
   const { toast } = useToast();
@@ -185,8 +184,8 @@ export default function RentabilidadPage() {
   );
 
   const years = useMemo(() => {
-    const startYear = 2026;
-    const endYear = 2036;
+    const startYear = 2024;
+    const endYear = new Date().getFullYear() + 5;
     const yearsArray = [];
     for (let y = startYear; y <= endYear; y++) {
       yearsArray.push(y.toString());
