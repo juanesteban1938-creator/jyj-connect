@@ -1,20 +1,23 @@
 /**
  * J&J CONNECT - Driver Notification Module
  * Monitorea asignaciones de servicios en tiempo real y gestiona notificaciones manuales.
- * Versión: Fix Cifrado y Validación de JID
+ * Versión: Fix Anti-Colisión, Cifrado Atómico y Mutex de Envío
  */
 
 const admin = require('firebase-admin');
 
 let isListenerActive = false;
+const sendingLock = new Map(); // Mapa de bloqueos: serviceId -> timestamp
 
 /**
  * Envía una notificación de WhatsApp a un conductor específico.
- * @param {Object} sock - Instancia de Baileys WA Socket
+ * @param {Function} getSock - Función que retorna la instancia activa de Baileys
  * @param {Object} db - Instancia de Firestore Admin
  * @param {string} serviceId - ID del servicio a notificar
+ * @param {Map} msgRetryCache - Mapa compartido para persistencia de cifrado
  */
-async function sendDriverNotification(sock, db, serviceId) {
+async function sendDriverNotification(getSock, db, serviceId, msgRetryCache) {
+    const sock = getSock();
     if (!db || !sock) throw new Error('Servicios de motor no disponibles');
 
     const serviceRef = db.collection('services').doc(serviceId);
@@ -35,6 +38,18 @@ async function sendDriverNotification(sock, db, serviceId) {
     let cleanPhone = driverPhoneRaw.replace(/\D/g, '');
     if (cleanPhone.length === 10) cleanPhone = '57' + cleanPhone;
     const jid = `${cleanPhone}@s.whatsapp.net`;
+
+    // ── SISTEMA DE BLOQUEO (MUTEX) ──
+    const lockKey = `${serviceId}-${jid}`;
+    const now = Date.now();
+    if (sendingLock.has(lockKey)) {
+        const lastSend = sendingLock.get(lockKey);
+        if (now - lastSend < 15000) { // Bloqueo de 15 segundos
+            console.log(`[Nova-Conductores] ⏳ Envío omitido por cooldown: ${driverName} (${serviceId})`);
+            return { success: true, status: 'locked' };
+        }
+    }
+    sendingLock.set(lockKey, now);
 
     // FIX: Validar disponibilidad en WhatsApp y calentar llaves de cifrado
     const [waCheck] = await sock.onWhatsApp(jid);
@@ -70,8 +85,13 @@ Hola *${driverName}*, soy *Nova*, tu asistente virtual de *Transportes Especiale
 
 Por favor confirma de recibido. ¡Buen viaje!`;
 
-    // Enviar mensaje vía Baileys usando el JID validado
-    await sock.sendMessage(targetJid, { text: message });
+    // Enviar mensaje vía Baileys
+    const sent = await sock.sendMessage(targetJid, { text: message });
+    
+    // FIX CIFRADO: Guardar inmediatamente en caché de reintentos
+    if (sent && msgRetryCache) {
+        msgRetryCache.set(sent.key.id, sent.message);
+    }
     
     // Actualizar registro en Firestore
     await serviceRef.update({
@@ -80,16 +100,20 @@ Por favor confirma de recibido. ¡Buen viaje!`;
         driverNotifiedAt: new Date().toISOString()
     });
 
-    console.log(`[Nova-Asignaciones] 📨 Notificación enviada a ${driverName} (${serviceId})`);
+    console.log(`[Nova-Conductores] 📨 Notificación enviada exitosamente a ${driverName} (${serviceId})`);
+    
+    // Limpiar bloqueo después de 15s
+    setTimeout(() => sendingLock.delete(lockKey), 15000);
+
     return { success: true, driver: driverName };
 }
 
 /**
  * Inicia el escucha de cambios en la colección de servicios para notificar conductores automáticamente.
  */
-async function startDriverAssignmentNotifier(sock, db) {
+async function startDriverAssignmentNotifier(getSock, db, msgRetryCache) {
     if (isListenerActive) return;
-    if (!db || !sock) return;
+    if (!db || !getSock) return;
     
     isListenerActive = true;
     console.log('[Nova-Asignaciones] ✅ Escuchando nuevos servicios en tiempo real...');
@@ -112,9 +136,10 @@ async function startDriverAssignmentNotifier(sock, db) {
                 const notifiedDriverId = service.notifiedDriverId;
                 const status = service.estado;
 
+                // Solo si el conductor ha cambiado o es nuevo y no está finalizado/cancelado
                 if (driverId && status !== 'Cancelado' && status !== 'Finalizado' && notifiedDriverId !== driverId) {
                     try {
-                        await sendDriverNotification(sock, db, serviceId);
+                        await sendDriverNotification(getSock, db, serviceId, msgRetryCache);
                     } catch (error) {
                         console.error('[Nova-Asignaciones] ❌ Error en notificación automática:', error.message);
                     }

@@ -245,8 +245,8 @@ async function connectToWhatsApp() {
                 connectionStatus = 'connected';
                 console.log('[Nova] ✅ SISTEMA ONLINE - LISTO PARA COMANDOS');
 
-                // INICIALIZAR NOTIFICADOR DE CONDUCTORES
-                if (db) startDriverAssignmentNotifier(sock, db);
+                // INICIALIZAR NOTIFICADOR DE CONDUCTORES CON GETTER Y CACHÉ
+                if (db) startDriverAssignmentNotifier(() => sock, db, msgRetryCache);
             }
         });
 
@@ -348,7 +348,11 @@ Por favor estar listo 10 minutos antes. 🙏
 
 *Transportes Especiales J&J*`;
 
-        await sock.sendMessage(targetJid, { text: mensajeFormateado });
+        const sent = await sock.sendMessage(targetJid, { text: mensajeFormateado });
+        
+        // Caching inmediato del mensaje saliente para evitar "Waiting for message"
+        if (sent) msgRetryCache.set(sent.key.id, sent.message);
+
         if (db) {
             await db.collection('notificaciones_whatsapp').add({
                 clienteNombre: d.clienteNombre, clienteTelefono: phone,
@@ -366,7 +370,7 @@ app.post('/notify-driver', checkApiKey, async (req, res) => {
         const { serviceId } = req.body;
         if (!serviceId) return res.status(400).json({ error: 'Falta serviceId' });
 
-        const result = await sendDriverNotification(sock, db, serviceId);
+        const result = await sendDriverNotification(() => sock, db, serviceId, msgRetryCache);
         res.json(result);
     } catch (error) {
         console.error('[Nova-HTTP] ❌ Error en /notify-driver:', error.message);
@@ -381,7 +385,9 @@ app.post('/send-message', checkApiKey, async (req, res) => {
         const [resCheck] = await sock.onWhatsApp(req.body.jid);
         const jid = resCheck?.exists ? resCheck.jid : req.body.jid;
         
-        await sock.sendMessage(jid, { text: req.body.mensaje });
+        const sent = await sock.sendMessage(jid, { text: req.body.mensaje });
+        if (sent) msgRetryCache.set(sent.key.id, sent.message);
+        
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
