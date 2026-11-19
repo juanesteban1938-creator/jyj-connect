@@ -15,6 +15,7 @@
     "firebase-admin": "^11.10.1",
     "pino": "^8.14.1",
     "@hapi/boom": "^10.0.1",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "nodemailer": "^6.9.14"
   }
 }

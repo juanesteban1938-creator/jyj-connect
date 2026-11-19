@@ -21,6 +21,7 @@ const admin = require('firebase-admin');
 const qrcode = require('qrcode');
 const qrcodeTerminal = require('qrcode-terminal');
 const pino = require('pino');
+const { sendEmail } = require('./mailer');
 
 const app = express();
 
@@ -284,6 +285,22 @@ app.post('/restart', checkApiKey, async (req, res) => {
         res.json({ success: true });
         process.exit(0);
     } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// NUEVO: Puente Seguro de Correo
+app.post('/api/send-email', checkApiKey, async (req, res) => {
+    try {
+        const { to, subject, html, text, attachments } = req.body;
+        
+        if (!to || !subject) {
+            return res.status(400).json({ success: false, error: 'Faltan campos obligatorios (to, subject)' });
+        }
+
+        const result = await sendEmail({ to, subject, html, text, attachments });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 app.post('/send-service-notification', checkApiKey, async (req, res) => {
