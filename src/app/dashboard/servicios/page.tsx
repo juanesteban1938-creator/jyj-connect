@@ -167,12 +167,18 @@ export default function ServiciosPage() {
             body: JSON.stringify({ serviceId: s.id })
         });
 
-        const data = await response.json();
+        const responseText = await response.text();
+        let data;
+        try {
+            data = responseText ? JSON.parse(responseText) : null;
+        } catch (e) {
+            throw new Error('El motor de WhatsApp devolvió una respuesta no válida (HTML).');
+        }
 
-        if (response.ok && data.success) {
+        if (response.ok && data?.success) {
             toast({ title: "Notificación Exitosa", description: `El conductor ${s.conductor} ha recibido su hoja de ruta.` });
         } else {
-            throw new Error(data.error || 'Fallo en la comunicación con el motor de WhatsApp');
+            throw new Error(data?.error || 'Fallo en la comunicación con el motor de WhatsApp');
         }
     } catch (err: any) {
         toast({ variant: "destructive", title: "Fallo de Envío", description: err.message });
