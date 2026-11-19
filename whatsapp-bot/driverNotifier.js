@@ -10,6 +10,28 @@ let isListenerActive = false;
 const sendingLock = new Map(); // Mapa de bloqueos: serviceId -> timestamp
 
 /**
+ * Formatea una cadena de hora de 24h a 12h con AM/PM
+ */
+function formatTime12h(timeStr) {
+    if (!timeStr || typeof timeStr !== 'string') return timeStr;
+    if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) return timeStr;
+    
+    const parts = timeStr.split(':');
+    if (parts.length < 2) return timeStr;
+    
+    let hours = parseInt(parts[0], 10);
+    const minutes = parts[1].substring(0, 2);
+    if (isNaN(hours)) return timeStr;
+
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12; // La hora '0' debe ser '12'
+    
+    const hoursStr = hours < 10 ? '0' + hours : hours;
+    return `${hoursStr}:${minutes} ${ampm}`;
+}
+
+/**
  * Envía una notificación de WhatsApp a un conductor específico.
  * @param {Function} getSock - Función que retorna la instancia activa de Baileys
  * @param {Object} db - Instancia de Firestore Admin
@@ -58,7 +80,9 @@ async function sendDriverNotification(getSock, db, serviceId, msgRetryCache) {
     // Preparar datos para la plantilla
     const fechaRaw = service.fecha || '';
     const fecha = fechaRaw.includes('T') ? fechaRaw.split('T')[0] : fechaRaw;
-    const hora = service.hora || 'Por definir';
+    const horaRaw = service.hora || 'Por definir';
+    const hora = formatTime12h(horaRaw);
+    
     const clienteNombre = service.clienteNombre || service.cliente || 'Por definir';
     const clienteTelefono = service.telefonoCliente || 'No suministrado';
     const origen = service.origen || 'Consultar Panel';

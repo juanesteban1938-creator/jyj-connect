@@ -67,6 +67,28 @@ try {
 }
 
 /**
+ * Formatea una cadena de hora de 24h a 12h con AM/PM
+ */
+function formatTime12h(timeStr) {
+    if (!timeStr || typeof timeStr !== 'string') return timeStr;
+    if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) return timeStr;
+    
+    const parts = timeStr.split(':');
+    if (parts.length < 2) return timeStr;
+    
+    let hours = parseInt(parts[0], 10);
+    const minutes = parts[1].substring(0, 2);
+    if (isNaN(hours)) return timeStr;
+
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12; // La hora '0' debe ser '12'
+    
+    const hoursStr = hours < 10 ? '0' + hours : hours;
+    return `${hoursStr}:${minutes} ${ampm}`;
+}
+
+/**
  * Inteligencia de Ruta y Clima (Diseño de Texto Puro)
  */
 async function getSmartInfo(origen, destino) {
@@ -323,6 +345,7 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
         const targetJid = result?.exists ? result.jid : jid;
 
         const smart = await getSmartInfo(d.origen, d.destino);
+        const hora12 = formatTime12h(d.hora);
         
         const mensajeFormateado = `¡Hola, *${d.clienteNombre}*! 👋
 
@@ -331,7 +354,7 @@ Soy Nova, asistente virtual de Transportes Especiales J&J 🚐
 Tu servicio ha sido programado:
 ━━━━━━━━━━━━━━━━
 🗓️ *Fecha:* ${d.fecha}
-⏰ *Hora:* ${d.hora}
+⏰ *Hora:* ${hora12}
 📍 *Origen:* ${d.origen}
 🏁 *Destino:* ${d.destino}
 🚗 *Placa:* ${d.placa}
