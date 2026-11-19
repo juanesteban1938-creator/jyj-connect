@@ -1,7 +1,7 @@
 /**
  * J&J CONNECT V2.0 - WhatsApp Bot Engine (Nova)
  * DEPLOY-ID: 2026-FINAL-STABLE
- * Versión: Arquitectura Resiliente de Texto Puro
+ * Versión: Arquitectura Resiliente de Texto Puro con Fix de Cifrado
  */
 
 const { 
@@ -43,6 +43,9 @@ let sock = null;
 let qrCodeBase64 = '';
 let connectionStatus = 'initializing';
 const logger = pino({ level: 'silent' });
+
+// ── CACHÉ DE MENSAJES PARA FIX DE CIFRADO ──
+const msgRetryCache = new Map();
 
 // ── CONFIGURACIÓN DE FIREBASE ──
 let db = null;
@@ -198,7 +201,14 @@ async function connectToWhatsApp() {
             syncFullHistory: false,
             markOnlineOnConnect: true,
             connectTimeoutMs: 60000,
-            generateHighQualityLinkPreview: false
+            generateHighQualityLinkPreview: false,
+            // FIX: Habilitar recuperación de mensajes para reintentos de cifrado
+            getMessage: async (key) => {
+                if (msgRetryCache.has(key.id)) {
+                    return msgRetryCache.get(key.id);
+                }
+                return undefined;
+            }
         });
 
         sock.ev.on('creds.update', saveCreds);
@@ -243,6 +253,17 @@ async function connectToWhatsApp() {
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
             if (type !== 'notify' || !db) return;
             const msg = messages[0];
+            
+            // FIX: Cachear contenido para reintentos de descifrado (Salientes y Entrantes)
+            if (msg.message) {
+                msgRetryCache.set(msg.key.id, msg.message);
+                // Mantener cache ligero (últimos 200 mensajes)
+                if (msgRetryCache.size > 200) {
+                    const firstKey = msgRetryCache.keys().next().value;
+                    msgRetryCache.delete(firstKey);
+                }
+            }
+
             if (!msg.message || msg.key.fromMe) return;
             const jid = msg.key.remoteJid;
             const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
@@ -296,6 +317,11 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
         let phone = String(d.clienteTelefono).replace(/\D/g, '');
         if (!phone.startsWith('57') && phone.length === 10) phone = '57' + phone;
         const jid = `${phone}@s.whatsapp.net`;
+
+        // FIX: Validar JID y calentar llaves antes de enviar
+        const [result] = await sock.onWhatsApp(jid);
+        const targetJid = result?.exists ? result.jid : jid;
+
         const smart = await getSmartInfo(d.origen, d.destino);
         
         const mensajeFormateado = `¡Hola, *${d.clienteNombre}*! 👋
@@ -322,7 +348,7 @@ Por favor estar listo 10 minutos antes. 🙏
 
 *Transportes Especiales J&J*`;
 
-        await sock.sendMessage(jid, { text: mensajeFormateado });
+        await sock.sendMessage(targetJid, { text: mensajeFormateado });
         if (db) {
             await db.collection('notificaciones_whatsapp').add({
                 clienteNombre: d.clienteNombre, clienteTelefono: phone,
@@ -351,7 +377,11 @@ app.post('/notify-driver', checkApiKey, async (req, res) => {
 app.post('/send-message', checkApiKey, async (req, res) => {
     if (connectionStatus !== 'connected') return res.status(503).json({ error: 'Nova desconectada' });
     try {
-        await sock.sendMessage(req.body.jid, { text: req.body.mensaje });
+        // Validar JID
+        const [resCheck] = await sock.onWhatsApp(req.body.jid);
+        const jid = resCheck?.exists ? resCheck.jid : req.body.jid;
+        
+        await sock.sendMessage(jid, { text: req.body.mensaje });
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });

@@ -1,6 +1,7 @@
 /**
  * J&J CONNECT - Driver Notification Module
  * Monitorea asignaciones de servicios en tiempo real y gestiona notificaciones manuales.
+ * Versión: Fix Cifrado y Validación de JID
  */
 
 const admin = require('firebase-admin');
@@ -35,6 +36,10 @@ async function sendDriverNotification(sock, db, serviceId) {
     if (cleanPhone.length === 10) cleanPhone = '57' + cleanPhone;
     const jid = `${cleanPhone}@s.whatsapp.net`;
 
+    // FIX: Validar disponibilidad en WhatsApp y calentar llaves de cifrado
+    const [waCheck] = await sock.onWhatsApp(jid);
+    const targetJid = waCheck?.exists ? waCheck.jid : jid;
+
     // Preparar datos para la plantilla
     const fechaRaw = service.fecha || '';
     const fecha = fechaRaw.includes('T') ? fechaRaw.split('T')[0] : fechaRaw;
@@ -65,8 +70,8 @@ Hola *${driverName}*, soy *Nova*, tu asistente virtual de *Transportes Especiale
 
 Por favor confirma de recibido. ¡Buen viaje!`;
 
-    // Enviar mensaje vía Baileys
-    await sock.sendMessage(jid, { text: message });
+    // Enviar mensaje vía Baileys usando el JID validado
+    await sock.sendMessage(targetJid, { text: message });
     
     // Actualizar registro en Firestore
     await serviceRef.update({
