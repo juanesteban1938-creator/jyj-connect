@@ -39,7 +39,18 @@ export async function sendInvoice(input: SendInvoiceInput): Promise<SendInvoiceO
       })
     });
 
-    if (!response.ok) throw new Error('Error en comunicación con el puente.');
+    const responseText = await response.text();
+    let responseData;
+    
+    try {
+        responseData = JSON.parse(responseText);
+    } catch (e) {
+        throw new Error('El puente de Railway no devolvió JSON. Posible error de límite de tamaño.');
+    }
+
+    if (!response.ok || !responseData.success) {
+        throw new Error(responseData.error || 'Error en comunicación con el puente.');
+    }
 
     return { success: true, message: `Correo enviado vía puente a ${input.to}.` };
   } catch (error: any) {

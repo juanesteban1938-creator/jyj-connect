@@ -25,11 +25,13 @@ const { sendEmail } = require('./mailer');
 
 const app = express();
 
+// Middlewares iniciales con límites amplios para soportar PDFs de alta resolución
+app.use(cors()); 
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
 // Healthcheck para Railway
 app.get('/health', (req, res) => res.status(200).send('OK'));
-app.use(cors()); 
-// Ampliación del límite para soportar PDFs en base64
-app.use(express.json({ limit: '15mb' }));
 
 const PORT = process.env.PORT || 3001;
 const API_KEY = process.env.API_KEY || 'jj-connect-2026';
@@ -334,6 +336,15 @@ app.post('/send-message', checkApiKey, async (req, res) => {
         await sock.sendMessage(req.body.jid, { text: req.body.mensaje });
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Middleware de manejo de errores global (Garantiza que el puente nunca devuelva HTML)
+app.use((err, req, res, next) => {
+    console.error('[BRIDGE ERROR]:', err.message);
+    res.status(err.status || 500).json({ 
+        success: false, 
+        error: err.message || 'Fallo interno en el puente de Railway.' 
+    });
 });
 
 app.listen(PORT, '0.0.0.0', () => { 

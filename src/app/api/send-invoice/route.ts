@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 /**
  * API ROUTE: Envío de correos a través del Puente Railway.
  * Elimina el uso local de nodemailer para mayor seguridad.
+ * Incluye parsing robusto para evitar errores de Unexpected token '<'.
  */
 export async function POST(request: Request) {
   try {
@@ -95,9 +96,18 @@ export async function POST(request: Request) {
       })
     });
 
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error en el puente de correo');
+    const responseText = await response.text();
+    let responseData;
+    
+    try {
+        responseData = JSON.parse(responseText);
+    } catch (e) {
+        console.error('Error parseando JSON del puente:', responseText);
+        throw new Error(`El servidor de Railway devolvió una respuesta inesperada (HTML). Detalle: ${responseText.substring(0, 100)}...`);
+    }
+
+    if (!response.ok || !responseData.success) {
+        throw new Error(responseData.error || 'Error reportado por el puente de correo');
     }
 
     return NextResponse.json({ success: true, message: `Correo procesado vía puente para ${to}.` });
