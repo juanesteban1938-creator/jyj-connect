@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
-import nodemailer from 'nodemailer';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * API ROUTE: Envío de correos a través del Puente Railway.
+ * Elimina el uso local de nodemailer para mayor seguridad.
+ */
 export async function POST(request: Request) {
   try {
     const { to, nroFactura, pdfBase64, servicioData } = await request.json();
@@ -11,25 +14,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Faltan datos requeridos.' }, { status: 400 });
     }
 
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS, // Corregido: Ahora lee la variable de entorno
-      },
-    });
+    const bridgeUrl = process.env.RAILWAY_BOT_URL || 'https://focused-harmony-production.up.railway.app';
+    const apiKey = process.env.RAILWAY_API_KEY || 'jj-connect-2026';
 
-    let mailOptions: any = {
-      from: process.env.SMTP_USER,
-      to: to,
-    };
+    let subject = '';
+    let html = '';
+    let attachments: any[] = [];
 
     if (pdfBase64) {
       // Caso 1: Envío de Cuenta de Cobro con PDF adjunto
-      mailOptions.subject = `📄 Cuenta de Cobro ${nroFactura} - Transportes Especial J&J`;
-      mailOptions.html = `
+      subject = `📄 Cuenta de Cobro ${nroFactura} - Transportes Especial J&J`;
+      html = `
           <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
               <h2 style="color: #000; font-family: 'Poppins', sans-serif;">Estimado(a) cliente, reciba un cordial saludo.</h2>
               <p>¡Hola! Es un gusto saludarte de nuevo.</p>
@@ -46,20 +41,21 @@ export async function POST(request: Request) {
               </div>
           </div>
       `;
-      mailOptions.attachments = [
+      attachments = [
           {
-              filename: 'Cuenta_de_Cobro_JJ.pdf',
-              content: Buffer.from(pdfBase64, 'base64'),
+              filename: `Cuenta_de_Cobro_${nroFactura}.pdf`,
+              content: pdfBase64, // El puente mailer.js lo procesará
+              encoding: 'base64',
               contentType: 'application/pdf'
           }
       ];
     } else if (servicioData) {
-      // Caso 2: Notificación de Pago Confirmado (Sin PDF) - Limpieza de NaN y Undefined
+      // Caso 2: Notificación de Pago Confirmado
       const currencyFormatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 });
       const valorLimpio = Number(servicioData.valor) || 0;
       
-      mailOptions.subject = `✅ Pago Confirmado - Cuenta de Cobro ${nroFactura}`;
-      mailOptions.html = `
+      subject = `✅ Pago Confirmado - Cuenta de Cobro ${nroFactura}`;
+      html = `
           <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
               <h2 style="color: #000; font-family: 'Poppins', sans-serif;">¡Pago Recibido con Éxito!</h2>
               <p>Hola, <b>${servicioData.cliente || 'estimado cliente'}</b>. Esperamos que se encuentre muy bien.</p>
@@ -82,12 +78,29 @@ export async function POST(request: Request) {
               </div>
           </div>
       `;
-    } else {
-      return NextResponse.json({ message: 'No se proporcionaron datos suficientes para el envío.' }, { status: 400 });
     }
 
-    await transporter.sendMail(mailOptions);
-    return NextResponse.json({ success: true, message: `Correo enviado a ${to}.` });
+    // Petición al Puente de Railway
+    const response = await fetch(`${bridgeUrl}/api/send-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey
+      },
+      body: JSON.stringify({
+        to,
+        subject,
+        html,
+        attachments
+      })
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error en el puente de correo');
+    }
+
+    return NextResponse.json({ success: true, message: `Correo procesado vía puente para ${to}.` });
 
   } catch (error: any) {
     console.error('Error en /api/send-invoice:', error);

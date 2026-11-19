@@ -2,45 +2,46 @@
 
 import { ai } from '@/ai/genkit';
 import { SendTestEmailOutputSchema, type SendTestEmailOutput } from '@/lib/schemas';
-import nodemailer from 'nodemailer';
 
+/**
+ * Prueba de conexión a través del Puente Railway.
+ */
 export async function sendTestEmail(): Promise<SendTestEmailOutput> {
-    console.log('Intento de conexión para:', process.env.SMTP_USER);
-    const transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 465,
-        secure: true, // true for 465, false for other ports
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS, // Corregido: Ahora lee la variable de entorno
-        },
-    });
+    const bridgeUrl = process.env.RAILWAY_BOT_URL || 'https://focused-harmony-production.up.railway.app';
+    const apiKey = process.env.RAILWAY_API_KEY || 'jj-connect-2026';
+    const targetEmail = process.env.SMTP_USER || 'transportes.especialesjyj@gmail.com';
     
-    const mailOptions = {
-      from: process.env.SMTP_USER,
-      to: process.env.SMTP_USER,
-      subject: 'Prueba de Conexión SMTP - J&J Connect',
-      html: `
-        <div style="font-family: Arial, sans-serif; color: #333;">
-            <h1>¡Conexión Exitosa!</h1>
-            <p>Este es un correo de prueba para verificar que la configuración SMTP funciona correctamente desde tu aplicación J&J Connect.</p>
-            <br>
-            <p>Cordialmente,</p>
-            <p><strong>Departamento de Operaciones</strong><br>
-            Transportes.especialesjyj@gmail.com<br>
-            Celular: +57 314 2889955<br>
-            Carrera 58 numero 130A-82</p>
-        </div>
-    `,
-    };
-
     try {
-      await transporter.sendMail(mailOptions);
-      console.log('Correo de prueba enviado exitosamente.');
-      return { success: true, message: 'Correo de prueba enviado exitosamente.' };
+      const response = await fetch(`${bridgeUrl}/api/send-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey
+        },
+        body: JSON.stringify({
+          to: targetEmail,
+          subject: 'Prueba de Puente Seguro - J&J Connect',
+          html: `
+            <div style="font-family: Arial, sans-serif; color: #333;">
+                <h1>¡Puente Operativo!</h1>
+                <p>Este correo confirma que la aplicación web se está comunicando correctamente con el servidor de Railway para enviar correos electrónicos.</p>
+                <br>
+                <p>Cordialmente,</p>
+                <p><strong>Nova Intelligence v5.0</strong></p>
+            </div>
+          `
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Fallo al contactar el puente seguro.');
+      }
+
+      console.log('Correo de prueba enviado exitosamente vía puente.');
+      return { success: true, message: 'Prueba de puente exitosa.' };
     } catch (error: any) {
-      console.error('Error al enviar el correo de prueba:', error);
-      return { success: false, message: 'Error al enviar el correo de prueba: ' + error.message };
+      console.error('Error en prueba de puente:', error);
+      return { success: false, message: 'Error de puente: ' + error.message };
     }
 }
 

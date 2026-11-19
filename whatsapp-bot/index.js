@@ -28,7 +28,8 @@ const app = express();
 // Healthcheck para Railway
 app.get('/health', (req, res) => res.status(200).send('OK'));
 app.use(cors()); 
-app.use(express.json());
+// Ampliación del límite para soportar PDFs en base64
+app.use(express.json({ limit: '15mb' }));
 
 const PORT = process.env.PORT || 3001;
 const API_KEY = process.env.API_KEY || 'jj-connect-2026';
@@ -75,25 +76,19 @@ async function getSmartInfo(origen, destino) {
         const timeout = AbortSignal.timeout(3000); // 3 segundos máximo de espera
         
         if (GMAPS_KEY && origen && destino) {
-            console.log('[MAPS INPUT] Origen:', origen, '| Destino:', destino);
-            
             const mapsUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origen)}&destinations=${encodeURIComponent(destino)}&key=${GMAPS_KEY}`;
             
             const mapsRes = await fetch(mapsUrl, { signal: timeout });
             const mapsJson = await mapsRes.json();
 
-            if (mapsJson.status !== 'OK' || mapsJson.rows?.[0]?.elements?.[0]?.status !== 'OK') {
-                console.error('[MAPS ERROR DETECTADO]:', JSON.stringify(mapsJson));
-                throw new Error('Google Maps devolvió un estado no válido');
-            }
-
-            const element = mapsJson.rows[0].elements[0];
-            smartData.distancia = element.distance.text;
-            smartData.tiempo = element.duration.text;
-            
-            // Lógica de recomendación por distancia
-            if (element.duration.value > 7200) { // > 2 horas
-                smartData.recomendacion = "Viaje largo, te sugerimos ropa cómoda y buena hidratación.";
+            if (mapsJson.status === 'OK' && mapsJson.rows?.[0]?.elements?.[0]?.status === 'OK') {
+                const element = mapsJson.rows[0].elements[0];
+                smartData.distancia = element.distance.text;
+                smartData.tiempo = element.duration.text;
+                
+                if (element.duration.value > 7200) {
+                    smartData.recomendacion = "Viaje largo, te sugerimos ropa cómoda y buena hidratación.";
+                }
             }
         }
 
@@ -105,13 +100,6 @@ async function getSmartInfo(origen, destino) {
             if (weatherJson.main) {
                 smartData.climaTemp = Math.round(weatherJson.main.temp);
                 smartData.climaEstado = weatherJson.weather[0].description;
-                
-                const mainWeather = weatherJson.weather[0].main.toLowerCase();
-                if (mainWeather.includes('rain')) {
-                    smartData.recomendacion = "Lleva paraguas, se esperan lluvias en tu destino.";
-                } else if (smartData.climaTemp > 28) {
-                    smartData.recomendacion = "Día soleado y caluroso, no olvides hidratarte bien.";
-                }
             }
         }
     } catch (error) {
@@ -194,7 +182,7 @@ async function getAuthAdapter() {
 }
 
 async function connectToWhatsApp() {
-    console.log('[Nova] 🚀 Iniciando motor de WhatsApp (Texto Puro)...');
+    console.log('[Nova] 🚀 Iniciando motor de WhatsApp...');
     try {
         const { state, saveCreds } = await getAuthAdapter();
         const { version } = await fetchLatestBaileysVersion();
@@ -226,17 +214,15 @@ async function connectToWhatsApp() {
                 const error = lastDisconnect?.error;
                 const statusCode = (error instanceof Boom) ? error.output.statusCode : 0;
                 
-                console.error('[CRASH REAL BAILLEYS]:', error || 'Desconexión desconocida');
-
                 if (statusCode === 440 || statusCode === DisconnectReason.loggedOut) {
-                    console.log('[Nova] ⚠️ Conflicto de sesión o cierre manual. Limpiando Firebase...');
+                    console.log('[Nova] ⚠️ Conflicto de sesión. Limpiando Firebase...');
                     if (authCollection) {
                         const batch = db.batch();
                         const docs = await authCollection.get();
                         docs.forEach(d => batch.delete(d.ref));
                         await batch.commit();
                     }
-                    process.exit(0); // Forzar reinicio limpio en Railway
+                    process.exit(0);
                 } else {
                     console.log('[Nova] 🔄 Reintentando conexión en 5s...');
                     setTimeout(connectToWhatsApp, 5000);
@@ -248,7 +234,6 @@ async function connectToWhatsApp() {
             }
         });
 
-        // Inbox Listener: Registro de mensajes entrantes para la bandeja
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
             if (type !== 'notify' || !db) return;
             const msg = messages[0];
@@ -287,15 +272,10 @@ app.post('/restart', checkApiKey, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// NUEVO: Puente Seguro de Correo
 app.post('/api/send-email', checkApiKey, async (req, res) => {
     try {
         const { to, subject, html, text, attachments } = req.body;
-        
-        if (!to || !subject) {
-            return res.status(400).json({ success: false, error: 'Faltan campos obligatorios (to, subject)' });
-        }
-
+        if (!to || !subject) return res.status(400).json({ success: false, error: 'Faltan campos (to, subject)' });
         const result = await sendEmail({ to, subject, html, text, attachments });
         res.json(result);
     } catch (error) {
@@ -305,14 +285,11 @@ app.post('/api/send-email', checkApiKey, async (req, res) => {
 
 app.post('/send-service-notification', checkApiKey, async (req, res) => {
     if (connectionStatus !== 'connected') return res.status(503).json({ error: 'Nova desconectada' });
-    
     try {
         const d = req.body;
         let phone = String(d.clienteTelefono).replace(/\D/g, '');
         if (!phone.startsWith('57') && phone.length === 10) phone = '57' + phone;
         const jid = `${phone}@s.whatsapp.net`;
-
-        // Inteligencia Geográfica y Climática
         const smart = await getSmartInfo(d.origen, d.destino);
         
         const mensajeFormateado = `¡Hola, *${d.clienteNombre}*! 👋
@@ -340,22 +317,15 @@ Por favor estar listo 10 minutos antes. 🙏
 *Transportes Especiales J&J*`;
 
         await sock.sendMessage(jid, { text: mensajeFormateado });
-
         if (db) {
             await db.collection('notificaciones_whatsapp').add({
-                clienteNombre: d.clienteNombre,
-                clienteTelefono: phone,
-                tipo: 'Confirmación Servicio',
-                estado: 'enviado',
+                clienteNombre: d.clienteNombre, clienteTelefono: phone,
+                tipo: 'Confirmación Servicio', estado: 'enviado',
                 fecha: admin.firestore.FieldValue.serverTimestamp()
             });
         }
-
         res.json({ success: true });
-    } catch (error) {
-        console.error('[Nova] Fallo al enviar notificación:', error.message);
-        res.status(500).json({ error: 'Fallo al procesar notificación' });
-    }
+    } catch (error) { res.status(500).json({ error: 'Fallo al procesar notificación' }); }
 });
 
 app.post('/send-message', checkApiKey, async (req, res) => {
@@ -367,6 +337,6 @@ app.post('/send-message', checkApiKey, async (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => { 
-    console.log(`[Nova Engine] [DEPLOY-ID: 2026-FINAL-STABLE] Activo en puerto ${PORT}`);
+    console.log(`[Nova Engine] Activo en puerto ${PORT}`);
     connectToWhatsApp();
 });
