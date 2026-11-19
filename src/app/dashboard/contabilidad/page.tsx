@@ -265,13 +265,19 @@ export default function ContabilidadPage() {
         })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Fallo en la comunicación con Nova AI.');
+      const responseText = await response.text();
+      let data;
+      try {
+        data = responseText ? JSON.parse(responseText) : null;
+      } catch (e) {
+        throw new Error('La respuesta del servidor no es un JSON válido.');
       }
 
-      const result = await response.json();
-      setInformeIA(result.informe);
+      if (!response.ok || !data) {
+        throw new Error(data?.error || 'Fallo en la comunicación con Nova AI.');
+      }
+
+      setInformeIA(data.informe);
       setActiveTab('informe_ia');
       toast({ title: "Informe Estratégico Generado" });
     } catch (err: any) {

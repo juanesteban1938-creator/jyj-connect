@@ -130,9 +130,16 @@ export default function ReportesPage() {
         }),
       });
 
-      if (!response.ok) throw new Error('Error en el servidor al procesar el Excel');
+      const responseText = await response.text();
+      let result;
+      try {
+        result = responseText ? JSON.parse(responseText) : null;
+      } catch (e) {
+        throw new Error('El servidor devolvió una respuesta inesperada (HTML).');
+      }
+
+      if (!response.ok || !result) throw new Error(result?.error || 'Error en el servidor al procesar el Excel');
       
-      const result = await response.json();
       const { base64, filename } = result;
       
       const blob = new Blob(
@@ -149,7 +156,7 @@ export default function ReportesPage() {
       toast({ title: "Reporte Generado", description: "El archivo se ha descargado con éxito." });
     } catch (err: any) {
       console.error("Error generando reporte:", err);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo generar el reporte profesional." });
+      toast({ variant: "destructive", title: "Error", description: err.message || "No se pudo generar el reporte profesional." });
     } finally {
       setGenerando(false);
     }
@@ -357,7 +364,7 @@ export default function ReportesPage() {
             </div>
 
             <div className="flex justify-between items-center mt-12 pt-8 border-t">
-              <Button variant="ghost" onClick={() => setPaso(1)} className="text-[10px] font-black uppercase text-slate-400">Volver a Configuración</Button>
+              <Button variant="ghost" onClick={() => paso > 1 ? setPaso((paso - 1) as any) : null} className="text-[10px] font-black uppercase text-slate-400">Volver</Button>
               <Button onClick={() => setPaso(3)} disabled={asignaciones.length === 0} className="bg-slate-900 text-white font-black text-xs uppercase h-12 px-10 rounded-2xl shadow-xl">
                 Finalizar Asignación
               </Button>

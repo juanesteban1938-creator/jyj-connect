@@ -9,6 +9,19 @@
 export const WHATSAPP_BOT_URL = 'https://focused-harmony-production.up.railway.app';
 const API_KEY = 'jj-connect-2026';
 
+/**
+ * Intenta parsear una respuesta como JSON de forma segura.
+ */
+async function safeJsonParse(response: Response) {
+  const text = await response.text();
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch (e) {
+    console.error('[WhatsApp Bridge] Error parseando respuesta:', text.substring(0, 100));
+    return null;
+  }
+}
+
 export async function enviarNotificacionServicio(servicio: {
   clienteNombre: string;
   clienteTelefono: string | number;
@@ -54,9 +67,10 @@ export async function enviarNotificacionServicio(servicio: {
       }),
     });
 
+    const data = await safeJsonParse(response);
+
     if (!response.ok) {
-        const result = await response.json();
-        throw new Error(result.error || 'Error en el servidor de Nova');
+        throw new Error(data?.error || 'Error en el servidor de Nova');
     }
     
     return { success: true };
@@ -72,11 +86,13 @@ export async function obtenerEstadoNova() {
       signal: AbortSignal.timeout(5000)
     });
     
-    if (!response.ok) {
+    const data = await safeJsonParse(response);
+    
+    if (!response.ok || !data) {
         return { connected: false, error: 'Servidor no responde' };
     }
     
-    return await response.json();
+    return data;
   } catch (error) {
     return { connected: false, error: 'Bot fuera de línea' };
   }
@@ -90,9 +106,12 @@ export async function obtenerQRNova() {
     });
     
     if (response.status === 202) return { error: 'Generando...' };
-    if (!response.ok) return { error: 'No disponible' };
     
-    return await response.json();
+    const data = await safeJsonParse(response);
+    
+    if (!response.ok || !data) return { error: 'No disponible' };
+    
+    return data;
   } catch {
     return { error: 'Error de red al obtener QR' };
   }

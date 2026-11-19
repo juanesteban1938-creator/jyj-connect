@@ -24,7 +24,7 @@ import {
   Clock as ClockIcon,
   Smartphone
 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -399,7 +399,7 @@ export default function ServiciosPage() {
                         {s.consecutivo}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-1.5 text-[9px] sm:text-xs font-bold text-slate-500">
+                    <div className="flex items-center gap-1.5 text-[9px] sm:text-xs font-bold text-slate-50">
                       <span className="truncate">{s.origen}</span>
                       <ArrowRight className="h-2 w-2 text-orange-400 flex-shrink-0" />
                       <span className="truncate text-slate-800">{s.destino}</span>
