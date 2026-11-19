@@ -22,7 +22,7 @@ const qrcode = require('qrcode');
 const qrcodeTerminal = require('qrcode-terminal');
 const pino = require('pino');
 const { sendEmail } = require('./mailer');
-const { startDriverAssignmentNotifier } = require('./driverNotifier');
+const { startDriverAssignmentNotifier, sendDriverNotification } = require('./driverNotifier');
 
 const app = express();
 
@@ -332,6 +332,20 @@ Por favor estar listo 10 minutos antes. 🙏
         }
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: 'Fallo al procesar notificación' }); }
+});
+
+app.post('/notify-driver', checkApiKey, async (req, res) => {
+    if (connectionStatus !== 'connected') return res.status(503).json({ error: 'Nova desconectada' });
+    try {
+        const { serviceId } = req.body;
+        if (!serviceId) return res.status(400).json({ error: 'Falta serviceId' });
+
+        const result = await sendDriverNotification(sock, db, serviceId);
+        res.json(result);
+    } catch (error) {
+        console.error('[Nova-HTTP] ❌ Error en /notify-driver:', error.message);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 app.post('/send-message', checkApiKey, async (req, res) => {

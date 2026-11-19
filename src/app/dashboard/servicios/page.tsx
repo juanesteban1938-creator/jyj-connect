@@ -21,9 +21,10 @@ import {
   Loader2,
   Send,
   ArrowRight,
-  Clock as ClockIcon
+  Clock as ClockIcon,
+  Smartphone
 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -33,7 +34,7 @@ import { ServicioForm, type ServicioFormValues } from '@/components/dashboard/se
 import { ResumenServicio } from '@/components/dashboard/facturacion/resumen-servicio';
 import { useFirestore, useUser, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, updateDoc, collection, query } from 'firebase/firestore';
-import { enviarNotificacionServicio } from '@/lib/whatsapp';
+import { enviarNotificacionServicio, WHATSAPP_BOT_URL } from '@/lib/whatsapp';
 import { generarAsientoServicio } from '@/lib/accounting-engine';
 import { cn } from '@/lib/utils';
 import type { Servicio } from '@/lib/types';
@@ -145,6 +146,36 @@ export default function ServiciosPage() {
       });
     } else {
       toast({ variant: "destructive", title: "Error Nova", description: result.error || "No se pudo enviar el WhatsApp." });
+    }
+  };
+
+  const handleNotificarConductor = async (s: Servicio) => {
+    if (!s.conductorId && !s.conductorTelefono) {
+        toast({ variant: "destructive", title: "Error", description: "El servicio no tiene un conductor asignado con teléfono." });
+        return;
+    }
+
+    toast({ title: "Nova", description: `Enviando hoja de ruta a ${s.conductor}...` });
+    
+    try {
+        const response = await fetch(`${WHATSAPP_BOT_URL}/notify-driver`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': 'jj-connect-2026'
+            },
+            body: JSON.stringify({ serviceId: s.id })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            toast({ title: "Notificación Exitosa", description: `El conductor ${s.conductor} ha recibido su hoja de ruta.` });
+        } else {
+            throw new Error(data.error || 'Fallo en la comunicación con el motor de WhatsApp');
+        }
+    } catch (err: any) {
+        toast({ variant: "destructive", title: "Fallo de Envío", description: err.message });
     }
   };
 
@@ -411,10 +442,18 @@ export default function ServiciosPage() {
                       <DropdownMenuItem onClick={() => { setSelected(s); setTimeout(() => setIsFormOpen(true), 100); }} className="rounded-lg font-bold text-xs py-2.5">
                         <Edit className="mr-2 h-4 w-4 text-slate-400" /> Editar Registro
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleEnviarWhatsApp(s)} className="rounded-lg font-bold text-xs py-2.5 text-green-600">
-                        <MessageSquare className="mr-2 h-4 w-4" /> Notificar WhatsApp
-                      </DropdownMenuItem>
+                      
                       <DropdownMenuSeparator className="my-2" />
+                      
+                      <DropdownMenuItem onClick={() => handleEnviarWhatsApp(s)} className="rounded-lg font-bold text-xs py-2.5 text-green-600">
+                        <MessageSquare className="mr-2 h-4 w-4" /> Notificar Cliente
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleNotificarConductor(s)} className="rounded-lg font-bold text-xs py-2.5 text-blue-600">
+                        <Smartphone className="mr-2 h-4 w-4" /> Notificar Conductor
+                      </DropdownMenuItem>
+                      
+                      <DropdownMenuSeparator className="my-2" />
+                      
                       {s.estado === 'Programado' && (
                         <DropdownMenuItem onClick={() => handleUpdateEstado(s.id, 'En Servicio')} className="rounded-lg font-black text-xs py-2.5 text-blue-600 bg-blue-50/50">
                           <PlayCircle className="mr-2 h-4 w-4" /> INICIAR SERVICIO
