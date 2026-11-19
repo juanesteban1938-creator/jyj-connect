@@ -22,6 +22,7 @@ const qrcode = require('qrcode');
 const qrcodeTerminal = require('qrcode-terminal');
 const pino = require('pino');
 const { sendEmail } = require('./mailer');
+const { startDriverAssignmentNotifier } = require('./driverNotifier');
 
 const app = express();
 
@@ -75,12 +76,12 @@ async function getSmartInfo(origen, destino) {
     };
 
     try {
-        const timeout = AbortSignal.timeout(3000); // 3 segundos máximo de espera
+        const timeout = AbortSignal.timeout(3000); 
         
         if (GMAPS_KEY && origen && destino) {
-            const mapsUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origen)}&destinations=${encodeURIComponent(destino)}&key=${GMAPS_KEY}`;
+            const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origen)}&destinations=${encodeURIComponent(destino)}&key=${GMAPS_KEY}`;
             
-            const mapsRes = await fetch(mapsUrl, { signal: timeout });
+            const mapsRes = await fetch(url, { signal: timeout });
             const mapsJson = await mapsRes.json();
 
             if (mapsJson.status === 'OK' && mapsJson.rows?.[0]?.elements?.[0]?.status === 'OK') {
@@ -233,6 +234,9 @@ async function connectToWhatsApp() {
                 qrCodeBase64 = ''; 
                 connectionStatus = 'connected';
                 console.log('[Nova] ✅ SISTEMA ONLINE - LISTO PARA COMANDOS');
+
+                // INICIALIZAR NOTIFICADOR DE CONDUCTORES
+                if (db) startDriverAssignmentNotifier(sock, db);
             }
         });
 
