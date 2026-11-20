@@ -184,7 +184,37 @@ app.post('/send-service-notification', checkApiKey, async (req, res) => {
         const d = req.body;
         const smart = await getSmartInfo(d.origen, d.destino);
         const jid = `${String(d.clienteTelefono).replace(/\D/g, '')}@s.whatsapp.net`;
-        const text = `¡Hola, *${d.clienteNombre}*! 👋\nTu servicio ha sido programado:\n⏰ Hora: ${formatTime12h(d.hora)}\n📍 Origen: ${d.origen}\n🏁 Destino: ${d.destino}`;
+        
+        const fecha = d.fecha || 'Por confirmar';
+        const hora = formatTime12h(d.hora) || 'Por confirmar';
+        const placa = d.placa || 'Por confirmar';
+        const conductor = d.conductor || 'Por confirmar';
+        const contacto = d.telefonoConductor || 'Por confirmar';
+
+        const text = `¡Hola, *${d.clienteNombre}*! 👋
+
+Soy Nova, asistente virtual de Transportes Especiales J&J 🚐
+
+Tu servicio ha sido programado:
+___________________________
+📅 *Fecha:* ${fecha}
+⏰ *Hora:* ${hora}
+📍 *Origen:* ${d.origen}
+🏁 *Destino:* ${d.destino}
+🚗 *Placa:* ${placa}
+👤 *Conductor:* ${conductor}
+📞 *Contacto:* ${contacto}
+___________________________
+🛣️ *Distancia:* ${smart.distancia}
+⏳ *Tiempo est:* ${smart.tiempo}
+🌤️ *Clima destino:* ${smart.climaTemp}°C - ${smart.climaEstado}
+💡 *Sugerencia:* ${smart.recomendacion}
+
+Por favor estar listo 10 minutos antes. 🙏
+¡Gracias por elegirnos! 🌟
+
+*Transportes Especiales J&J*`;
+
         const sent = await sock.sendMessage(jid, { text });
         if (sent) msgRetryCache.set(sent.key.id, sent.message);
         res.json({ success: true });
