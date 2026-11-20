@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   // 1. Inyección de Console Log de validación (Debug solicitado)
   console.log("🔍 ESTADO DE LA LLAVE GEMINI:", process.env.GEMINI_API_KEY ? "CARGADA ✅" : "VACÍA ❌", process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.substring(0, 7) + "..." : "");
 
-  // 2. Validación estricta solicitada: Retorno 500 si la variable no existe en el entorno
+  // 2. Validación estricta: Retorno 500 si la variable no existe
   if (!process.env.GEMINI_API_KEY) {
     return NextResponse.json(
       { error: "Error interno: La variable GEMINI_API_KEY no se está leyendo en el servidor." },
@@ -20,8 +20,16 @@ export async function POST(request: Request) {
     );
   }
 
+  let input;
   try {
-    const input = await request.json();
+    const rawBody = await request.text();
+    input = rawBody.trim() ? JSON.parse(rawBody) : null;
+    if (!input) throw new Error("Cuerpo de petición vacío");
+  } catch (e) {
+    return NextResponse.json({ error: "Formato de petición JSON inválido." }, { status: 400 });
+  }
+
+  try {
     const { mes, anio, ingresos, egresos, utilidad } = input;
 
     // Ejecución de la IA a través de Genkit (Server Side)
@@ -49,7 +57,6 @@ Tono: Estrictamente formal, profesional, corporativo y sobrio. No uses emojis. U
   } catch (error: any) {
     console.error('Error en /api/reporte-gerencial:', error);
     
-    // Captura específica de error de llave inválida para guiar al usuario
     if (error.message?.includes('API key not valid')) {
       return NextResponse.json(
         { error: 'La llave de API (GEMINI_API_KEY) proporcionada no es válida o ha expirado.' },

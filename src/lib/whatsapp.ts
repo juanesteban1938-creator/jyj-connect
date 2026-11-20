@@ -11,13 +11,15 @@ const API_KEY = 'jj-connect-2026';
 
 /**
  * Intenta parsear una respuesta como JSON de forma segura.
+ * Blindaje contra "Unexpected end of JSON input".
  */
 async function safeJsonParse(response: Response) {
-  const text = await response.text();
   try {
-    return text ? JSON.parse(text) : null;
+    const text = await response.text();
+    if (!text || !text.trim()) return null;
+    return JSON.parse(text);
   } catch (e) {
-    console.error('[WhatsApp Bridge] Error parseando respuesta:', text.substring(0, 100));
+    console.error('[WhatsApp Bridge] Error parseando respuesta:', e);
     return null;
   }
 }
@@ -36,15 +38,13 @@ export async function enviarNotificacionServicio(servicio: {
   try {
     const rawValue = servicio.clienteTelefono;
     const phoneStr = (rawValue !== null && rawValue !== undefined) ? String(rawValue).trim() : '';
-    
-    const hasExplicitPrefix = phoneStr.startsWith('+');
     let telefono = phoneStr.replace(/\D/g, '');
 
     if (!telefono || telefono.length < 7) {
       return { success: false, error: 'Teléfono del cliente inválido o vacío' };
     }
 
-    if (!hasExplicitPrefix && telefono.length === 10 && !telefono.startsWith('57') && !telefono.startsWith('1')) {
+    if (telefono.length === 10 && !telefono.startsWith('57') && !telefono.startsWith('1')) {
       telefono = '57' + telefono;
     }
 
@@ -55,15 +55,8 @@ export async function enviarNotificacionServicio(servicio: {
         'x-api-key': API_KEY,
       },
       body: JSON.stringify({
-        clienteNombre: servicio.clienteNombre,
-        clienteTelefono: telefono,
-        fecha: servicio.fecha,
-        hora: servicio.hora,
-        origen: servicio.origen,
-        destino: servicio.destino,
-        placa: servicio.placa,
-        conductor: servicio.conductor,
-        telefonoConductor: servicio.telefonoConductor,
+        ...servicio,
+        clienteTelefono: telefono
       }),
     });
 
@@ -87,10 +80,7 @@ export async function obtenerEstadoNova() {
     });
     
     const data = await safeJsonParse(response);
-    
-    if (!response.ok || !data) {
-        return { connected: false, error: 'Servidor no responde' };
-    }
+    if (!response.ok || !data) return { connected: false, error: 'Servidor no responde' };
     
     return data;
   } catch (error) {
@@ -106,9 +96,7 @@ export async function obtenerQRNova() {
     });
     
     if (response.status === 202) return { error: 'Generando...' };
-    
     const data = await safeJsonParse(response);
-    
     if (!response.ok || !data) return { error: 'No disponible' };
     
     return data;

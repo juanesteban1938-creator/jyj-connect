@@ -296,7 +296,15 @@ export default function ServiciosPage() {
         }, 100);
 
         if (esNuevo) {
+          // Notificación automática al cliente
           handleEnviarWhatsApp(payload);
+          
+          // Notificación automática al conductor (con 2s de delay para evitar colisiones)
+          if (payload.conductorId && payload.conductorTelefono) {
+            setTimeout(() => {
+              handleNotificarConductor(payload);
+            }, 2000);
+          }
         }
       })
       .catch((e) => {
